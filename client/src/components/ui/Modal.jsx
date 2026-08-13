@@ -4,7 +4,7 @@ export default function Modal({ open, onClose, title, children, wide }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-timber-900/50" onClick={onClose} />
       <div
-        className={`relative bg-white rounded-2xl shadow-xl w-full ${
+        className={`relative bg-white shadow-xl w-full border border-timber-100 ${
           wide ? 'max-w-3xl' : 'max-w-lg'
         } max-h-[90vh] overflow-y-auto`}
       >

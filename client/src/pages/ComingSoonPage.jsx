@@ -1,5 +1,4 @@
-const ACCENT = '#b87c4c';
-const INK = '#231f20';
+const INK = '#18181b';
 
 export default function ComingSoonPage() {
   return (
@@ -9,39 +8,38 @@ export default function ComingSoonPage() {
         aria-hidden
         style={{
           background: `
-            radial-gradient(ellipse 70% 55% at 50% 38%, rgba(184, 124, 76, 0.10), transparent 70%),
-            radial-gradient(ellipse 50% 40% at 50% 100%, rgba(35, 31, 32, 0.04), transparent 65%)
+            radial-gradient(ellipse 70% 55% at 50% 38%, rgba(24, 24, 27, 0.05), transparent 70%),
+            radial-gradient(ellipse 50% 40% at 50% 100%, rgba(9, 9, 11, 0.04), transparent 65%)
           `,
         }}
       />
 
       <div className="relative z-10 flex min-h-[100dvh] flex-col items-center justify-between px-5 py-8 sm:px-8 sm:py-10">
-        <div className="coming-soon__mark h-1 w-10 rounded-full opacity-0 sm:w-12" style={{ background: ACCENT }} />
+        <div className="coming-soon__mark h-px w-12 opacity-0 bg-timber-900" />
 
-        <figure className="coming-soon__hero m-0 flex w-full max-w-3xl flex-1 flex-col items-center justify-center">
+        <figure className="coming-soon__hero m-0 flex w-full max-w-xl flex-1 flex-col items-center justify-center">
           <img
-            src="/images/coming-soon.png"
-            alt="OKZ — Coming Soon"
-            className="coming-soon__art h-auto w-full max-h-[min(78dvh,720px)] object-contain select-none"
+            src="/images/logo.png"
+            alt="FutureFit — Coming Soon"
+            className="coming-soon__art h-auto w-full max-h-[min(50dvh,420px)] object-contain select-none"
             draggable={false}
           />
           <figcaption className="sr-only">
-            OKZ coming soon. Premium boots and gear.
+            FutureFit coming soon. Setting trends with every stitch.
           </figcaption>
         </figure>
 
         <p
-          className="coming-soon__line max-w-sm text-center text-[11px] font-medium uppercase tracking-[0.28em] sm:text-xs"
+          className="coming-soon__line max-w-sm text-center text-[10px] font-medium uppercase tracking-[0.35em] sm:text-[11px]"
           style={{ color: INK }}
         >
-          Premium boots &amp; gear
+          Setting trends with every stitch
         </p>
       </div>
 
       <style>{`
         .coming-soon {
           --cs-ink: ${INK};
-          --cs-accent: ${ACCENT};
         }
 
         .coming-soon__mark {
@@ -52,12 +50,12 @@ export default function ComingSoonPage() {
           opacity: 0;
           transform: translateY(18px) scale(0.985);
           animation: cs-rise 1.15s cubic-bezier(0.22, 1, 0.36, 1) 0.2s forwards;
-          filter: drop-shadow(0 28px 50px rgba(35, 31, 32, 0.08));
+          filter: drop-shadow(0 28px 50px rgba(9, 9, 11, 0.08));
         }
 
         .coming-soon__line {
           opacity: 0;
-          letter-spacing: 0.28em;
+          letter-spacing: 0.35em;
           animation: cs-fade 1s ease 0.85s forwards, cs-breathe 4.5s ease-in-out 1.6s infinite;
         }
 

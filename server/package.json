@@ -1,7 +1,7 @@
 {
-  "name": "timberzee-server",
+  "name": "futurefit-server",
   "version": "2.0.0",
-  "description": "Backend for OKZ premium footwear shop",
+  "description": "Backend for FutureFit apparel shop",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

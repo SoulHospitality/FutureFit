@@ -9,7 +9,7 @@ const empty = {
   name: '',
   description: '',
   price: '',
-  type: 'shoe',
+  type: 'boxers',
   photos: '',
   driveFolder: '',
   colors: '',

@@ -367,7 +367,11 @@ const financeSummary = async (req, res) => {
     const { from, to } = req.query;
     const createdAt = {};
     if (from) createdAt.gte = new Date(from);
-    if (to) createdAt.lte = new Date(to);
+    if (to) {
+      const end = new Date(to);
+      end.setHours(23, 59, 59, 999);
+      createdAt.lte = end;
+    }
 
     const where = {
       status: { not: 'canceled' },
@@ -376,13 +380,22 @@ const financeSummary = async (req, res) => {
 
     const orders = await prisma.order.findMany({
       where,
-      include: { items: true },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     });
 
     const revenue = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
     const paid = orders.filter((o) => o.isPaid).reduce((sum, o) => sum + Number(o.totalPrice), 0);
     const byStatus = orders.reduce((acc, o) => {
       acc[o.status] = (acc[o.status] || 0) + 1;
+      return acc;
+    }, {});
+    const byPaymentMethod = orders.reduce((acc, o) => {
+      const key = o.paymentMethod || 'Other';
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
 
@@ -392,17 +405,22 @@ const financeSummary = async (req, res) => {
       take: 10,
     });
 
+    const serialized = orders.map(serializeOrder);
+
     res.json({
       orderCount: orders.length,
       revenue,
       paid,
+      outstanding: Math.max(0, revenue - paid),
       byStatus,
+      byPaymentMethod,
       lowStock: lowStock.map((p) => ({
         ...p,
         price: Number(p.price),
         salePrice: p.salePrice != null ? Number(p.salePrice) : null,
       })),
-      recentOrders: orders.slice(0, 10).map(serializeOrder),
+      orders: serialized,
+      recentOrders: serialized.slice(0, 10),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

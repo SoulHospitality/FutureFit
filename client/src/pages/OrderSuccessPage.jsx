@@ -8,8 +8,8 @@ import {
 function SuccessMark() {
   return (
     <div className="success-mark relative mx-auto grid h-28 w-28 place-items-center sm:h-32 sm:w-32">
-      <span className="absolute inset-0 rounded-full bg-wheat/15" aria-hidden />
-      <span className="absolute inset-3 rounded-full bg-wheat/20" aria-hidden />
+      <span className="absolute inset-0 rounded-full bg-timber-900/10" aria-hidden />
+      <span className="absolute inset-3 rounded-full bg-timber-900/10" aria-hidden />
       <svg
         viewBox="0 0 96 96"
         className="relative h-20 w-20 sm:h-24 sm:w-24 drop-shadow-sm"
@@ -18,29 +18,29 @@ function SuccessMark() {
         role="img"
         aria-label="Order successful"
       >
-        <circle cx="48" cy="48" r="44" fill="#b77239" />
-        <circle cx="48" cy="48" r="44" fill="url(#okzGlow)" fillOpacity="0.4" />
-        <circle cx="34" cy="40" r="5" fill="#faf6ef" />
-        <circle cx="62" cy="40" r="5" fill="#faf6ef" />
+        <circle cx="48" cy="48" r="44" fill="#18181b" />
+        <circle cx="48" cy="48" r="44" fill="url(#ffGlow)" fillOpacity="0.4" />
+        <circle cx="34" cy="40" r="5" fill="#ffffff" />
+        <circle cx="62" cy="40" r="5" fill="#ffffff" />
         <path
           d="M30 55c5 10 13.5 15 18 15s13-5 18-15"
-          stroke="#faf6ef"
+          stroke="#ffffff"
           strokeWidth="5"
           strokeLinecap="round"
           fill="none"
         />
         <defs>
-          <radialGradient id="okzGlow" cx="32%" cy="28%" r="70%">
+          <radialGradient id="ffGlow" cx="32%" cy="28%" r="70%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#b77239" stopOpacity="0" />
+            <stop offset="100%" stopColor="#18181b" stopOpacity="0" />
           </radialGradient>
         </defs>
       </svg>
-      <span className="success-mark__badge absolute -bottom-1 -end-1 grid h-10 w-10 place-items-center rounded-full bg-timber-800 shadow-md sm:h-11 sm:w-11">
+      <span className="success-mark__badge absolute -bottom-1 -end-1 grid h-10 w-10 place-items-center rounded-full bg-timber-900 shadow-md sm:h-11 sm:w-11">
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
           <path
             d="M5 12.5l4.5 4.5L19 7.5"
-            stroke="#faf6ef"
+            stroke="#ffffff"
             strokeWidth="2.75"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -65,14 +65,14 @@ export default function OrderSuccessPage() {
   const isWallet = isInstaPay || isVodafone;
 
   return (
-    <div className="relative min-h-[70vh] overflow-hidden bg-[#faf8f4]">
+    <div className="relative min-h-[70vh] overflow-hidden bg-white">
       <div
         className="pointer-events-none absolute inset-0"
         aria-hidden
         style={{
           background: `
-            radial-gradient(ellipse 70% 50% at 50% 0%, rgba(183, 114, 57, 0.18), transparent 60%),
-            radial-gradient(ellipse 40% 30% at 10% 80%, rgba(183, 114, 57, 0.08), transparent 50%)
+            radial-gradient(ellipse 70% 50% at 50% 0%, rgba(24, 24, 27, 0.06), transparent 60%),
+            radial-gradient(ellipse 40% 30% at 10% 80%, rgba(9, 9, 11, 0.04), transparent 50%)
           `,
         }}
       />
@@ -80,10 +80,10 @@ export default function OrderSuccessPage() {
       <div className="relative z-10 mx-auto max-w-lg px-4 py-14 text-center sm:py-20">
         <SuccessMark />
 
-        <p className="success-fade mt-6 text-[11px] font-bold uppercase tracking-[0.22em] text-wheat">
+        <p className="success-fade mt-6 text-[11px] font-medium uppercase tracking-[0.28em] text-timber-500">
           You’re all set
         </p>
-        <h1 className="success-fade success-fade--delay font-display mt-2 text-5xl tracking-wide text-timber-900 sm:text-6xl">
+        <h1 className="success-fade success-fade--delay font-display mt-2 text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl">
           Thank you{name ? `, ${name.split(' ')[0]}` : ''}
         </h1>
         <p className="success-fade success-fade--delay2 mx-auto mt-4 max-w-md text-base leading-relaxed text-timber-600 sm:text-lg">

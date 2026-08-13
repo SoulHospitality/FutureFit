@@ -61,7 +61,7 @@ const STAFF_PREFETCH = [
 function PageLoader() {
   return (
     <div className="flex min-h-[40vh] items-center justify-center">
-      <div className="h-8 w-8 rounded-full border-2 border-wheat border-t-transparent animate-spin" />
+      <div className="h-8 w-8 border border-timber-900 border-t-transparent animate-spin" />
     </div>
   );
 }
@@ -70,15 +70,15 @@ function StaffSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
       <div className="space-y-2">
-        <div className="h-8 w-48 rounded bg-timber-200" />
-        <div className="h-4 w-64 rounded bg-timber-100" />
+        <div className="h-8 w-48 bg-timber-200" />
+        <div className="h-4 w-64 bg-timber-100" />
       </div>
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-24 rounded-xl border border-timber-100 bg-white" />
+          <div key={i} className="h-24 border border-timber-100 bg-white" />
         ))}
       </div>
-      <div className="h-72 rounded-xl border border-timber-100 bg-white" />
+      <div className="h-72 border border-timber-100 bg-white" />
     </div>
   );
 }
@@ -216,9 +216,9 @@ export default function App() {
               closeOnClick
               hideProgressBar={false}
               icon={false}
-              toastClassName="okz-toast"
-              bodyClassName="okz-toast-body"
-              progressClassName="okz-toast-progress"
+              toastClassName="ff-toast"
+              bodyClassName="ff-toast-body"
+              progressClassName="ff-toast-progress"
             />
             <AppRoutes />
           </WishlistProvider>

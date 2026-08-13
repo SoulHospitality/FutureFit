@@ -51,68 +51,92 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10 space-y-10">
-      <h1 className="font-display text-5xl tracking-wide">Account</h1>
-      <form onSubmit={save} className="card grid md:grid-cols-2 gap-4">
-        {['name', 'email', 'phone', 'password', 'street', 'city', 'state', 'zip', 'country'].map((f) => (
-          <div key={f} className={['street', 'password'].includes(f) ? 'md:col-span-2' : ''}>
-            <label className="label capitalize">{f === 'password' ? 'New password (optional)' : f}</label>
-            <input
-              type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
-              className="input"
-              value={form[f]}
-              onChange={(e) => setForm({ ...form, [f]: e.target.value })}
-              required={f !== 'password'}
-            />
-          </div>
-        ))}
-        <div className="md:col-span-2">
-          <button type="submit" className="btn-wheat">Save changes</button>
+    <div className="bg-white">
+      <div className="mx-auto max-w-5xl space-y-12 px-4 py-12 sm:px-6 sm:py-16">
+        <div className="border-b border-timber-100 pb-6">
+          <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
+            Profile
+          </p>
+          <h1 className="mt-2 font-display text-5xl font-medium tracking-tight text-timber-900">
+            Account
+          </h1>
         </div>
-      </form>
 
-      {user?.role === 'customer' && (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Orders</h2>
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td>
-                      <Link to={`/order/${o.id}`} className="text-wheat-500 font-medium">
-                        #{o.id.slice(0, 8)}
-                      </Link>
-                    </td>
-                    <td>{new Date(o.createdAt).toLocaleDateString()}</td>
-                    <td>{formatMoney(o.totalPrice)}</td>
-                    <td>
-                      <span className={orderStatusBadge[o.status]}>
-                        {orderStatusLabel[o.status]}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!orders.length && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-timber-400 py-8">
-                      No orders yet
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        <form onSubmit={save} className="grid gap-4 border border-timber-200 p-6 md:grid-cols-2">
+          {['name', 'email', 'phone', 'password', 'street', 'city', 'state', 'zip', 'country'].map(
+            (f) => (
+              <div key={f} className={['street', 'password'].includes(f) ? 'md:col-span-2' : ''}>
+                <label className="label capitalize">
+                  {f === 'password' ? 'New password (optional)' : f}
+                </label>
+                <input
+                  type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
+                  className="input"
+                  value={form[f]}
+                  onChange={(e) => setForm({ ...form, [f]: e.target.value })}
+                  required={f !== 'password'}
+                />
+              </div>
+            )
+          )}
+          <div className="md:col-span-2">
+            <button
+              type="submit"
+              className="btn-wheat text-[11px] uppercase tracking-[0.2em]"
+            >
+              Save changes
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+
+        {user?.role === 'customer' && (
+          <div>
+            <h2 className="mb-5 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
+              Orders
+            </h2>
+            <div className="table-wrapper">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((o) => (
+                    <tr key={o.id}>
+                      <td>
+                        <Link
+                          to={`/order/${o.id}`}
+                          className="font-medium text-timber-800 underline-offset-4 hover:underline"
+                        >
+                          #{o.id.slice(0, 8)}
+                        </Link>
+                      </td>
+                      <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                      <td>{formatMoney(o.totalPrice)}</td>
+                      <td>
+                        <span className={orderStatusBadge[o.status]}>
+                          {orderStatusLabel[o.status]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {!orders.length && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-timber-400">
+                        No orders yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

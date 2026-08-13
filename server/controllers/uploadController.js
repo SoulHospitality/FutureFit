@@ -26,7 +26,7 @@ const uploadSiteAsset = [
         dataUri = `data:${req.file.mimetype};base64,${b64}`;
       }
 
-      const folder = req.body.folder || 'okz/site';
+      const folder = req.body.folder || 'futurefit/site';
       const url = await uploadImage(dataUri, folder);
 
       if (req.body.key) {

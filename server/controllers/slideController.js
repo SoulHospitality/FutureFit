@@ -31,7 +31,7 @@ const createSlide = async (req, res) => {
     let cloudinaryUrl = imageUrl;
 
     if (imageData) {
-      cloudinaryUrl = await uploadImage(imageData, 'okz/slides');
+      cloudinaryUrl = await uploadImage(imageData, 'futurefit/slides');
     } else if (!cloudinaryUrl) {
       return res.status(400).json({ message: 'imageUrl or imageData required' });
     }
@@ -55,7 +55,7 @@ const updateSlide = async (req, res) => {
   try {
     const data = { ...req.body };
     if (data.imageData) {
-      data.cloudinaryUrl = await uploadImage(data.imageData, 'okz/slides');
+      data.cloudinaryUrl = await uploadImage(data.imageData, 'futurefit/slides');
       delete data.imageData;
     }
     if (data.imageUrl) {

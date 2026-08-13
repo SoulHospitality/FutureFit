@@ -39,29 +39,22 @@ function FiltersPanel({
   onClear,
 }) {
   return (
-    <div
-      className={
-        embedded
-          ? 'flex h-full flex-col'
-          : 'flex max-h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-2xl border border-timber-200/80 bg-white p-5 shadow-[0_12px_40px_rgba(61,46,34,0.08)]'
-      }
-    >
-      <div className="mb-5 shrink-0">
-        <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-timber-400">
-          Filters
+    <div className={embedded ? 'flex h-full flex-col' : 'flex flex-col'}>
+      <div className="mb-8 shrink-0 border-b border-timber-200 pb-6">
+        <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
+          Refine
         </p>
-        <h2 className="mt-1.5 font-display text-2xl tracking-wide text-timber-800">
-          Find your gear
+        <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-timber-900">
+          Filters
         </h2>
-        <p className="mt-1 text-[13px] text-timber-400">Results update as you filter.</p>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto pr-1">
-        <div className="rounded-xl border border-timber-100 bg-cream/40 p-3.5">
-          <label className="mb-2.5 block text-[10.5px] font-bold uppercase tracking-wider text-timber-500">
+      <div className="flex-1 space-y-8 overflow-y-auto pr-1">
+        <div>
+          <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
             Category
-          </label>
-          <div className="space-y-2.5">
+          </p>
+          <div className="space-y-3">
             {PRODUCT_TYPES.map((t) => (
               <label
                 key={t.value}
@@ -71,7 +64,7 @@ function FiltersPanel({
                   type="checkbox"
                   checked={selectedTypes.includes(t.value)}
                   onChange={() => onToggleType(t.value)}
-                  className="h-4 w-4 rounded border-timber-300 text-timber-800 focus:ring-wheat"
+                  className="h-3.5 w-3.5 rounded-none border-timber-300 text-timber-900 focus:ring-timber-800"
                 />
                 {t.label}
               </label>
@@ -80,11 +73,11 @@ function FiltersPanel({
         </div>
 
         {availableColors.length > 0 && (
-          <div className="rounded-xl border border-timber-100 bg-cream/40 p-3.5">
-            <label className="mb-2.5 block text-[10.5px] font-bold uppercase tracking-wider text-timber-500">
+          <div className="border-t border-timber-100 pt-8">
+            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
               Colors
-            </label>
-            <div className="max-h-40 space-y-2.5 overflow-y-auto">
+            </p>
+            <div className="max-h-40 space-y-3 overflow-y-auto">
               {availableColors.map((c) => (
                 <label
                   key={c}
@@ -94,7 +87,7 @@ function FiltersPanel({
                     type="checkbox"
                     checked={selectedColors.includes(c)}
                     onChange={() => onToggleColor(c)}
-                    className="h-4 w-4 rounded border-timber-300 text-timber-800 focus:ring-wheat"
+                    className="h-3.5 w-3.5 rounded-none border-timber-300 text-timber-900 focus:ring-timber-800"
                   />
                   {c}
                 </label>
@@ -104,10 +97,10 @@ function FiltersPanel({
         )}
 
         {availableSizes.length > 0 && (
-          <div className="rounded-xl border border-timber-100 bg-cream/40 p-3.5">
-            <label className="mb-2.5 block text-[10.5px] font-bold uppercase tracking-wider text-timber-500">
+          <div className="border-t border-timber-100 pt-8">
+            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
               Sizes
-            </label>
+            </p>
             <div className="flex flex-wrap gap-2">
               {availableSizes.map((s) => {
                 const active = selectedSizes.includes(s);
@@ -116,10 +109,10 @@ function FiltersPanel({
                     key={s}
                     type="button"
                     onClick={() => onToggleSize(s)}
-                    className={`min-w-[2.5rem] rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    className={`min-w-[2.75rem] border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition ${
                       active
-                        ? 'border-timber-800 bg-timber-800 text-white'
-                        : 'border-timber-200 bg-white text-timber-700 hover:border-timber-500'
+                        ? 'border-timber-900 bg-timber-900 text-white'
+                        : 'border-timber-200 bg-white text-timber-700 hover:border-timber-900'
                     }`}
                   >
                     {s}
@@ -130,17 +123,17 @@ function FiltersPanel({
           </div>
         )}
 
-        <div className="rounded-xl border border-timber-100 bg-cream/40 p-3.5">
-          <label className="mb-2.5 block text-[10.5px] font-bold uppercase tracking-wider text-timber-500">
-            Price range (EGP)
-          </label>
+        <div className="border-t border-timber-100 pt-8">
+          <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
+            Price (EGP)
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <input
               type="number"
               min="0"
               inputMode="numeric"
               placeholder="Min"
-              className="w-full rounded-xl border border-timber-200 bg-white px-3.5 py-2.5 text-sm text-timber-800 placeholder:text-timber-300 focus:border-timber-500 focus:outline-none focus:ring-2 focus:ring-wheat/30"
+              className="input"
               value={minInput}
               onChange={(e) => onMinChange(e.target.value)}
               onBlur={onPriceBlur}
@@ -157,7 +150,7 @@ function FiltersPanel({
               min="0"
               inputMode="numeric"
               placeholder="Max"
-              className="w-full rounded-xl border border-timber-200 bg-white px-3.5 py-2.5 text-sm text-timber-800 placeholder:text-timber-300 focus:border-timber-500 focus:outline-none focus:ring-2 focus:ring-wheat/30"
+              className="input"
               value={maxInput}
               onChange={(e) => onMaxChange(e.target.value)}
               onBlur={onPriceBlur}
@@ -179,7 +172,7 @@ function FiltersPanel({
           onClear();
           onClose?.();
         }}
-        className="mt-5 w-full shrink-0 rounded-xl border border-timber-200 bg-white px-4 py-2.5 text-sm font-medium text-timber-600 transition hover:border-timber-500 hover:text-timber-800"
+        className="mt-8 w-full shrink-0 border border-timber-200 bg-white px-4 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-timber-600 transition hover:border-timber-900 hover:text-timber-900"
       >
         Clear filters
       </button>
@@ -198,7 +191,6 @@ export default function ShopPage() {
     if (params.get('type')) return [params.get('type')];
     return [];
   }, [params]);
-
   const selectedColors = useMemo(
     () => (params.get('colors') ? params.get('colors').split(',').filter(Boolean) : []),
     [params]
@@ -207,69 +199,58 @@ export default function ShopPage() {
     () => (params.get('sizes') ? params.get('sizes').split(',').filter(Boolean) : []),
     [params]
   );
-
   const sort = params.get('sort') || 'recommended';
-  const [minInput, setMinInput] = useState(() => params.get('min') || '');
-  const [maxInput, setMaxInput] = useState(() => params.get('max') || '');
+  const minPrice = parseBound(params.get('minPrice'));
+  const maxPrice = parseBound(params.get('maxPrice'));
+
+  const [minInput, setMinInput] = useState(params.get('minPrice') || '');
+  const [maxInput, setMaxInput] = useState(params.get('maxPrice') || '');
+
+  useEffect(() => {
+    setMinInput(params.get('minPrice') || '');
+    setMaxInput(params.get('maxPrice') || '');
+  }, [params]);
 
   useEffect(() => {
     setLoading(true);
     api
       .get('/products')
-      .then((r) => setAllProducts(r.data))
+      .then((r) => setAllProducts(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
   }, []);
 
-  const patchParams = (updates) => {
+  const patchParams = (patch) => {
     const next = new URLSearchParams(params);
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === '' || value == null || (Array.isArray(value) && value.length === 0)) {
-        next.delete(key);
-      } else if (Array.isArray(value)) {
-        next.set(key, value.join(','));
-      } else {
-        next.set(key, String(value));
-      }
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v == null || v === '' || (Array.isArray(v) && !v.length)) next.delete(k);
+      else next.set(k, Array.isArray(v) ? v.join(',') : String(v));
     });
-    setParams(next);
+    if (patch.types !== undefined) next.delete('type');
+    setParams(next, { replace: true });
   };
 
-  const applyPriceToUrl = () => {
-    const min = parseBound(minInput);
-    const max = parseBound(maxInput);
-    patchParams({
-      min: min == null ? '' : String(min),
-      max: max == null ? '' : String(max),
-    });
-  };
-
-  const toggleType = (value) => {
-    const set = new Set(selectedTypes);
-    if (set.has(value)) set.delete(value);
-    else set.add(value);
-    const next = new URLSearchParams(params);
-    next.delete('type');
-    if (set.size) next.set('types', [...set].join(','));
-    else next.delete('types');
-    setParams(next);
-  };
-
-  const toggleInList = (key, current, value) => {
-    const set = new Set(current);
+  const toggleInList = (key, list, value) => {
+    const set = new Set(list);
     if (set.has(value)) set.delete(value);
     else set.add(value);
     patchParams({ [key]: [...set] });
   };
 
-  const clearFilters = () => {
-    setParams(new URLSearchParams());
-    setMinInput('');
-    setMaxInput('');
+  const toggleType = (value) => toggleInList('types', selectedTypes, value);
+
+  const applyPriceToUrl = () => {
+    patchParams({
+      minPrice: minInput.trim() === '' ? null : minInput,
+      maxPrice: maxInput.trim() === '' ? null : maxInput,
+    });
   };
 
-  const effectivePrice = (p) =>
-    p.isSaleActive && p.salePrice != null ? Number(p.salePrice) : Number(p.price);
+  const clearFilters = () => {
+    setMinInput('');
+    setMaxInput('');
+    setParams(new URLSearchParams(), { replace: true });
+  };
 
   const availableColors = useMemo(() => {
     const set = new Set();
@@ -280,63 +261,48 @@ export default function ShopPage() {
   const availableSizes = useMemo(() => {
     const set = new Set();
     allProducts.forEach((p) => (p.sizes || []).forEach((s) => set.add(s)));
-    return [...set].sort((a, b) => {
-      const na = Number(a);
-      const nb = Number(b);
-      if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-      return String(a).localeCompare(String(b));
-    });
+    return [...set].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   }, [allProducts]);
 
   const products = useMemo(() => {
     let list = [...allProducts];
-
-    if (selectedTypes.length) {
-      list = list.filter((p) => selectedTypes.includes(p.type));
-    }
+    if (selectedTypes.length) list = list.filter((p) => selectedTypes.includes(p.type));
     if (selectedColors.length) {
       list = list.filter((p) => (p.colors || []).some((c) => selectedColors.includes(c)));
     }
     if (selectedSizes.length) {
       list = list.filter((p) => (p.sizes || []).some((s) => selectedSizes.includes(s)));
     }
-
-    let min = parseBound(minInput);
-    let max = parseBound(maxInput);
-    if (min != null && max != null && min > max) {
-      const swap = min;
-      min = max;
-      max = swap;
+    if (minPrice != null) {
+      list = list.filter((p) => {
+        const price = p.isSaleActive && p.salePrice != null ? p.salePrice : p.price;
+        return Number(price) >= minPrice;
+      });
     }
-    if (min != null) {
-      list = list.filter((p) => effectivePrice(p) >= min);
+    if (maxPrice != null) {
+      list = list.filter((p) => {
+        const price = p.isSaleActive && p.salePrice != null ? p.salePrice : p.price;
+        return Number(price) <= maxPrice;
+      });
     }
-    if (max != null) {
-      list = list.filter((p) => effectivePrice(p) <= max);
+    if (sort === 'newest') {
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    } else if (sort === 'price_asc' || sort === 'price_desc') {
+      const dir = sort === 'price_asc' ? 1 : -1;
+      list.sort((a, b) => {
+        const pa = a.isSaleActive && a.salePrice != null ? a.salePrice : a.price;
+        const pb = b.isSaleActive && b.salePrice != null ? b.salePrice : b.price;
+        return (Number(pa) - Number(pb)) * dir;
+      });
     }
-
-    switch (sort) {
-      case 'price_asc':
-        list.sort((a, b) => effectivePrice(a) - effectivePrice(b));
-        break;
-      case 'price_desc':
-        list.sort((a, b) => effectivePrice(b) - effectivePrice(a));
-        break;
-      case 'newest':
-        list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        break;
-      default:
-        list.sort((a, b) => Number(b.isSaleActive) - Number(a.isSaleActive));
-    }
-
     return list;
   }, [
     allProducts,
     selectedTypes,
     selectedColors,
     selectedSizes,
-    minInput,
-    maxInput,
+    minPrice,
+    maxPrice,
     sort,
   ]);
 
@@ -358,35 +324,74 @@ export default function ShopPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#faf8f4]">
-      <div className="mx-auto max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-        <div className="lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 xl:grid-cols-[300px_minmax(0,1fr)]">
+    <div className="min-h-[calc(100vh-4rem)] bg-white">
+      <div className="border-b border-timber-100 bg-timber-50">
+        <div className="mx-auto max-w-[1280px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+          <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-timber-400">
+            FutureFit
+          </p>
+          <h1 className="mt-3 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl">
+            The collection
+          </h1>
+          <p className="mt-3 max-w-md text-sm text-timber-500">
+            Classic cuts and refined staples — browse by category, colour, and size.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3">
+            <button
+              type="button"
+              onClick={() => patchParams({ types: [] })}
+              className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
+                selectedTypes.length === 0
+                  ? 'text-timber-900 underline underline-offset-8'
+                  : 'text-timber-400 hover:text-timber-800'
+              }`}
+            >
+              All
+            </button>
+            {PRODUCT_TYPES.map((t) => {
+              const active = selectedTypes.length === 1 && selectedTypes[0] === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => patchParams({ types: [t.value] })}
+                  className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
+                    active
+                      ? 'text-timber-900 underline underline-offset-8'
+                      : 'text-timber-400 hover:text-timber-800'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+        <div className="lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
-            <div className="sticky top-24">
+            <div className="sticky top-28">
               <FiltersPanel {...filterProps} />
             </div>
           </aside>
 
           <section>
-            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className="font-display text-4xl tracking-wide text-timber-800 sm:text-5xl">
-                  All products
-                </h1>
-                <p className="mt-2 text-sm text-timber-400">
-                  {loading
-                    ? 'Loading…'
-                    : `${products.length} item${products.length === 1 ? '' : 's'} available`}
-                </p>
-              </div>
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-timber-100 pb-5">
+              <p className="text-sm text-timber-500">
+                {loading
+                  ? 'Loading…'
+                  : `${products.length} piece${products.length === 1 ? '' : 's'}`}
+              </p>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-full border border-timber-200 bg-white px-4 py-2 text-sm font-medium text-timber-700 shadow-sm lg:hidden"
+                  className="inline-flex items-center gap-2 border border-timber-200 bg-white px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] text-timber-700 lg:hidden"
                   onClick={() => setMobileFilters(true)}
                 >
-                  <SlidersHorizontal className="h-4 w-4" />
+                  <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Filters
                 </button>
 
@@ -395,48 +400,45 @@ export default function ShopPage() {
                   <select
                     value={sort}
                     onChange={(e) => patchParams({ sort: e.target.value })}
-                    className="appearance-none rounded-full border border-timber-200 bg-white py-2 pl-4 pr-10 text-sm text-timber-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-wheat/30"
+                    className="appearance-none border border-timber-200 bg-white py-2.5 pl-4 pr-10 text-[11px] font-medium uppercase tracking-[0.14em] text-timber-700 focus:outline-none focus:ring-1 focus:ring-timber-800"
                   >
                     {SORT_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
-                        Sort: {o.label}
+                        {o.label}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-timber-400" />
+                  <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-timber-400" />
                 </label>
               </div>
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="animate-pulse overflow-hidden rounded-[16px] border border-timber-100 bg-white"
-                  >
-                    <div className="aspect-[4/3] bg-timber-100" />
-                    <div className="space-y-2 p-3.5">
-                      <div className="h-4 w-4/5 rounded bg-timber-100" />
-                      <div className="h-3 w-2/5 rounded bg-timber-100" />
-                    </div>
+                  <div key={i} className="animate-pulse">
+                    <div className="aspect-[3/4] bg-timber-100" />
+                    <div className="mt-4 h-3 w-1/3 bg-timber-100" />
+                    <div className="mt-2 h-4 w-2/3 bg-timber-100" />
                   </div>
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="rounded-2xl border border-timber-200/80 bg-white p-8 shadow-[0_12px_40px_rgba(61,46,34,0.06)]">
-                <EmptyState
-                  title="No products found"
-                  subtitle="Try clearing filters or adjusting category, color, size, or price."
-                  action={
-                    <button type="button" onClick={clearFilters} className="btn-dark btn-sm">
-                      Clear filters
-                    </button>
-                  }
-                />
-              </div>
+              <EmptyState
+                title="No pieces found"
+                subtitle="Try clearing filters or adjusting category, colour, size, or price."
+                action={
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="btn-dark btn-sm text-[10px] uppercase tracking-[0.2em]"
+                  >
+                    Clear filters
+                  </button>
+                }
+              />
             ) : (
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
                 {products.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
@@ -449,14 +451,20 @@ export default function ShopPage() {
       {mobileFilters && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-timber-900/40" onClick={() => setMobileFilters(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-[min(100%,360px)] flex-col bg-[#f7f4ef] p-4 shadow-2xl">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-semibold text-timber-800">Filters</span>
-              <button type="button" className="rounded-full p-2 hover:bg-white" onClick={() => setMobileFilters(false)}>
-                <X className="h-5 w-5" />
+          <div className="absolute inset-y-0 left-0 flex w-[min(100%,360px)] flex-col bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between border-b border-timber-100 pb-4">
+              <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-timber-800">
+                Filters
+              </span>
+              <button
+                type="button"
+                className="grid h-9 w-9 place-items-center hover:bg-timber-50"
+                onClick={() => setMobileFilters(false)}
+              >
+                <X className="h-5 w-5" strokeWidth={1.5} />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-timber-200/80 bg-white p-4 shadow-sm">
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <FiltersPanel
                 {...filterProps}
                 embedded

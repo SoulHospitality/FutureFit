@@ -1,7 +1,7 @@
 {
-  "name": "okz-eg",
+  "name": "futurefit-eg",
   "private": true,
-  "description": "OKZ storefront monorepo — Railway deploys the API from /server",
+  "description": "FutureFit storefront monorepo — Railway deploys the API from /server",
   "scripts": {
     "build": "npm install --prefix server && npm run db:generate --prefix server",
     "start": "npm start --prefix server"

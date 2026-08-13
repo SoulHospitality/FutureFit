@@ -36,7 +36,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('OKZ API is running');
+  res.send('FutureFit API is running');
 });
 
 module.exports = app;

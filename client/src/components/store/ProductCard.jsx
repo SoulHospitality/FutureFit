@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
 import { getImageUrl, formatMoney, PRODUCT_TYPES } from '../../utils/helpers';
 import { useWishlist } from '../../context/WishlistContext';
 
+/** Lookbook-style product tile — image-led, minimal chrome. */
 export default function ProductCard({ product }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const { isSaved, toggle } = useWishlist();
@@ -14,8 +15,6 @@ export default function ProductCard({ product }) {
   const typeLabel =
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
-  const colorLabel =
-    product.colors?.length > 0 ? product.colors.slice(0, 2).join(' · ') : 'Standard';
 
   const prev = (e) => {
     e.preventDefault();
@@ -32,16 +31,13 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <Link
-      to={`/product/${product.id}`}
-      className="group flex flex-col overflow-hidden rounded-[16px] border border-timber-200/80 bg-white transition-all duration-300 hover:-translate-y-0.5 hover:border-wheat-200 hover:shadow-[0_24px_50px_-30px_rgba(61,46,34,0.35)]"
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-timber-100">
+    <Link to={`/product/${product.id}`} className="group flex flex-col">
+      <div className="relative aspect-[3/4] overflow-hidden bg-timber-100">
         {photos.length ? (
           <img
             src={getImageUrl(photos[photoIndex])}
             alt={product.name}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+            className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
             draggable={false}
           />
         ) : (
@@ -51,7 +47,7 @@ export default function ProductCard({ product }) {
         )}
 
         {product.isSaleActive && (
-          <span className="absolute start-3 top-3 rounded-full bg-timber-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-wheat">
+          <span className="absolute start-0 top-0 bg-timber-900 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white">
             Sale
           </span>
         )}
@@ -61,25 +57,25 @@ export default function ProductCard({ product }) {
             <button
               type="button"
               onClick={prev}
-              className="absolute start-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow-sm transition group-hover:opacity-100"
+              className="absolute start-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition group-hover:opacity-100"
               aria-label="Previous photo"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={16} strokeWidth={1.5} />
             </button>
             <button
               type="button"
               onClick={next}
-              className="absolute end-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 opacity-0 shadow-sm transition group-hover:opacity-100"
+              className="absolute end-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition group-hover:opacity-100"
               aria-label="Next photo"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={16} strokeWidth={1.5} />
             </button>
-            <div className="absolute inset-x-0 bottom-2 flex justify-center gap-1.5">
-              {photos.slice(0, 6).map((_, i) => (
+            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+              {photos.slice(0, 5).map((_, i) => (
                 <span
                   key={i}
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    i === photoIndex ? 'bg-white' : 'bg-white/50'
+                  className={`h-px transition-all ${
+                    i === photoIndex ? 'w-5 bg-white' : 'w-2.5 bg-white/45'
                   }`}
                 />
               ))}
@@ -95,47 +91,35 @@ export default function ProductCard({ product }) {
             e.stopPropagation();
             toggle(product);
           }}
-          className="absolute end-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/95 shadow-sm transition hover:scale-105"
+          className="absolute end-3 top-3 grid h-9 w-9 place-items-center bg-white/95 opacity-0 transition group-hover:opacity-100 hover:bg-white"
         >
           <Heart
-            className={`h-4 w-4 ${liked ? 'fill-red-500 text-red-500' : 'text-timber-800'}`}
+            className={`h-4 w-4 ${liked ? 'fill-timber-900 text-timber-900' : 'text-timber-800'}`}
+            strokeWidth={1.5}
           />
         </button>
       </div>
 
-      <div className="flex flex-col gap-1 p-3.5">
-        <h3 className="text-[15px] font-semibold leading-snug text-timber-800 line-clamp-2">
+      <div className="flex flex-col gap-1 pt-4">
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-timber-400">
+          {typeLabel}
+        </p>
+        <h3 className="text-[15px] font-medium leading-snug text-timber-900 line-clamp-2 group-hover:underline group-hover:underline-offset-4 decoration-timber-300">
           {product.name}
         </h3>
-        <p className="text-[13px] text-timber-400">
-          {typeLabel} · {colorLabel}
-        </p>
-        <p
-          className={`text-[13px] ${
-            product.stock < 1
-              ? 'text-red-600'
-              : product.stock <= 5
-                ? 'font-medium text-amber-700'
-                : 'text-timber-400'
-          }`}
-        >
-          {product.stock < 1
-            ? 'Out of stock'
-            : product.stock <= 5
-              ? `Only ${product.stock} left`
-              : 'In stock'}
-        </p>
-
         <div className="mt-1 flex items-baseline gap-2">
-          <span className="text-[19px] font-semibold tabular-nums text-timber-800">
+          <span className="text-sm tabular-nums text-timber-800">
             {formatMoney(price)}
           </span>
           {product.isSaleActive && product.salePrice != null && (
-            <span className="text-[12.5px] text-timber-400 line-through">
+            <span className="text-xs text-timber-400 line-through">
               {formatMoney(product.price)}
             </span>
           )}
         </div>
+        {product.stock < 1 && (
+          <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
+        )}
       </div>
     </Link>
   );

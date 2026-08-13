@@ -15,7 +15,7 @@ if (configured) {
 
 const isCloudinaryConfigured = () => Boolean(configured);
 
-const uploadImage = async (filePathOrDataUri, folder = 'okz') => {
+const uploadImage = async (filePathOrDataUri, folder = 'futurefit') => {
   if (!configured) {
     throw new Error('Cloudinary is not configured. Add CLOUDINARY_* env vars.');
   }

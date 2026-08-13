@@ -15,12 +15,12 @@ enum Role {
 }
 
 enum ProductType {
-  shoe
-  belt
-  wallet
-  bundle
-  shoe_lace
+  boxers
+  briefs
+  trunks
+  undershirt
   socks
+  bundle
 }
 
 enum OrderStatus {

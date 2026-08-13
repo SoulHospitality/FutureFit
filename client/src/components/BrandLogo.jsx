@@ -8,12 +8,18 @@ const SIZES = {
   header: 'h-[3.75rem] sm:h-[4.75rem]',
 };
 
-/** OKZ wordmark — transparent PNG. */
-export default function BrandLogo({ to = '/', size = 'md', className = '', style }) {
+/** FutureFit wordmark — transparent PNG (black or white). */
+export default function BrandLogo({
+  to = '/',
+  size = 'md',
+  className = '',
+  style,
+  invert = false,
+}) {
   const img = (
     <img
-      src="/images/logo.png"
-      alt="OKZ"
+      src={invert ? '/images/logo-white.png' : '/images/logo.png'}
+      alt="FutureFit"
       className={`${SIZES[size] || SIZES.md} w-auto object-contain ${className}`}
       style={style}
       draggable={false}
@@ -22,7 +28,7 @@ export default function BrandLogo({ to = '/', size = 'md', className = '', style
 
   if (!to) return img;
   return (
-    <Link to={to} className="inline-flex items-center shrink-0" aria-label="OKZ home">
+    <Link to={to} className="inline-flex items-center shrink-0" aria-label="FutureFit home">
       {img}
     </Link>
   );

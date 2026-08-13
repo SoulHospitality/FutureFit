@@ -61,7 +61,7 @@ export default function SignupPage() {
 
   return (
     <AuthLayout
-      title="Join OKZ"
+      title="Join FutureFit"
       subtitle="Create an account for faster checkout — or continue as a guest from your cart."
       footer={
         <>

@@ -22,12 +22,12 @@ export const getImageUrl = (path) => {
 };
 
 export const PRODUCT_TYPES = [
-  { value: 'shoe', label: 'Shoes' },
-  { value: 'belt', label: 'Belts' },
-  { value: 'wallet', label: 'Wallets' },
-  { value: 'bundle', label: 'Bundles' },
-  { value: 'shoe_lace', label: 'Shoe Laces' },
+  { value: 'boxers', label: 'Boxers' },
+  { value: 'briefs', label: 'Briefs' },
+  { value: 'trunks', label: 'Trunks' },
+  { value: 'undershirt', label: 'Undershirts' },
   { value: 'socks', label: 'Socks' },
+  { value: 'bundle', label: 'Bundles' },
 ];
 
 export const formatMoney = (n) =>

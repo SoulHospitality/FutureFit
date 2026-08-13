@@ -9,15 +9,14 @@ export default function AuthLayout({
   footer,
 }) {
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-[#f7f3ec]">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-timber-50">
       <div
         className="pointer-events-none absolute inset-0"
         aria-hidden
         style={{
           background: `
-            radial-gradient(ellipse 90% 55% at 50% -10%, rgba(183, 114, 57, 0.22), transparent 58%),
-            radial-gradient(ellipse 60% 40% at 100% 100%, rgba(43, 38, 44, 0.06), transparent 55%),
-            linear-gradient(180deg, #faf6ef 0%, #f3eee4 100%)
+            radial-gradient(ellipse 80% 50% at 50% -15%, rgba(24, 24, 27, 0.08), transparent 55%),
+            linear-gradient(180deg, #ffffff 0%, #f4f4f5 100%)
           `,
         }}
       />
@@ -27,7 +26,7 @@ export default function AuthLayout({
           <BrandLogo size="lg" className="h-12 sm:h-14" />
           <Link
             to="/"
-            className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-full px-3 text-xs font-bold uppercase tracking-[0.16em] text-timber-500 transition hover:bg-white/60 hover:text-timber-800"
+            className="min-h-11 min-w-11 inline-flex items-center justify-center px-3 text-[10px] font-medium uppercase tracking-[0.24em] text-timber-500 transition hover:bg-white hover:text-timber-900"
           >
             Home
           </Link>
@@ -35,7 +34,7 @@ export default function AuthLayout({
 
         <div className="flex flex-1 flex-col justify-center">
           <header className="mb-6 sm:mb-8">
-            <h1 className="font-display text-[2.75rem] leading-none tracking-wide text-timber-900 sm:text-6xl">
+            <h1 className="font-display text-[2.75rem] font-medium leading-none tracking-tight text-timber-900 sm:text-6xl">
               {title}
             </h1>
             {subtitle && (
@@ -45,7 +44,7 @@ export default function AuthLayout({
             )}
           </header>
 
-          <div className="rounded-2xl border border-timber-200/70 bg-white/90 p-5 shadow-[0_24px_60px_-36px_rgba(43,38,44,0.45)] backdrop-blur-sm sm:p-7">
+          <div className="border border-timber-200 bg-white/95 p-5 shadow-[0_24px_60px_-36px_rgba(9,9,11,0.35)] backdrop-blur-sm sm:p-7">
             {children}
           </div>
 

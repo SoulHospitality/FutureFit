@@ -21,43 +21,72 @@ function Accordion({ title, open, onToggle, children }) {
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between py-4 text-left"
+        className="flex w-full items-center justify-between py-5 text-left"
       >
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-timber-800">
+        <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-timber-800">
           {title}
         </span>
         <ChevronDown
           className={`h-4 w-4 text-timber-500 transition-transform ${open ? 'rotate-180' : ''}`}
+          strokeWidth={1.5}
         />
       </button>
-      {open && <div className="pb-5 text-sm leading-relaxed text-timber-600">{children}</div>}
+      {open && <div className="pb-6 text-sm leading-relaxed text-timber-600">{children}</div>}
     </div>
   );
 }
 
 const sizeGuideByType = {
-  shoe: [
-    ['EU', '40', '41', '42', '43', '44', '45'],
-    ['US Men', '7', '8', '8.5', '9.5', '10.5', '11.5'],
-    ['UK', '6', '7', '8', '9', '10', '11'],
-  ],
-  belt: [
+  boxers: [
     ['Size', 'S', 'M', 'L', 'XL'],
-    ['Waist (cm)', '75–85', '85–95', '95–105', '105–115'],
+    ['Waist (cm)', '70–78', '78–86', '86–94', '94–104'],
+  ],
+  briefs: [
+    ['Size', 'S', 'M', 'L', 'XL'],
+    ['Waist (cm)', '70–78', '78–86', '86–94', '94–104'],
+  ],
+  trunks: [
+    ['Size', 'S', 'M', 'L', 'XL'],
+    ['Waist (cm)', '70–78', '78–86', '86–94', '94–104'],
+  ],
+  undershirt: [
+    ['Size', 'S', 'M', 'L', 'XL'],
+    ['Chest (cm)', '88–94', '94–100', '100–106', '106–114'],
   ],
   default: [
-    ['Tip', 'Measure against a pair you already own.'],
-    ['Fit', 'True to size — size up for thicker socks or wider feet.'],
+    ['Tip', 'Measure against a piece you already own.'],
+    ['Fit', 'True to size for most customers — check the chart if between sizes.'],
   ],
 };
 
 const careByType = {
-  shoe: [
-    'Wipe with a soft dry cloth after wear',
-    'Condition leather every few weeks',
-    'Avoid prolonged soaking or machine wash',
-    'Air dry away from direct heat',
-    'Store with cedar trees when possible',
+  boxers: [
+    'Wash cold 30°C max',
+    'Wash inside out',
+    'Gentle cycle only',
+    'Do not tumble dry',
+    'Air dry only',
+  ],
+  briefs: [
+    'Wash cold 30°C max',
+    'Wash inside out',
+    'Gentle cycle only',
+    'Do not tumble dry',
+    'Air dry only',
+  ],
+  trunks: [
+    'Wash cold 30°C max',
+    'Wash inside out',
+    'Gentle cycle only',
+    'Do not tumble dry',
+    'Air dry only',
+  ],
+  undershirt: [
+    'Wash cold 30°C max',
+    'Wash inside out',
+    'Avoid fabric softener on elastics',
+    'Do not tumble dry',
+    'Air dry only',
   ],
   socks: [
     'Wash cold 30°C max',
@@ -67,33 +96,35 @@ const careByType = {
     'Air dry only',
   ],
   default: [
-    'Spot clean when needed',
-    'Keep away from harsh chemicals',
+    'Follow the care label',
+    'Wash cold when needed',
     'Store in a cool, dry place',
     'Avoid prolonged direct sunlight',
   ],
 };
 
 const fitTipByType = {
-  shoe: 'True to size — size up for thicker socks or wider feet.',
-  belt: 'Measure your usual waist and match the chart.',
+  boxers: 'True to size — size up for a looser lounge fit.',
+  briefs: 'True to size for a secure everyday fit.',
+  trunks: 'True to size — between sizes? choose the larger.',
+  undershirt: 'True to size for a clean base layer.',
   default: 'True to size for most customers.',
 };
 
 function TrustRow() {
   return (
-    <ul className="mt-4 space-y-2 text-sm text-timber-500">
-      <li className="flex items-center gap-2">
-        <Truck className="h-4 w-4 shrink-0 text-timber-400" />
+    <ul className="mt-6 space-y-3 border-t border-timber-100 pt-6 text-sm text-timber-500">
+      <li className="flex items-center gap-3">
+        <Truck className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
         Ships in 2–3 business days · Cash on delivery
       </li>
-      <li className="flex items-center gap-2">
-        <ShieldCheck className="h-4 w-4 shrink-0 text-timber-400" />
+      <li className="flex items-center gap-3">
+        <ShieldCheck className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
         Free shipping on orders over {formatMoney(FREE_SHIPPING_MIN)}
       </li>
-      <li className="flex items-center gap-2">
-        <RefreshCw className="h-4 w-4 shrink-0 text-timber-400" />
-        <Link to="/returns" className="underline-offset-2 hover:underline">
+      <li className="flex items-center gap-3">
+        <RefreshCw className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
+        <Link to="/returns" className="underline-offset-4 hover:underline">
           14-day returns
         </Link>{' '}
         on unworn items
@@ -172,19 +203,19 @@ export default function ProductPage() {
     setOpenSection((current) => (current === key ? '' : key));
 
   return (
-    <div className="bg-[#faf8f4] pb-24 lg:pb-0">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
-        <nav className="mb-6 text-xs uppercase tracking-wider text-timber-400">
-          <Link to="/shop" className="hover:text-timber-700">
+    <div className="bg-white pb-24 lg:pb-0">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
+        <nav className="mb-8 text-[10px] font-medium uppercase tracking-[0.24em] text-timber-400">
+          <Link to="/shop" className="hover:text-timber-800">
             Shop
           </Link>
-          <span className="mx-2">/</span>
+          <span className="mx-3 text-timber-200">/</span>
           <span className="text-timber-600">{typeLabel}</span>
         </nav>
 
-        <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
-          <div className="space-y-3">
-            <div className="relative aspect-[4/5] overflow-hidden rounded-[16px] border border-timber-200/70 bg-timber-100 shadow-[0_18px_40px_-28px_rgba(61,46,34,0.45)]">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
+          <div className="space-y-3 lg:col-span-7">
+            <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
               {photos[activePhoto] ? (
                 <img
                   src={getImageUrl(photos[activePhoto])}
@@ -195,18 +226,21 @@ export default function ProductPage() {
                 <div className="grid h-full place-items-center text-timber-400">No photo</div>
               )}
               {product.isSaleActive && (
-                <span className="absolute left-4 top-4 rounded-full bg-timber-900 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-wheat">
+                <span className="absolute left-0 top-0 bg-timber-900 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white">
                   Sale
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => toggle(product)}
-                className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white/95 shadow-sm"
+                className="absolute right-4 top-4 grid h-10 w-10 place-items-center bg-white/95"
                 aria-label={liked ? 'Remove from wishlist' : 'Save to wishlist'}
               >
                 <Heart
-                  className={`h-5 w-5 ${liked ? 'fill-wheat text-wheat' : 'text-timber-700'}`}
+                  className={`h-5 w-5 ${
+                    liked ? 'fill-timber-900 text-timber-900' : 'text-timber-700'
+                  }`}
+                  strokeWidth={1.5}
                 />
               </button>
             </div>
@@ -218,47 +252,41 @@ export default function ProductPage() {
                     key={`${p}-${i}`}
                     type="button"
                     onClick={() => setActivePhoto(i)}
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                    className={`h-20 w-16 shrink-0 overflow-hidden border transition sm:w-20 ${
                       i === activePhoto
-                        ? 'border-timber-800'
-                        : 'border-transparent opacity-80 hover:opacity-100'
+                        ? 'border-timber-900'
+                        : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img
-                      src={getImageUrl(p)}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={getImageUrl(p)} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-timber-400">
+          <div className="lg:col-span-5 lg:sticky lg:top-28 lg:self-start">
+            <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
               {typeLabel}
             </p>
-            <h1 className="mt-2 font-display text-4xl tracking-wide text-timber-900 sm:text-5xl">
+            <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
               {product.name}
             </h1>
 
-            <div className="mt-4 flex items-baseline gap-3">
-              <span className="text-2xl font-semibold tabular-nums text-timber-900">
-                {formatMoney(price)}
-              </span>
+            <div className="mt-5 flex items-baseline gap-3">
+              <span className="text-xl tabular-nums text-timber-900">{formatMoney(price)}</span>
               {product.isSaleActive && product.salePrice != null && (
-                <span className="text-base text-timber-400 line-through">
+                <span className="text-sm text-timber-400 line-through">
                   {formatMoney(product.price)}
                 </span>
               )}
             </div>
 
             {product.colors?.length > 0 && (
-              <div className="mt-8">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-timber-700">
-                    Color
+              <div className="mt-10">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
+                    Colour
                   </span>
                   <span className="text-sm text-timber-500">{color}</span>
                 </div>
@@ -268,10 +296,10 @@ export default function ProductPage() {
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}
-                      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      className={`border px-4 py-2.5 text-sm transition ${
                         color === c
-                          ? 'border-timber-800 bg-timber-800 text-white'
-                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-500'
+                          ? 'border-timber-900 bg-timber-900 text-white'
+                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-900'
                       }`}
                     >
                       {c}
@@ -282,14 +310,14 @@ export default function ProductPage() {
             )}
 
             {product.sizes?.length > 0 && (
-              <div className="mt-7">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-timber-700">
+              <div className="mt-8">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
                     Size
                   </span>
                   <button
                     type="button"
-                    className="text-xs uppercase tracking-wider text-timber-500 underline-offset-2 hover:underline"
+                    className="text-[10px] uppercase tracking-[0.18em] text-timber-500 underline-offset-4 hover:underline"
                     onClick={() => setOpenSection('size')}
                   >
                     Size chart
@@ -302,10 +330,10 @@ export default function ProductPage() {
                       key={s}
                       type="button"
                       onClick={() => setSize(s)}
-                      className={`min-w-[3rem] rounded-lg border px-3 py-2.5 text-sm font-semibold transition ${
+                      className={`min-w-[3rem] border px-3 py-2.5 text-sm font-medium transition ${
                         size === s
-                          ? 'border-timber-800 bg-timber-800 text-white'
-                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-500'
+                          ? 'border-timber-900 bg-timber-900 text-white'
+                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-900'
                       }`}
                     >
                       {s}
@@ -315,51 +343,49 @@ export default function ProductPage() {
               </div>
             )}
 
-            <div className="mt-7">
-              <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.16em] text-timber-700">
+            <div className="mt-8">
+              <span className="mb-3 block text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
                 Quantity
               </span>
-              <div className="inline-flex items-center rounded-xl border border-timber-200 bg-white">
+              <div className="inline-flex items-center border border-timber-200 bg-white">
                 <button
                   type="button"
                   className="px-3 py-2.5 text-timber-700 hover:bg-timber-50"
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
                 >
-                  <Minus className="h-4 w-4" />
+                  <Minus className="h-4 w-4" strokeWidth={1.5} />
                 </button>
-                <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
+                <span className="min-w-[2.5rem] text-center text-sm font-medium tabular-nums">
                   {qty}
                 </span>
                 <button
                   type="button"
                   className="px-3 py-2.5 text-timber-700 hover:bg-timber-50"
-                  onClick={() =>
-                    setQty((q) => Math.min(product.stock || 1, q + 1))
-                  }
+                  onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
                   disabled={qty >= product.stock}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               </div>
             </div>
 
             {lowStock && (
-              <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-amber-700">
+              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-timber-600">
                 Low stock — only {product.stock} left
               </p>
             )}
             {product.stock < 1 && (
-              <p className="mt-4 text-sm font-semibold uppercase tracking-wide text-red-600">
+              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-red-600">
                 Out of stock
               </p>
             )}
             {product.stock > 5 && (
-              <p className="mt-4 text-sm text-timber-500">In stock</p>
+              <p className="mt-5 text-sm text-timber-500">In stock</p>
             )}
 
             <button
               type="button"
-              className="btn-wheat mt-6 hidden w-full py-3.5 text-sm font-bold uppercase tracking-[0.14em] lg:inline-flex"
+              className="btn-wheat mt-8 hidden w-full py-4 text-[11px] font-medium uppercase tracking-[0.22em] lg:inline-flex"
               onClick={add}
               disabled={!canAdd}
             >
@@ -368,7 +394,7 @@ export default function ProductPage() {
 
             <TrustRow />
 
-            <div className="mt-10 border-t border-timber-200">
+            <div className="mt-10">
               <Accordion
                 title="Product details"
                 open={openSection === 'details'}
@@ -377,8 +403,8 @@ export default function ProductPage() {
                 {detailBullets.length > 1 ? (
                   <ul className="space-y-2">
                     {detailBullets.map((line) => (
-                      <li key={line} className="flex gap-2">
-                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-timber-400" />
+                      <li key={line} className="flex gap-3">
+                        <span className="mt-2 h-px w-3 shrink-0 bg-timber-400" />
                         <span>{line}</span>
                       </li>
                     ))}
@@ -402,8 +428,8 @@ export default function ProductPage() {
                             {row.map((cell, i) => (
                               <td
                                 key={`${row[0]}-${i}`}
-                                className={`px-2 py-2 ${
-                                  i === 0 ? 'font-semibold text-timber-800' : 'text-timber-600'
+                                className={`px-2 py-2.5 ${
+                                  i === 0 ? 'font-medium text-timber-800' : 'text-timber-600'
                                 }`}
                               >
                                 {cell}
@@ -418,7 +444,7 @@ export default function ProductPage() {
                   <ul className="space-y-2">
                     {sizeGuide.map(([label, value]) => (
                       <li key={label}>
-                        <span className="font-semibold text-timber-800">{label}: </span>
+                        <span className="font-medium text-timber-800">{label}: </span>
                         {value}
                       </li>
                     ))}
@@ -438,7 +464,7 @@ export default function ProductPage() {
               >
                 <ul className="space-y-2">
                   {care.map((line) => (
-                    <li key={line} className="uppercase tracking-wide text-[12px]">
+                    <li key={line} className="text-[12px] uppercase tracking-[0.12em]">
                       {line}
                     </li>
                   ))}
@@ -450,12 +476,12 @@ export default function ProductPage() {
                 open={openSection === 'delivery'}
                 onToggle={() => toggleSection('delivery')}
               >
-                <p className="uppercase tracking-wide text-[12px]">
+                <p className="text-[12px] uppercase tracking-[0.12em]">
                   Orders take 2–3 business days
                 </p>
                 <p className="mt-2 text-timber-500">
-                  Cash on delivery, InstaPay, and Vodafone Cash available at checkout. Free shipping on
-                  orders over EGP 2,000.
+                  Cash on delivery, InstaPay, and Vodafone Cash available at checkout. Free shipping
+                  on orders over EGP 2,000.
                 </p>
               </Accordion>
             </div>
@@ -463,16 +489,15 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* Mobile sticky ATC */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-cream/95 px-4 py-3 backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-timber-900">{product.name}</p>
+            <p className="truncate text-sm font-medium text-timber-900">{product.name}</p>
             <p className="text-sm tabular-nums text-timber-600">{formatMoney(price)}</p>
           </div>
           <button
             type="button"
-            className="btn-wheat shrink-0 px-5 py-3 text-sm font-bold uppercase tracking-[0.12em]"
+            className="btn-wheat shrink-0 px-5 py-3 text-[10px] font-medium uppercase tracking-[0.18em]"
             onClick={add}
             disabled={!canAdd}
           >
