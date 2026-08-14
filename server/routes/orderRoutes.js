@@ -6,6 +6,7 @@ const {
   getOrder,
   listOrders,
   updateOrderStatus,
+  markOrderPaid,
   deleteOrder,
   financeSummary,
 } = require('../controllers/orderController');
@@ -20,6 +21,7 @@ router.get('/finance', protect, adminOnly, financeSummary);
 router.get('/', protect, opsOrAdmin, listOrders);
 router.get('/:id', protect, getOrder);
 router.patch('/:id/status', protect, opsOrAdmin, updateOrderStatus);
+router.patch('/:id/paid', protect, opsOrAdmin, markOrderPaid);
 router.delete('/:id', protect, opsOrAdmin, deleteOrder);
 
 module.exports = router;

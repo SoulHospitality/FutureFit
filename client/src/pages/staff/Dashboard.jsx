@@ -106,19 +106,24 @@ export default function StaffDashboard() {
                     value={formatMoney(finance.paid)}
                     icon={Wallet}
                     tone="green"
-                    hint={`Outstanding ${formatMoney(Math.max(0, Number(finance.revenue) - Number(finance.paid)))}`}
+                    hint={`Outstanding ${formatMoney(finance.outstanding ?? Math.max(0, Number(finance.revenue) - Number(finance.paid)))}`}
                   />
                   <StatCard
-                    title="Out for delivery"
-                    value={finance.byStatus?.out_for_delivery || 0}
+                    title="Net cash"
+                    value={formatMoney(
+                      finance.netCash ??
+                        Number(finance.paid) - Number(finance.expensesTotal || 0)
+                    )}
                     icon={Truck}
                     tone="muted"
+                    hint={`Expenses ${formatMoney(finance.expensesTotal || 0)}`}
                   />
                   <StatCard
                     title="Low stock"
                     value={finance.lowStock?.length || 0}
                     icon={AlertTriangle}
                     tone="red"
+                    hint={`${finance.byStatus?.out_for_delivery || 0} out for delivery`}
                   />
                 </>
               )}
@@ -171,7 +176,7 @@ export default function StaffDashboard() {
           <div className="flex items-center justify-between border-b border-timber-100 px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold text-timber-900">Recent orders</h2>
-              <p className="text-xs text-timber-400">Latest 8 across the store</p>
+              <p className="text-xs text-timber-400">Latest essentials across the store</p>
             </div>
             <Link
               to="/staff/deliveries"
@@ -187,13 +192,14 @@ export default function StaffDashboard() {
                   <th>ID</th>
                   <th>Customer</th>
                   <th>Total</th>
+                  <th>Paid</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && orders.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-10 text-center text-sm text-timber-400">
+                    <td colSpan={5} className="py-10 text-center text-sm text-timber-400">
                       Loading orders…
                     </td>
                   </tr>
@@ -204,6 +210,11 @@ export default function StaffDashboard() {
                     <td>{o.customerName || o.user?.name || o.guestName || 'Guest'}</td>
                     <td className="tabular-nums">{formatMoney(o.totalPrice)}</td>
                     <td>
+                      <span className={o.isPaid ? 'badge-green' : 'badge-yellow'}>
+                        {o.isPaid ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </td>
+                    <td>
                       <span className={orderStatusBadge[o.status]}>
                         {orderStatusLabel[o.status]}
                       </span>
@@ -212,7 +223,7 @@ export default function StaffDashboard() {
                 ))}
                 {!loading && orders.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-10 text-center text-sm text-timber-400">
+                    <td colSpan={5} className="py-10 text-center text-sm text-timber-400">
                       No orders yet
                     </td>
                   </tr>

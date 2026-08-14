@@ -12,6 +12,7 @@ const userRoutes = require('./routes/userRoutes');
 const slideRoutes = require('./routes/slideRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const problemRoutes = require('./routes/problemRoutes');
+const expenseRoutes = require('./routes/expenseRoutes');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/slides', slideRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/problems', problemRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });

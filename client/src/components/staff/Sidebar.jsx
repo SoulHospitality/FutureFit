@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Package,
@@ -12,7 +12,7 @@ import {
   LogOut,
   Boxes,
   X,
-  ExternalLink,
+  Store,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess } from '../../utils/permissions';
@@ -115,15 +115,14 @@ export default function Sidebar({ open = false, onClose }) {
       </nav>
 
       <div className="space-y-2 border-t border-white/10 p-3">
-        <a
-          href="/"
-          target="_blank"
-          rel="noreferrer"
+        <Link
+          to="/"
+          onClick={() => onClose?.()}
           className="sidebar-link sidebar-link-inactive w-full"
         >
-          <ExternalLink className="h-5 w-5" strokeWidth={1.5} />
+          <Store className="h-5 w-5" strokeWidth={1.5} />
           <span>View store</span>
-        </a>
+        </Link>
         <div className="truncate px-3 text-xs text-timber-400">{user?.email}</div>
         <button
           type="button"

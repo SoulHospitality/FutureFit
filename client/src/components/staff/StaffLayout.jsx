@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Link, Navigate, useLocation } from 'react-router-dom';
+import { Menu, Store } from 'lucide-react';
 import Sidebar from './Sidebar';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess, defaultStaffPage, isStaff } from '../../utils/permissions';
@@ -53,9 +53,18 @@ export default function StaffLayout({ children, page }) {
               <h1 className="text-sm font-semibold text-timber-900 lg:hidden">{title}</h1>
             </div>
           </div>
-          <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium text-timber-800">{user.name}</p>
-            <p className="text-[10px] uppercase tracking-[0.18em] text-timber-400">{user.role}</p>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 border border-timber-200 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-timber-700 transition hover:border-timber-900 hover:bg-timber-50"
+            >
+              <Store className="h-3.5 w-3.5" strokeWidth={1.5} />
+              <span className="hidden sm:inline">View store</span>
+            </Link>
+            <div className="hidden text-right sm:block">
+              <p className="text-sm font-medium text-timber-800">{user.name}</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-timber-400">{user.role}</p>
+            </div>
           </div>
         </header>
 

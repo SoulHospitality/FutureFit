@@ -17,11 +17,14 @@ export default function StaffDeliveries() {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('');
   const [deletingId, setDeletingId] = useState(null);
+  const [markingId, setMarkingId] = useState(null);
 
   const load = () =>
     api.get('/orders' + (filter ? `?status=${filter}` : '')).then((r) => setOrders(r.data));
 
-  useEffect(() => { load(); }, [filter]);
+  useEffect(() => {
+    load();
+  }, [filter]);
 
   const setStatus = async (id, status) => {
     try {
@@ -30,6 +33,19 @@ export default function StaffDeliveries() {
       load();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Update failed');
+    }
+  };
+
+  const markPaid = async (order) => {
+    setMarkingId(order.id);
+    try {
+      const { data } = await api.patch(`/orders/${order.id}/paid`, { isPaid: true });
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? data : o)));
+      toast.success('Marked as paid');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not mark paid');
+    } finally {
+      setMarkingId(null);
     }
   };
 
@@ -50,15 +66,20 @@ export default function StaffDeliveries() {
 
   return (
     <>
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">Deliveries</h1>
-          <p className="page-subtitle">Track and advance order fulfillment</p>
+          <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
+            Fulfillment
+          </p>
+          <h1 className="mt-1 page-title">Deliveries</h1>
+          <p className="page-subtitle">Track packs out for delivery and confirm payment</p>
         </div>
         <select className="input w-48" value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="">All statuses</option>
           {Object.keys(orderStatusLabel).map((s) => (
-            <option key={s} value={s}>{orderStatusLabel[s]}</option>
+            <option key={s} value={s}>
+              {orderStatusLabel[s]}
+            </option>
           ))}
         </select>
       </div>
@@ -72,6 +93,8 @@ export default function StaffDeliveries() {
               <th>Phone</th>
               <th>Address</th>
               <th>Total</th>
+              <th>Payment</th>
+              <th>Paid</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -80,15 +103,33 @@ export default function StaffDeliveries() {
             {orders.map((o) => (
               <tr key={o.id}>
                 <td className="font-mono text-xs">{o.id.slice(0, 8)}</td>
-                <td>{o.customerName || o.user?.name || 'Guest'}</td>
-                <td>{o.customerPhone || o.user?.phone || '—'}</td>
+                <td>{o.customerName || o.user?.name || o.guestName || 'Guest'}</td>
+                <td>{o.customerPhone || o.user?.phone || o.guestPhone || '—'}</td>
                 <td className="max-w-[180px] truncate">
                   {o.shippingAddress?.city}, {o.shippingAddress?.street}
                 </td>
-                <td>{formatMoney(o.totalPrice)}</td>
-                <td><span className={orderStatusBadge[o.status]}>{orderStatusLabel[o.status]}</span></td>
+                <td className="tabular-nums">{formatMoney(o.totalPrice)}</td>
+                <td className="text-sm">{o.paymentMethod}</td>
                 <td>
-                  <div className="flex flex-wrap gap-1 items-center">
+                  <span className={o.isPaid ? 'badge-green' : 'badge-yellow'}>
+                    {o.isPaid ? 'Paid' : 'Unpaid'}
+                  </span>
+                </td>
+                <td>
+                  <span className={orderStatusBadge[o.status]}>{orderStatusLabel[o.status]}</span>
+                </td>
+                <td>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {!o.isPaid && o.status !== 'canceled' && (
+                      <button
+                        type="button"
+                        className="btn-outline btn-sm"
+                        disabled={markingId === o.id}
+                        onClick={() => markPaid(o)}
+                      >
+                        Mark paid
+                      </button>
+                    )}
                     {(NEXT[o.status] || []).map((s) => (
                       <button
                         key={s}
@@ -106,12 +147,19 @@ export default function StaffDeliveries() {
                       disabled={deletingId === o.id}
                       onClick={() => remove(o)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
                     </button>
                   </div>
                 </td>
               </tr>
             ))}
+            {orders.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-sm text-timber-400">
+                  No deliveries to show
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

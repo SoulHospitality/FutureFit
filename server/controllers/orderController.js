@@ -362,65 +362,136 @@ const deleteOrder = async (req, res) => {
   }
 };
 
+const markOrderPaid = async (req, res) => {
+  try {
+    const existing = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+      },
+    });
+    if (!existing) return res.status(404).json({ message: 'Order not found' });
+    if (existing.status === 'canceled') {
+      return res.status(400).json({ message: 'Cannot mark a canceled order as paid' });
+    }
+    if (existing.isPaid) {
+      return res.json(serializeOrder(existing));
+    }
+
+    const order = await prisma.order.update({
+      where: { id: req.params.id },
+      data: { isPaid: true, paidAt: new Date() },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+      },
+    });
+    res.json(serializeOrder(order));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const endOfDay = (to) => {
+  const end = new Date(to);
+  end.setHours(23, 59, 59, 999);
+  return end;
+};
+
 const financeSummary = async (req, res) => {
   try {
     const { from, to } = req.query;
     const createdAt = {};
     if (from) createdAt.gte = new Date(from);
-    if (to) {
-      const end = new Date(to);
-      end.setHours(23, 59, 59, 999);
-      createdAt.lte = end;
-    }
+    if (to) createdAt.lte = endOfDay(to);
 
     const where = {
       status: { not: 'canceled' },
       ...(Object.keys(createdAt).length ? { createdAt } : {}),
     };
 
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        items: true,
-        user: { select: { id: true, name: true, email: true, phone: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const expenseDate = {};
+    if (from) expenseDate.gte = new Date(from);
+    if (to) expenseDate.lte = endOfDay(to);
+
+    const [orders, expenses, lowStock] = await Promise.all([
+      prisma.order.findMany({
+        where,
+        include: {
+          items: true,
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.expense.findMany({
+        where: Object.keys(expenseDate).length ? { expenseDate } : undefined,
+        orderBy: { expenseDate: 'desc' },
+      }),
+      prisma.product.findMany({
+        where: { stock: { lte: 5 } },
+        orderBy: { stock: 'asc' },
+        take: 10,
+      }),
+    ]);
 
     const revenue = orders.reduce((sum, o) => sum + Number(o.totalPrice), 0);
     const paid = orders.filter((o) => o.isPaid).reduce((sum, o) => sum + Number(o.totalPrice), 0);
+    const outstanding = revenue - paid;
+    const itemsTotal = orders.reduce((sum, o) => sum + Number(o.itemsPrice), 0);
+    const shippingTotal = orders.reduce((sum, o) => sum + Number(o.shippingPrice), 0);
+    const discountTotal = orders.reduce((sum, o) => sum + Number(o.discountAmount), 0);
+
     const byStatus = orders.reduce((acc, o) => {
       acc[o.status] = (acc[o.status] || 0) + 1;
       return acc;
     }, {});
-    const byPaymentMethod = orders.reduce((acc, o) => {
-      const key = o.paymentMethod || 'Other';
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
 
-    const lowStock = await prisma.product.findMany({
-      where: { stock: { lte: 5 } },
-      orderBy: { stock: 'asc' },
-      take: 10,
-    });
+    const methodMap = {};
+    for (const o of orders) {
+      const method = o.paymentMethod || 'Other';
+      if (!methodMap[method]) {
+        methodMap[method] = { method, count: 0, revenue: 0, paid: 0, outstanding: 0 };
+      }
+      const total = Number(o.totalPrice);
+      methodMap[method].count += 1;
+      methodMap[method].revenue += total;
+      if (o.isPaid) methodMap[method].paid += total;
+      else methodMap[method].outstanding += total;
+    }
+    const byPaymentMethod = Object.values(methodMap).sort((a, b) => b.revenue - a.revenue);
 
-    const serialized = orders.map(serializeOrder);
+    const expensesTotal = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+    const categoryMap = {};
+    for (const e of expenses) {
+      categoryMap[e.category] = (categoryMap[e.category] || 0) + Number(e.amount);
+    }
+    const byExpenseCategory = Object.entries(categoryMap)
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total);
 
     res.json({
       orderCount: orders.length,
       revenue,
       paid,
-      outstanding: Math.max(0, revenue - paid),
+      outstanding,
+      itemsTotal,
+      shippingTotal,
+      discountTotal,
       byStatus,
       byPaymentMethod,
+      expensesTotal,
+      expenseCount: expenses.length,
+      netCash: paid - expensesTotal,
+      byExpenseCategory,
+      expenses: expenses.map((e) => ({ ...e, amount: Number(e.amount) })),
+      orders: orders.map(serializeOrder),
       lowStock: lowStock.map((p) => ({
         ...p,
         price: Number(p.price),
         salePrice: p.salePrice != null ? Number(p.salePrice) : null,
       })),
-      orders: serialized,
-      recentOrders: serialized.slice(0, 10),
+      recentOrders: orders.slice(0, 10).map(serializeOrder),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -434,6 +505,7 @@ module.exports = {
   getOrder,
   listOrders,
   updateOrderStatus,
+  markOrderPaid,
   deleteOrder,
   financeSummary,
 };

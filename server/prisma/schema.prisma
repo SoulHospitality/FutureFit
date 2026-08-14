@@ -160,3 +160,18 @@ model SiteAsset {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+/** Staff-tracked operating costs for finance P&L (cash basis). */
+model Expense {
+  id          String   @id @default(uuid())
+  category    String
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  expenseDate DateTime
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expenseDate])
+}

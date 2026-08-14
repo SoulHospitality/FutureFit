@@ -64,6 +64,21 @@ export const VODAFONE_CASH_NUMBER = import.meta.env.VITE_VODAFONE_CASH_NUMBER ||
 export const calcShipping = (subtotal) =>
   Number(subtotal) >= FREE_SHIPPING_MIN || Number(subtotal) === 0 ? 0 : SHIPPING_FEE;
 
+/** Operating costs for underwear brand ops (packaging, fabric, ads, etc.). */
+export const EXPENSE_CATEGORIES = [
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'shipping', label: 'Shipping' },
+  { value: 'packaging', label: 'Packaging' },
+  { value: 'rent', label: 'Rent' },
+  { value: 'salary', label: 'Salary' },
+  { value: 'supplies', label: 'Supplies' },
+  { value: 'utilities', label: 'Utilities' },
+  { value: 'other', label: 'Other' },
+];
+
+export const expenseCategoryLabel = (value) =>
+  EXPENSE_CATEGORIES.find((c) => c.value === value)?.label || value;
+
 export const orderStatusLabel = {
   pending: 'Pending',
   confirmed: 'Confirmed',
