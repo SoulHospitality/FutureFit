@@ -4,7 +4,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-/** Local product photos served from the Vite public folder */
+/** Local product photos served from the Vite public folder (and Railway client). */
 const photo = (file) => `/images/products/${file}`;
 
 const SLIDES = [
@@ -28,6 +28,11 @@ const SLIDES = [
   },
 ];
 
+const COUPONS = [
+  { code: 'FUTURE10', discountPercentage: 10, isActive: true },
+  { code: 'WELCOME15', discountPercentage: 15, isActive: true },
+];
+
 const PRODUCTS = [
   {
     name: 'Relaxed Cotton Boxers',
@@ -39,7 +44,6 @@ const PRODUCTS = [
     colors: ['White', 'Navy', 'Black'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 52,
-    isSaleActive: false,
   },
   {
     name: 'Noir Soft Boxers',
@@ -51,7 +55,17 @@ const PRODUCTS = [
     colors: ['Black', 'Charcoal'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 44,
-    isSaleActive: false,
+  },
+  {
+    name: 'Navy Lounge Boxers',
+    description:
+      'Deep navy boxers for a polished everyday look.\n• Soft cotton weave\n• Covered waistband\n• Easy movement',
+    price: 349,
+    type: 'boxers',
+    photos: [photo('uw-boxers-navy.png'), photo('uw-boxers-black.png')],
+    colors: ['Navy', 'Black'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 36,
   },
   {
     name: 'Contour Stretch Briefs',
@@ -63,12 +77,22 @@ const PRODUCTS = [
     colors: ['Black', 'White'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 60,
-    isSaleActive: false,
   },
   {
-    name: 'Everyday Brief Pack',
+    name: 'Classic White Briefs',
     description:
-      'Mix-and-match briefs for the week.\n• Soft stretch\n• Breathable knit\n• Rotation ready',
+      'Crisp white briefs with a clean silhouette.\n• Soft stretch knit\n• Breathable pouch\n• Everyday essential',
+    price: 269,
+    type: 'briefs',
+    photos: [photo('uw-briefs-white.png'), photo('uw-briefs-black.png')],
+    colors: ['White'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 48,
+  },
+  {
+    name: 'Everyday Brief Pack (3)',
+    description:
+      'Three-pack briefs for the week.\n• Soft stretch\n• Breathable knit\n• Rotation ready',
     price: 899,
     salePrice: 749,
     type: 'briefs',
@@ -88,7 +112,6 @@ const PRODUCTS = [
     colors: ['Black', 'Ash'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 38,
-    isSaleActive: false,
   },
   {
     name: 'Modal Soft Trunks',
@@ -104,6 +127,17 @@ const PRODUCTS = [
     isSaleActive: true,
   },
   {
+    name: 'Ash Soft Trunks',
+    description:
+      'Light grey trunks with a clean short leg.\n• Soft handfeel\n• Secure pouch\n• Everyday performance',
+    price: 349,
+    type: 'trunks',
+    photos: [photo('uw-trunks-grey.png'), photo('uw-trunks-black.png')],
+    colors: ['Ash', 'Black'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 42,
+  },
+  {
     name: 'Crew Undershirt',
     description:
       'Slim crew undershirt that stays tucked and invisible.\n• Soft stretch knit\n• Moisture control\n• Holds shape after wash',
@@ -113,7 +147,6 @@ const PRODUCTS = [
     colors: ['White', 'Black', 'Grey'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 55,
-    isSaleActive: false,
   },
   {
     name: 'Deep V Undershirt',
@@ -125,7 +158,17 @@ const PRODUCTS = [
     colors: ['Black', 'White'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 41,
-    isSaleActive: false,
+  },
+  {
+    name: 'White Layer Tee',
+    description:
+      'Clean white undershirt for dress shirts and tees.\n• Soft stretch\n• Stay-tucked length\n• Washes bright',
+    price: 359,
+    type: 'undershirt',
+    photos: [photo('uw-undershirt-white.png'), photo('uw-undershirt-black.png')],
+    colors: ['White'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 50,
   },
   {
     name: 'No-Show Sock Pack (3)',
@@ -133,11 +176,23 @@ const PRODUCTS = [
       'Invisible ankle socks for sneakers.\n• Hidden cuff\n• Cushioned sole\n• Soft cotton blend',
     price: 249,
     type: 'socks',
-    photos: [photo('uw-socks-pack.png'), photo('uw-socks-pack.png')],
+    photos: [photo('uw-socks-pack.png')],
     colors: ['Black', 'White', 'Grey'],
     sizes: ['One Size'],
     stock: 95,
-    isSaleActive: false,
+  },
+  {
+    name: 'Crew Sock Pack (3)',
+    description:
+      'Everyday crew socks in neutral tones.\n• Soft cuff\n• Reinforced heel & toe\n• Breathable cotton blend',
+    price: 279,
+    salePrice: 229,
+    type: 'socks',
+    photos: [photo('uw-socks-pack.png')],
+    colors: ['Black/Grey Mix'],
+    sizes: ['One Size'],
+    stock: 70,
+    isSaleActive: true,
   },
   {
     name: 'Daily Underwear Bundle',
@@ -150,6 +205,19 @@ const PRODUCTS = [
     colors: ['Black', 'White'],
     sizes: ['S', 'M', 'L', 'XL'],
     stock: 18,
+    isSaleActive: true,
+  },
+  {
+    name: 'Starter Essentials Pack',
+    description:
+      'Trunks + undershirt + socks — first wardrobe, done.\n• Core neutrals\n• Mix-and-match fit\n• Best value starter kit',
+    price: 999,
+    salePrice: 849,
+    type: 'bundle',
+    photos: [photo('uw-bundle.png'), photo('uw-trunks-black.png'), photo('uw-socks-pack.png')],
+    colors: ['Black', 'Grey'],
+    sizes: ['S', 'M', 'L', 'XL'],
+    stock: 22,
     isSaleActive: true,
   },
 ];
@@ -170,6 +238,20 @@ async function seedAdmin() {
     data: { name, email, passwordHash, role: 'admin' },
   });
   console.log(`Seeded admin: ${email} / ${password}`);
+}
+
+async function seedCoupons() {
+  for (const coupon of COUPONS) {
+    await prisma.coupon.upsert({
+      where: { code: coupon.code },
+      update: {
+        discountPercentage: coupon.discountPercentage,
+        isActive: coupon.isActive,
+      },
+      create: coupon,
+    });
+  }
+  console.log(`Seeded ${COUPONS.length} coupons`);
 }
 
 async function seedCatalog() {
@@ -201,6 +283,7 @@ async function seedCatalog() {
 
 async function main() {
   await seedAdmin();
+  await seedCoupons();
   await seedCatalog();
   console.log('Underwear catalog refreshed — reload the storefront.');
 }
