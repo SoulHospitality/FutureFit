@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+/** Production: set VITE_API_URL to your Railway API root, e.g. https://xxx.up.railway.app/api */
+const apiBase = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: apiBase,
 });
 
 api.interceptors.request.use((config) => {
