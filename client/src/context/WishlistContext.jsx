@@ -5,7 +5,8 @@ const WishlistContext = createContext(null);
 export function WishlistProvider({ children }) {
   const [items, setItems] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('wishlistItems')) || [];
+      const parsed = JSON.parse(localStorage.getItem('wishlistItems'));
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }

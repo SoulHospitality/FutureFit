@@ -7,7 +7,8 @@ const itemKey = (productId, color, size) => `${productId}-${color || ''}-${size 
 export function CartProvider({ children }) {
   const [items, setItems] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('cartItems')) || [];
+      const parsed = JSON.parse(localStorage.getItem('cartItems'));
+      return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }

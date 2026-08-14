@@ -13,7 +13,7 @@ import {
 import api from '../../api/axios';
 import StatCard from '../../components/ui/StatCard';
 import { useAuth } from '../../context/AuthContext';
-import { formatMoney, orderStatusBadge, orderStatusLabel } from '../../utils/helpers';
+import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../../utils/helpers';
 
 const QUICK_LINKS_ADMIN = [
   { to: '/staff/products', label: 'Products', icon: Package },
@@ -79,7 +79,7 @@ export default function StaffDashboard() {
             Overview
           </p>
           <h1 className="mt-1 page-title">Dashboard</h1>
-          <p className="page-subtitle">Welcome back, {user.name.split(' ')[0]}</p>
+          <p className="page-subtitle">Welcome back, {(user.name || 'there').split(' ')[0]}</p>
         </div>
         <Link to="/" className="btn-outline btn-sm text-[10px] uppercase tracking-[0.18em]">
           View storefront
@@ -262,7 +262,7 @@ export default function StaffDashboard() {
             </div>
           )}
 
-          {finance?.lowStock?.length > 0 && (
+          {asArray(finance?.lowStock).length > 0 && (
             <div className="card">
               <div className="mb-4 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-timber-900">Low stock</h2>
@@ -274,7 +274,7 @@ export default function StaffDashboard() {
                 </Link>
               </div>
               <ul className="space-y-3">
-                {finance.lowStock.map((p) => (
+                {asArray(finance.lowStock).map((p) => (
                   <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
                     <span className="truncate text-timber-700">{p.name}</span>
                     <span className="shrink-0 font-medium tabular-nums text-timber-900">

@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import { asArray } from '../../utils/helpers';
 
 export default function StaffPromotions() {
   const [coupons, setCoupons] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ code: '', discountPercentage: 10, isActive: true });
 
-  const load = () => api.get('/coupons').then((r) => setCoupons(r.data));
+  const load = () => api.get('/coupons').then((r) => setCoupons(asArray(r.data)));
   useEffect(() => { load(); }, []);
 
   const create = async (e) => {

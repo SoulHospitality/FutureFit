@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { formatMoney, orderStatusBadge, orderStatusLabel } from '../utils/helpers';
+import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../utils/helpers';
 
 export default function AccountPage() {
   const { user, updateUser } = useAuth();
@@ -22,7 +22,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (user?.role === 'customer') {
-      api.get('/orders/mine').then((r) => setOrders(r.data)).catch(() => {});
+      api
+        .get('/orders/mine')
+        .then((r) => setOrders(asArray(r.data)))
+        .catch(() => setOrders([]));
     }
   }, [user]);
 

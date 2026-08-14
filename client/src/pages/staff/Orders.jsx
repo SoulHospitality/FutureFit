@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Trash2 } from 'lucide-react';
 import api from '../../api/axios';
-import { formatMoney, orderStatusBadge, orderStatusLabel } from '../../utils/helpers';
+import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../../utils/helpers';
 
 export default function StaffOrders() {
   const [orders, setOrders] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [markingId, setMarkingId] = useState(null);
 
-  const load = () => api.get('/orders').then((r) => setOrders(r.data));
+  const load = () => api.get('/orders').then((r) => setOrders(asArray(r.data)));
 
   useEffect(() => {
     load();

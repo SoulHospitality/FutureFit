@@ -21,6 +21,7 @@ import {
   orderStatusLabel,
   EXPENSE_CATEGORIES,
   expenseCategoryLabel,
+  asArray,
 } from '../../utils/helpers';
 
 const TABS = [
@@ -93,8 +94,8 @@ export default function StaffFinance() {
     load();
   }, [load]);
 
-  const orders = data?.orders || [];
-  const expenses = data?.expenses || [];
+  const orders = asArray(data?.orders);
+  const expenses = asArray(data?.expenses);
 
   const markPaid = async (orderId) => {
     setMarkingId(orderId);
@@ -372,6 +373,18 @@ export default function StaffFinance() {
 }
 
 function OverviewTab({ data, onMarkPaid, markingId }) {
+  const paymentRows = Array.isArray(data.byPaymentMethod)
+    ? data.byPaymentMethod
+    : Object.entries(data.byPaymentMethod || {}).map(([method, count]) => ({
+        method,
+        count: Number(count) || 0,
+        revenue: 0,
+        paid: 0,
+        outstanding: 0,
+      }));
+  const expenseCategories = asArray(data.byExpenseCategory);
+  const recentOrders = asArray(data.recentOrders);
+
   return (
     <>
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -427,7 +440,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
                 </tr>
               </thead>
               <tbody>
-                {(data.byPaymentMethod || []).map((row) => (
+                {paymentRows.map((row) => (
                   <tr key={row.method}>
                     <td>{row.method}</td>
                     <td className="tabular-nums">{row.count}</td>
@@ -436,7 +449,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
                     <td className="tabular-nums">{formatMoney(row.outstanding)}</td>
                   </tr>
                 ))}
-                {!data.byPaymentMethod?.length && (
+                {!paymentRows.length && (
                   <tr>
                     <td colSpan={5} className="py-6 text-center text-timber-400">
                       No orders in range
@@ -462,11 +475,11 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
             )}
           </ul>
 
-          {(data.byExpenseCategory || []).length > 0 && (
+          {expenseCategories.length > 0 && (
             <>
               <h2 className="mt-8 text-sm font-semibold text-timber-900">Expenses by category</h2>
               <ul className="mt-3 space-y-2 text-sm">
-                {data.byExpenseCategory.map((row) => (
+                {expenseCategories.map((row) => (
                   <li key={row.category} className="flex justify-between gap-3">
                     <span className="text-timber-700">{expenseCategoryLabel(row.category)}</span>
                     <span className="font-medium tabular-nums">{formatMoney(row.total)}</span>
@@ -496,7 +509,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
               </tr>
             </thead>
             <tbody>
-              {(data.recentOrders || []).map((o) => (
+              {recentOrders.map((o) => (
                 <tr key={o.id}>
                   <td className="font-mono text-xs">{o.id.slice(0, 8)}</td>
                   <td>{o.paymentMethod}</td>
@@ -523,7 +536,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
                   </td>
                 </tr>
               ))}
-              {!data.recentOrders?.length && (
+              {!recentOrders.length && (
                 <tr>
                   <td colSpan={6} className="py-6 text-center text-timber-400">
                     No orders

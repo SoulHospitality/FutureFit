@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
-import { getImageUrl, PRODUCT_TYPES } from '../utils/helpers';
+import { getImageUrl, PRODUCT_TYPES, asArray } from '../utils/helpers';
 
 export default function HomePage() {
   const [slides, setSlides] = useState([]);
@@ -11,10 +11,13 @@ export default function HomePage() {
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   useEffect(() => {
-    api.get('/slides').then((r) => setSlides(r.data)).catch(() => {});
+    api
+      .get('/slides')
+      .then((r) => setSlides(asArray(r.data)))
+      .catch(() => setSlides([]));
     api
       .get('/products?limit=8')
-      .then((r) => setProducts(r.data))
+      .then((r) => setProducts(asArray(r.data)))
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false));
   }, []);

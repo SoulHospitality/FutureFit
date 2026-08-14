@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { getImageUrl } from '../../utils/helpers';
+import { getImageUrl, asArray } from '../../utils/helpers';
 
 export default function StaffSlides() {
   const [slides, setSlides] = useState([]);
@@ -12,7 +12,7 @@ export default function StaffSlides() {
   const [fileData, setFileData] = useState(null);
 
   const load = () => {
-    api.get('/slides').then((r) => setSlides(r.data));
+    api.get('/slides').then((r) => setSlides(asArray(r.data)));
     api.get('/slides/cloudinary-status').then((r) => setCloudOk(r.data.configured)).catch(() => {});
   };
   useEffect(() => { load(); }, []);

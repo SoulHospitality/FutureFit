@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { PRODUCT_TYPES, formatMoney, getImageUrl } from '../../utils/helpers';
+import { PRODUCT_TYPES, formatMoney, getImageUrl, asArray } from '../../utils/helpers';
 
 const empty = {
   name: '',
@@ -29,7 +29,7 @@ export default function StaffProducts() {
   // Batch stock deltas so rapid +/- taps stay instant and send one request
   const stockQueue = useRef({});
 
-  const load = () => api.get('/products').then((r) => setProducts(r.data));
+  const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
   useEffect(() => {
     load();
   }, []);

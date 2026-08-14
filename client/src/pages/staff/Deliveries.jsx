@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Trash2 } from 'lucide-react';
 import api from '../../api/axios';
-import { formatMoney, orderStatusBadge, orderStatusLabel } from '../../utils/helpers';
+import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../../utils/helpers';
 
 const NEXT = {
   pending: ['confirmed', 'canceled'],
@@ -20,7 +20,9 @@ export default function StaffDeliveries() {
   const [markingId, setMarkingId] = useState(null);
 
   const load = () =>
-    api.get('/orders' + (filter ? `?status=${filter}` : '')).then((r) => setOrders(r.data));
+    api
+      .get('/orders' + (filter ? `?status=${filter}` : ''))
+      .then((r) => setOrders(asArray(r.data)));
 
   useEffect(() => {
     load();

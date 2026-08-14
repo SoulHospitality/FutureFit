@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import { asArray } from '../../utils/helpers';
 
 export default function StaffUsers() {
   const [users, setUsers] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'ops' });
 
-  const load = () => api.get('/users').then((r) => setUsers(r.data));
+  const load = () => api.get('/users').then((r) => setUsers(asArray(r.data)));
   useEffect(() => { load(); }, []);
 
   const create = async (e) => {

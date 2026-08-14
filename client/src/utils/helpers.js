@@ -37,6 +37,10 @@ export const formatMoney = (n) =>
     maximumFractionDigits: 0,
   }).format(Number(n) || 0);
 
+/** Coerce API payloads to an array (avoids `.map is not a function` on error objects). */
+export const asArray = (value) => (Array.isArray(value) ? value : []);
+
+
 export const FREE_SHIPPING_MIN = 2000;
 export const SHIPPING_FEE = 75;
 

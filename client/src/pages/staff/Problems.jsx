@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import { asArray } from '../../utils/helpers';
 
 const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 
@@ -12,8 +13,8 @@ export default function StaffProblems() {
   const [form, setForm] = useState({ orderId: '', subject: '', details: '' });
 
   const load = () => {
-    api.get('/problems').then((r) => setProblems(r.data));
-    api.get('/orders').then((r) => setOrders(r.data));
+    api.get('/problems').then((r) => setProblems(asArray(r.data)));
+    api.get('/orders').then((r) => setOrders(asArray(r.data)));
   };
   useEffect(() => { load(); }, []);
 
