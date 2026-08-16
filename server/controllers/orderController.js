@@ -1,5 +1,6 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
+const { stockForSize } = require('../utils/sizeStock');
 
 const FREE_SHIPPING_MIN = 2000;
 const SHIPPING_FEE = 75;
@@ -23,6 +24,7 @@ const buildOrderItems = async (orderItems) => {
   const productIds = orderItems.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
+    include: { sizeStocks: true },
   });
   const byId = Object.fromEntries(products.map((p) => [p.id, p]));
 
@@ -42,8 +44,16 @@ const buildOrderItems = async (orderItems) => {
       err.status = 400;
       throw err;
     }
-    if (product.stock < qty) {
-      const err = new Error(`Insufficient stock for ${product.name}`);
+    const size = item.size || null;
+    if (product.sizeStocks?.length && !size) {
+      const err = new Error(`Select a size for ${product.name}`);
+      err.status = 400;
+      throw err;
+    }
+    const available = stockForSize(product, size);
+    if (available < qty) {
+      const label = size ? `${product.name} (${size})` : product.name;
+      const err = new Error(`Insufficient stock for ${label}`);
       err.status = 400;
       throw err;
     }
@@ -102,6 +112,24 @@ const persistOrder = async ({
 }) => {
   const order = await prisma.$transaction(async (tx) => {
     for (const item of itemsData) {
+      if (item.size) {
+        const variantCount = await tx.productSize.count({
+          where: { productId: item.productId },
+        });
+        if (variantCount > 0) {
+          const sizeUpdated = await tx.productSize.updateMany({
+            where: {
+              productId: item.productId,
+              size: item.size,
+              stock: { gte: item.qty },
+            },
+            data: { stock: { decrement: item.qty } },
+          });
+          if (sizeUpdated.count === 0) {
+            throw new Error(`Insufficient stock for ${item.name} (${item.size})`);
+          }
+        }
+      }
       const updated = await tx.product.updateMany({
         where: { id: item.productId, stock: { gte: item.qty } },
         data: { stock: { decrement: item.qty } },
@@ -428,8 +456,9 @@ const financeSummary = async (req, res) => {
         where: Object.keys(expenseDate).length ? { expenseDate } : undefined,
         orderBy: { expenseDate: 'desc' },
       }),
-      prisma.product.findMany({
+      prisma.productSize.findMany({
         where: { stock: { lte: 5 } },
+        include: { product: { select: { id: true, name: true, price: true, salePrice: true } } },
         orderBy: { stock: 'asc' },
         take: 10,
       }),
@@ -486,10 +515,13 @@ const financeSummary = async (req, res) => {
       byExpenseCategory,
       expenses: expenses.map((e) => ({ ...e, amount: Number(e.amount) })),
       orders: orders.map(serializeOrder),
-      lowStock: lowStock.map((p) => ({
-        ...p,
-        price: Number(p.price),
-        salePrice: p.salePrice != null ? Number(p.salePrice) : null,
+      lowStock: lowStock.map((row) => ({
+        id: row.product.id,
+        name: row.product.name,
+        size: row.size,
+        stock: row.stock,
+        price: Number(row.product.price),
+        salePrice: row.product.salePrice != null ? Number(row.product.salePrice) : null,
       })),
       recentOrders: orders.slice(0, 10).map(serializeOrder),
     });

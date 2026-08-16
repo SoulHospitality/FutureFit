@@ -1,12 +1,29 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { resolvePhotoLinks } = require('../utils/drivePhotos');
+const {
+  normalizeSizeStocks,
+  sizeStockWrites,
+} = require('../utils/sizeStock');
 
-const serializeProduct = (p) => ({
-  ...p,
-  price: Number(p.price),
-  salePrice: p.salePrice != null ? Number(p.salePrice) : null,
-});
+const serializeProduct = (p) => {
+  const variants = Array.isArray(p.sizeStocks)
+    ? [...p.sizeStocks].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : [];
+  const sizeStocks = variants.map((v) => ({ size: v.size, stock: v.stock }));
+  const sizes = p.sizes?.length ? p.sizes : sizeStocks.map((s) => s.size);
+  const stock = sizeStocks.length
+    ? sizeStocks.reduce((n, s) => n + s.stock, 0)
+    : p.stock;
+  return {
+    ...p,
+    price: Number(p.price),
+    salePrice: p.salePrice != null ? Number(p.salePrice) : null,
+    sizes,
+    sizeStocks,
+    stock,
+  };
+};
 
 const PRODUCT_SELECT = {
   id: true,
@@ -22,6 +39,10 @@ const PRODUCT_SELECT = {
   salePrice: true,
   createdAt: true,
   updatedAt: true,
+  sizeStocks: {
+    select: { size: true, stock: true, sortOrder: true },
+    orderBy: { sortOrder: 'asc' },
+  },
 };
 
 const LIST_TTL_MS = 20_000;
@@ -31,6 +52,15 @@ const bustProductCache = () => {
   cache.invalidate('products');
   cache.invalidate('product');
 };
+
+const applySizeStocks = (rows) => ({
+  sizes: rows.map((r) => r.size),
+  stock: rows.reduce((n, r) => n + r.stock, 0),
+  sizeStocks: {
+    deleteMany: {},
+    create: sizeStockWrites(rows),
+  },
+});
 
 const listProducts = async (req, res) => {
   try {
@@ -113,13 +143,16 @@ const createProduct = async (req, res) => {
       type,
       photos,
       colors,
-      sizes,
-      stock,
       isSaleActive,
       salePrice,
     } = req.body;
     if (!name || !description || price == null || !type) {
       return res.status(400).json({ message: 'Name, description, price, and type are required' });
+    }
+
+    const sizeRows = normalizeSizeStocks(req.body);
+    if (!sizeRows.length) {
+      return res.status(400).json({ message: 'Add at least one size with stock' });
     }
 
     const resolvedPhotos = await resolvePhotoLinks(photos || []);
@@ -132,10 +165,11 @@ const createProduct = async (req, res) => {
         type,
         photos: resolvedPhotos,
         colors: colors || [],
-        sizes: sizes || [],
-        stock: stock ?? 0,
+        sizes: sizeRows.map((r) => r.size),
+        stock: sizeRows.reduce((n, r) => n + r.stock, 0),
         isSaleActive: Boolean(isSaleActive),
         salePrice: salePrice || null,
+        sizeStocks: { create: sizeStockWrites(sizeRows) },
       },
       select: PRODUCT_SELECT,
     });
@@ -153,8 +187,6 @@ const ALLOWED_UPDATE = [
   'type',
   'photos',
   'colors',
-  'sizes',
-  'stock',
   'isSaleActive',
   'salePrice',
 ];
@@ -167,6 +199,17 @@ const updateProduct = async (req, res) => {
     }
     if (data.photos) {
       data.photos = await resolvePhotoLinks(data.photos);
+    }
+    if (
+      req.body.sizeStocks !== undefined ||
+      req.body.sizes !== undefined ||
+      req.body.stock !== undefined
+    ) {
+      const sizeRows = normalizeSizeStocks(req.body);
+      if (!sizeRows.length) {
+        return res.status(400).json({ message: 'Add at least one size with stock' });
+      }
+      Object.assign(data, applySizeStocks(sizeRows));
     }
     const product = await prisma.product.update({
       where: { id: req.params.id },
@@ -183,8 +226,40 @@ const updateProduct = async (req, res) => {
 const adjustStock = async (req, res) => {
   try {
     const delta = Number(req.body.delta);
+    const size = req.body.size != null ? String(req.body.size).trim() : '';
     if (!Number.isFinite(delta)) {
       return res.status(400).json({ message: 'delta must be a number' });
+    }
+
+    if (size) {
+      const variant = await prisma.productSize.findUnique({
+        where: { productId_size: { productId: req.params.id, size } },
+      });
+      if (!variant) {
+        return res.status(404).json({ message: `Size ${size} not found` });
+      }
+      const nextStock = Math.max(0, variant.stock + delta);
+      const applied = nextStock - variant.stock;
+      const [updatedVariant, product] = await prisma.$transaction([
+        prisma.productSize.update({
+          where: { id: variant.id },
+          data: { stock: nextStock },
+          select: { id: true, size: true, stock: true },
+        }),
+        prisma.product.update({
+          where: { id: req.params.id },
+          data: { stock: { increment: applied } },
+          select: { id: true, stock: true },
+        }),
+      ]);
+      bustProductCache();
+      res.set('Cache-Control', 'no-store');
+      return res.json({
+        id: product.id,
+        size: updatedVariant.size,
+        stock: updatedVariant.stock,
+        totalStock: product.stock,
+      });
     }
 
     const updated = await prisma.product.update({

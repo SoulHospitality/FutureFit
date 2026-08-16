@@ -275,8 +275,14 @@ export default function StaffDashboard() {
               </div>
               <ul className="space-y-3">
                 {asArray(finance.lowStock).map((p) => (
-                  <li key={p.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate text-timber-700">{p.name}</span>
+                  <li
+                    key={`${p.id}-${p.size || 'all'}`}
+                    className="flex items-center justify-between gap-3 text-sm"
+                  >
+                    <span className="truncate text-timber-700">
+                      {p.name}
+                      {p.size ? ` · ${p.size}` : ''}
+                    </span>
                     <span className="shrink-0 font-medium tabular-nums text-timber-900">
                       {p.stock} left
                     </span>

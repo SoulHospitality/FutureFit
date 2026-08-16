@@ -1,5 +1,6 @@
 const app = require('./app');
 const prisma = require('./lib/prisma');
+const { backfillMissingSizeStocks } = require('./utils/sizeStock');
 
 const PORT = process.env.PORT || 5000;
 const MAX_DB_ATTEMPTS = 5;
@@ -32,6 +33,7 @@ const start = async () => {
     // Warm a couple of cheap queries (sequential to avoid pool stampede on cold start)
     await prisma.product.count().catch(() => null);
     await prisma.slide.count().catch(() => null);
+    await backfillMissingSizeStocks(prisma).catch(() => null);
     console.log('PostgreSQL connected (Supabase)');
 
     const server = app.listen(PORT, () => {

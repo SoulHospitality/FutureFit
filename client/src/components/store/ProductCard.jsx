@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { getImageUrl, formatMoney, PRODUCT_TYPES } from '../../utils/helpers';
+import { getImageUrl, formatMoney, PRODUCT_TYPES, totalStock } from '../../utils/helpers';
 import { useWishlist } from '../../context/WishlistContext';
 
 /** Lookbook-style product tile — image-led, minimal chrome. */
@@ -117,7 +117,7 @@ export default function ProductCard({ product }) {
             </span>
           )}
         </div>
-        {product.stock < 1 && (
+        {totalStock(product) < 1 && (
           <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
         )}
       </div>

@@ -40,6 +40,25 @@ export const formatMoney = (n) =>
 /** Coerce API payloads to an array (avoids `.map is not a function` on error objects). */
 export const asArray = (value) => (Array.isArray(value) ? value : []);
 
+/** Units available for a specific size. Falls back to product-level stock. */
+export const getSizeStock = (product, size) => {
+  const rows = product?.sizeStocks;
+  if (Array.isArray(rows) && rows.length) {
+    if (!size) return 0;
+    const row = rows.find((r) => r.size === size);
+    return row ? Number(row.stock) || 0 : 0;
+  }
+  return Number(product?.stock) || 0;
+};
+
+export const totalStock = (product) => {
+  const rows = product?.sizeStocks;
+  if (Array.isArray(rows) && rows.length) {
+    return rows.reduce((sum, row) => sum + (Number(row.stock) || 0), 0);
+  }
+  return Number(product?.stock) || 0;
+};
+
 
 export const FREE_SHIPPING_MIN = 2000;
 export const SHIPPING_FEE = 75;

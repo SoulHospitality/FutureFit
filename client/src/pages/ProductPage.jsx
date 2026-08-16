@@ -13,7 +13,7 @@ import {
 import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { formatMoney, getImageUrl, PRODUCT_TYPES, FREE_SHIPPING_MIN } from '../utils/helpers';
+import { formatMoney, getImageUrl, getSizeStock, totalStock, PRODUCT_TYPES, FREE_SHIPPING_MIN } from '../utils/helpers';
 
 function Accordion({ title, open, onToggle, children }) {
   return (
@@ -148,7 +148,9 @@ export default function ProductPage() {
     api.get(`/products/${id}`).then((r) => {
       setProduct(r.data);
       setColor(r.data.colors?.[0] || '');
-      setSize(r.data.sizes?.[0] || '');
+      const firstInStock =
+        (r.data.sizes || []).find((s) => getSizeStock(r.data, s) > 0) || r.data.sizes?.[0] || '';
+      setSize(firstInStock);
       setActivePhoto(0);
       setQty(1);
     });
@@ -174,15 +176,17 @@ export default function ProductPage() {
   const typeLabel =
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
-  const lowStock = product.stock > 0 && product.stock <= 5;
+  const available = getSizeStock(product, size);
+  const productStock = totalStock(product);
+  const lowStock = available > 0 && available <= 5;
   const sizeGuide = sizeGuideByType[product.type] || sizeGuideByType.default;
   const care = careByType[product.type] || careByType.default;
   const fitTip = fitTipByType[product.type] || fitTipByType.default;
   const liked = isSaved(product.id);
-  const canAdd = product.stock >= 1;
+  const canAdd = available >= 1;
 
   const add = () => {
-    if (product.stock < 1) return toast.error('Out of stock');
+    if (available < 1) return toast.error(size ? `Size ${size} is out of stock` : 'Out of stock');
     if (product.colors?.length && !color) return toast.error('Select a color');
     if (product.sizes?.length && !size) return toast.error('Select a size');
     addItem(product, qty, color || null, size || null);
@@ -325,20 +329,30 @@ export default function ProductPage() {
                 </div>
                 <p className="mb-3 text-sm text-timber-500">{fitTip}</p>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(s)}
-                      className={`min-w-[3rem] border px-3 py-2.5 text-sm font-medium transition ${
-                        size === s
-                          ? 'border-timber-900 bg-timber-900 text-white'
-                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-900'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {product.sizes.map((s) => {
+                    const sizeQty = getSizeStock(product, s);
+                    const soldOut = sizeQty < 1;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={soldOut}
+                        onClick={() => {
+                          setSize(s);
+                          setQty(1);
+                        }}
+                        className={`min-w-[3rem] border px-3 py-2.5 text-sm font-medium transition ${
+                          soldOut
+                            ? 'cursor-not-allowed border-timber-100 text-timber-300 line-through'
+                            : size === s
+                              ? 'border-timber-900 bg-timber-900 text-white'
+                              : 'border-timber-200 bg-white text-timber-800 hover:border-timber-900'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -361,8 +375,8 @@ export default function ProductPage() {
                 <button
                   type="button"
                   className="px-3 py-2.5 text-timber-700 hover:bg-timber-50"
-                  onClick={() => setQty((q) => Math.min(product.stock || 1, q + 1))}
-                  disabled={qty >= product.stock}
+                  onClick={() => setQty((q) => Math.min(available || 1, q + 1))}
+                  disabled={qty >= available}
                 >
                   <Plus className="h-4 w-4" strokeWidth={1.5} />
                 </button>
@@ -371,15 +385,20 @@ export default function ProductPage() {
 
             {lowStock && (
               <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-timber-600">
-                Low stock — only {product.stock} left
+                Low stock — only {available} left{size ? ` in ${size}` : ''}
               </p>
             )}
-            {product.stock < 1 && (
+            {productStock < 1 && (
               <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-red-600">
                 Out of stock
               </p>
             )}
-            {product.stock > 5 && (
+            {available < 1 && productStock >= 1 && size && (
+              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-red-600">
+                Size {size} is out of stock
+              </p>
+            )}
+            {available > 5 && (
               <p className="mt-5 text-sm text-timber-500">In stock</p>
             )}
 

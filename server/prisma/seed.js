@@ -7,6 +7,17 @@ const prisma = new PrismaClient();
 /** Local product photos served from the Vite public folder (and Railway client). */
 const photo = (file) => `/images/products/${file}`;
 
+const sizeStockRows = (sizes, total) => {
+  if (!sizes?.length) return [];
+  const base = Math.floor(total / sizes.length);
+  const remainder = total % sizes.length;
+  return sizes.map((size, i) => ({
+    size,
+    stock: base + (i < remainder ? 1 : 0),
+    sortOrder: i,
+  }));
+};
+
 const SLIDES = [
   {
     title: 'Underwear, elevated.',
@@ -263,6 +274,7 @@ async function seedCatalog() {
   console.log(`Seeded ${SLIDES.length} hero slides`);
 
   for (const product of PRODUCTS) {
+    const sizeStocks = sizeStockRows(product.sizes, product.stock);
     await prisma.product.create({
       data: {
         name: product.name,
@@ -275,6 +287,7 @@ async function seedCatalog() {
         colors: product.colors,
         sizes: product.sizes,
         stock: product.stock,
+        sizeStocks: { create: sizeStocks },
       },
     });
   }

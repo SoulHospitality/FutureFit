@@ -3,7 +3,14 @@ import { toast } from 'react-toastify';
 import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { PRODUCT_TYPES, formatMoney, getImageUrl, asArray } from '../../utils/helpers';
+import { PRODUCT_TYPES, formatMoney, getImageUrl, asArray, totalStock } from '../../utils/helpers';
+
+const DEFAULT_SIZE_ROWS = [
+  { size: 'S', stock: 0 },
+  { size: 'M', stock: 0 },
+  { size: 'L', stock: 0 },
+  { size: 'XL', stock: 0 },
+];
 
 const empty = {
   name: '',
@@ -13,11 +20,27 @@ const empty = {
   photos: '',
   driveFolder: '',
   colors: '',
-  sizes: '',
-  stock: 0,
+  sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
   isSaleActive: false,
   salePrice: '',
 };
+
+const sizeRowsFromProduct = (p) => {
+  if (Array.isArray(p.sizeStocks) && p.sizeStocks.length) {
+    return p.sizeStocks.map((row) => ({ size: row.size, stock: row.stock }));
+  }
+  const sizes = p.sizes || [];
+  if (!sizes.length) return DEFAULT_SIZE_ROWS.map((row) => ({ ...row }));
+  const total = Number(p.stock) || 0;
+  const base = Math.floor(total / sizes.length);
+  const remainder = total % sizes.length;
+  return sizes.map((size, i) => ({
+    size,
+    stock: base + (i < remainder ? 1 : 0),
+  }));
+};
+
+const queueKey = (id, size) => `${id}::${size || ''}`;
 
 export default function StaffProducts() {
   const [products, setProducts] = useState([]);
@@ -26,7 +49,6 @@ export default function StaffProducts() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [loadingFolder, setLoadingFolder] = useState(false);
-  // Batch stock deltas so rapid +/- taps stay instant and send one request
   const stockQueue = useRef({});
 
   const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
@@ -34,8 +56,9 @@ export default function StaffProducts() {
     load();
   }, []);
 
-  const flushStock = async (id) => {
-    const q = stockQueue.current[id];
+  const flushStock = async (id, size) => {
+    const key = queueKey(id, size);
+    const q = stockQueue.current[key];
     if (!q || q.inFlight || q.pending === 0) return;
 
     q.inFlight = true;
@@ -43,33 +66,62 @@ export default function StaffProducts() {
     q.pending = 0;
 
     try {
-      const { data } = await api.patch(`/products/${id}/stock`, { delta });
-      // Re-apply any clicks made while this request was in flight so the
-      // counter never jumps backwards.
-      const stillPending = stockQueue.current[id]?.pending || 0;
+      const { data } = await api.patch(`/products/${id}/stock`, {
+        delta,
+        ...(size ? { size } : {}),
+      });
+      const stillPending = stockQueue.current[key]?.pending || 0;
       setProducts((prev) =>
-        prev.map((p) =>
-          p.id === id ? { ...p, stock: Math.max(0, data.stock + stillPending) } : p
-        )
+        prev.map((p) => {
+          if (p.id !== id) return p;
+          if (size && p.sizeStocks?.length) {
+            const sizeStocks = p.sizeStocks.map((row) =>
+              row.size === size
+                ? { ...row, stock: Math.max(0, data.stock + stillPending) }
+                : row
+            );
+            return {
+              ...p,
+              sizeStocks,
+              stock: sizeStocks.reduce((n, row) => n + row.stock, 0),
+            };
+          }
+          return { ...p, stock: Math.max(0, data.stock + stillPending) };
+        })
       );
     } catch (err) {
       toast.error(err.response?.data?.message || 'Stock update failed');
-      if (stockQueue.current[id]) stockQueue.current[id].pending = 0;
+      if (stockQueue.current[key]) stockQueue.current[key].pending = 0;
       await load();
     } finally {
-      const queue = stockQueue.current[id];
+      const queue = stockQueue.current[key];
       if (queue) {
         queue.inFlight = false;
-        if (queue.pending !== 0) flushStock(id);
+        if (queue.pending !== 0) flushStock(id, size);
       }
     }
   };
 
-  const adjust = (id, delta) => {
+  const adjust = (id, delta, size) => {
     let applied = true;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
+        if (size && p.sizeStocks?.length) {
+          const current = p.sizeStocks.find((row) => row.size === size);
+          if (delta < 0 && (!current || current.stock <= 0)) {
+            applied = false;
+            return p;
+          }
+          const sizeStocks = p.sizeStocks.map((row) =>
+            row.size === size ? { ...row, stock: Math.max(0, row.stock + delta) } : row
+          );
+          return {
+            ...p,
+            sizeStocks,
+            stock: sizeStocks.reduce((n, row) => n + row.stock, 0),
+          };
+        }
         if (delta < 0 && p.stock <= 0) {
           applied = false;
           return p;
@@ -79,20 +131,23 @@ export default function StaffProducts() {
     );
     if (!applied) return;
 
-    if (!stockQueue.current[id]) {
-      stockQueue.current[id] = { pending: 0, inFlight: false, timer: null };
+    const key = queueKey(id, size);
+    if (!stockQueue.current[key]) {
+      stockQueue.current[key] = { pending: 0, inFlight: false, timer: null };
     }
-    const queue = stockQueue.current[id];
+    const queue = stockQueue.current[key];
     queue.pending += delta;
 
-    // Collapse a burst of clicks into a single request
     clearTimeout(queue.timer);
-    queue.timer = setTimeout(() => flushStock(id), 400);
+    queue.timer = setTimeout(() => flushStock(id, size), 400);
   };
 
   const openCreate = () => {
     setEditing(null);
-    setForm(empty);
+    setForm({
+      ...empty,
+      sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
+    });
     setOpen(true);
   };
 
@@ -106,12 +161,29 @@ export default function StaffProducts() {
       photos: (p.photos || []).join('\n'),
       driveFolder: '',
       colors: (p.colors || []).join(', '),
-      sizes: (p.sizes || []).join(', '),
-      stock: p.stock,
+      sizeRows: sizeRowsFromProduct(p),
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
     });
     setOpen(true);
+  };
+
+  const updateSizeRow = (index, field, value) => {
+    setForm((f) => ({
+      ...f,
+      sizeRows: f.sizeRows.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    }));
+  };
+
+  const addSizeRow = () => {
+    setForm((f) => ({ ...f, sizeRows: [...f.sizeRows, { size: '', stock: 0 }] }));
+  };
+
+  const removeSizeRow = (index) => {
+    setForm((f) => ({
+      ...f,
+      sizeRows: f.sizeRows.length <= 1 ? f.sizeRows : f.sizeRows.filter((_, i) => i !== index),
+    }));
   };
 
   const loadDriveFolder = async () => {
@@ -136,6 +208,15 @@ export default function StaffProducts() {
 
   const save = async (e) => {
     e.preventDefault();
+    const sizeStocks = form.sizeRows
+      .map((row) => ({
+        size: String(row.size || '').trim(),
+        stock: Math.max(0, Number(row.stock) || 0),
+      }))
+      .filter((row) => row.size);
+    if (!sizeStocks.length) {
+      return toast.error('Add at least one size with a name');
+    }
     setSaving(true);
     const links = [
       ...form.photos.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
@@ -148,8 +229,7 @@ export default function StaffProducts() {
       type: form.type,
       photos: links,
       colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean),
-      sizes: form.sizes.split(',').map((s) => s.trim()).filter(Boolean),
-      stock: Number(form.stock) || 0,
+      sizeStocks,
       isSaleActive: Boolean(form.isSaleActive),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
     };
@@ -179,6 +259,8 @@ export default function StaffProducts() {
     .filter(Boolean)
     .slice(0, 8);
 
+  const formTotalStock = form.sizeRows.reduce((n, row) => n + (Number(row.stock) || 0), 0);
+
   return (
     <>
       <div className="flex items-center justify-between mb-6">
@@ -200,68 +282,87 @@ export default function StaffProducts() {
               <th>Item</th>
               <th>Type</th>
               <th>Price</th>
-              <th>Stock</th>
+              <th>Stock by size</th>
               <th>Sale</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={getImageUrl(p.photos?.[0])}
-                      alt=""
-                      className="w-10 h-10 rounded object-cover bg-timber-100"
-                    />
-                    <span className="font-medium">{p.name}</span>
-                  </div>
-                </td>
-                <td className="capitalize">{p.type.replace('_', ' ')}</td>
-                <td>{formatMoney(p.price)}</td>
-                <td>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm !px-2"
-                      onClick={() => adjust(p.id, -1)}
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-8 text-center font-semibold tabular-nums">
-                      {p.stock}
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-outline btn-sm !px-2"
-                      onClick={() => adjust(p.id, 1)}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </td>
-                <td>{p.isSaleActive ? formatMoney(p.salePrice) : '—'}</td>
-                <td>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm"
-                      onClick={() => openEdit(p)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm text-red-600"
-                      onClick={() => remove(p.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {products.map((p) => {
+              const rows = p.sizeStocks?.length
+                ? p.sizeStocks
+                : [{ size: '', stock: p.stock }];
+              return (
+                <tr key={p.id}>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={getImageUrl(p.photos?.[0])}
+                        alt=""
+                        className="w-10 h-10 rounded object-cover bg-timber-100"
+                      />
+                      <span className="font-medium">{p.name}</span>
+                    </div>
+                  </td>
+                  <td className="capitalize">{p.type.replace('_', ' ')}</td>
+                  <td>{formatMoney(p.price)}</td>
+                  <td>
+                    <div className="space-y-1">
+                      {rows.map((row) => (
+                        <div key={row.size || 'total'} className="flex items-center gap-1">
+                          {row.size ? (
+                            <span className="w-10 shrink-0 text-xs font-medium text-timber-500">
+                              {row.size}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm !px-2"
+                            onClick={() => adjust(p.id, -1, row.size || undefined)}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-8 text-center font-semibold tabular-nums">
+                            {row.stock}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn-outline btn-sm !px-2"
+                            onClick={() => adjust(p.id, 1, row.size || undefined)}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {p.sizeStocks?.length > 1 && (
+                        <p className="text-[10px] uppercase tracking-wide text-timber-400">
+                          Total {totalStock(p)}
+                        </p>
+                      )}
+                    </div>
+                  </td>
+                  <td>{p.isSaleActive ? formatMoney(p.salePrice) : '—'}</td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm"
+                        onClick={() => openEdit(p)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm text-red-600"
+                        onClick={() => remove(p.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -318,15 +419,6 @@ export default function StaffProducts() {
               </select>
             </div>
             <div>
-              <label className="label">Stock</label>
-              <input
-                type="number"
-                className="input"
-                value={form.stock}
-                onChange={(e) => setForm({ ...form, stock: e.target.value })}
-              />
-            </div>
-            <div>
               <label className="label">Colors (comma-separated)</label>
               <input
                 className="input"
@@ -335,14 +427,53 @@ export default function StaffProducts() {
                 placeholder="Wheat, Black, Brown"
               />
             </div>
-            <div>
-              <label className="label">Sizes (comma-separated)</label>
-              <input
-                className="input"
-                value={form.sizes}
-                onChange={(e) => setForm({ ...form, sizes: e.target.value })}
-                placeholder="40, 41, 42, 43, 44"
-              />
+            <div className="flex items-end text-sm text-timber-500">
+              Total stock: <span className="ms-1 font-semibold tabular-nums text-timber-800">{formTotalStock}</span>
+            </div>
+
+            <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <label className="label !mb-0">Sizes & stock</label>
+                  <p className="mt-1 text-xs text-timber-400">
+                    Each size has its own inventory. Sold-out sizes are hidden from checkout.
+                  </p>
+                </div>
+                <button type="button" className="btn-outline btn-sm" onClick={addSizeRow}>
+                  <Plus className="w-3 h-3" />
+                  Add size
+                </button>
+              </div>
+              <div className="space-y-2">
+                {form.sizeRows.map((row, index) => (
+                  <div key={index} className="grid grid-cols-[1fr_7rem_auto] gap-2">
+                    <input
+                      className="input"
+                      value={row.size}
+                      onChange={(e) => updateSizeRow(index, 'size', e.target.value)}
+                      placeholder="Size (S, M, 41…)"
+                      required
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      value={row.stock}
+                      onChange={(e) => updateSizeRow(index, 'stock', e.target.value)}
+                      placeholder="Qty"
+                    />
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm text-red-600"
+                      onClick={() => removeSizeRow(index)}
+                      disabled={form.sizeRows.length <= 1}
+                      aria-label="Remove size"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">

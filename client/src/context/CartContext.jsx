@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getSizeStock } from '../utils/helpers';
 
 const CartContext = createContext(null);
 
@@ -22,9 +23,16 @@ export function CartProvider({ children }) {
     setItems((prev) => {
       const key = itemKey(product.id, color, size);
       const existing = prev.find((i) => itemKey(i.productId, i.color, i.size) === key);
+      const available = getSizeStock(product, size);
+      const nextQty = existing
+        ? existing.qty + qty
+        : qty;
+      const cappedQty = available > 0 ? Math.min(nextQty, available) : nextQty;
       if (existing) {
         return prev.map((i) =>
-          itemKey(i.productId, i.color, i.size) === key ? { ...i, qty: i.qty + qty } : i
+          itemKey(i.productId, i.color, i.size) === key
+            ? { ...i, qty: cappedQty, stock: available || i.stock }
+            : i
         );
       }
       const price =
@@ -36,10 +44,10 @@ export function CartProvider({ children }) {
           name: product.name,
           image: product.photos?.[0] || '',
           price,
-          qty,
+          qty: cappedQty,
           color,
           size,
-          stock: product.stock,
+          stock: available,
         },
       ];
     });

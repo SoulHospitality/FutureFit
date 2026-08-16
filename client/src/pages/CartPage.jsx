@@ -115,10 +115,18 @@ export default function CartPage() {
                     </span>
                     <button
                       type="button"
-                      className="px-2.5 py-2 text-timber-700 hover:bg-timber-50"
+                      className="px-2.5 py-2 text-timber-700 hover:bg-timber-50 disabled:opacity-40"
                       onClick={() =>
-                        updateQty(item.productId, item.color, item.size, item.qty + 1)
+                        updateQty(
+                          item.productId,
+                          item.color,
+                          item.size,
+                          item.stock != null
+                            ? Math.min(item.stock, item.qty + 1)
+                            : item.qty + 1
+                        )
                       }
+                      disabled={item.stock != null && item.qty >= item.stock}
                       aria-label="Increase quantity"
                     >
                       <Plus className="h-4 w-4" strokeWidth={1.5} />
