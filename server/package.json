@@ -4,7 +4,7 @@
   "description": "Backend for FutureFit apparel shop",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "prisma db push --skip-generate && node index.js",
     "dev": "nodemon index.js",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",

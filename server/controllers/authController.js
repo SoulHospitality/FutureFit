@@ -44,9 +44,10 @@ const registerCustomer = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const password = String(req.body.password || '').trim();
     const user = await prisma.user.findUnique({
-      where: { email: (email || '').toLowerCase() },
+      where: { email },
     });
     if (!user) return res.status(401).json({ message: 'Invalid email or password' });
 
