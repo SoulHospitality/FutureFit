@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
   ChevronDown,
@@ -136,6 +136,7 @@ function TrustRow() {
 
 export default function ProductPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addItem } = useCart();
   const { isSaved, toggle } = useWishlist();
   const [product, setProduct] = useState(null);
@@ -190,11 +191,25 @@ export default function ProductPage() {
   const liked = isSaved(product.id);
   const canAdd = available >= 1;
 
-  const add = () => {
-    if (available < 1) return toast.error(size ? `Size ${size} is out of stock` : 'Out of stock');
-    if (product.colors?.length && !color) return toast.error('Select a color');
-    if (product.sizes?.length && !size) return toast.error('Select a size');
+  const addToCart = () => {
+    if (available < 1) {
+      toast.error(size ? `Size ${size} is out of stock` : 'Out of stock');
+      return false;
+    }
+    if (product.colors?.length && !color) {
+      toast.error('Select a color');
+      return false;
+    }
+    if (product.sizes?.length && !size) {
+      toast.error('Select a size');
+      return false;
+    }
     addItem(product, qty, color || null, size || null);
+    return true;
+  };
+
+  const add = () => {
+    if (!addToCart()) return;
     toast.success(
       <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
         <span>Added to cart</span>
@@ -206,6 +221,11 @@ export default function ProductPage() {
         </Link>
       </span>
     );
+  };
+
+  const buyNow = () => {
+    if (!addToCart()) return;
+    navigate('/checkout');
   };
 
   const toggleSection = (key) =>
@@ -438,14 +458,24 @@ export default function ProductPage() {
               <p className="mt-5 text-sm text-timber-500">In stock</p>
             )}
 
-            <button
-              type="button"
-              className="btn-wheat mt-8 hidden w-full py-4 text-[11px] font-medium uppercase tracking-[0.22em] lg:inline-flex"
-              onClick={add}
-              disabled={!canAdd}
-            >
-              Add to cart
-            </button>
+            <div className="mt-8 hidden gap-3 lg:flex">
+              <button
+                type="button"
+                className="btn-outline flex-1 py-4 text-[11px] font-medium uppercase tracking-[0.22em]"
+                onClick={add}
+                disabled={!canAdd}
+              >
+                Add to cart
+              </button>
+              <button
+                type="button"
+                className="btn-wheat flex-1 py-4 text-[11px] font-medium uppercase tracking-[0.22em]"
+                onClick={buyNow}
+                disabled={!canAdd}
+              >
+                Buy now
+              </button>
+            </div>
 
             <TrustRow />
 
@@ -625,18 +655,22 @@ export default function ProductPage() {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-7xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-timber-900">{product.name}</p>
-            <p className="text-sm tabular-nums text-timber-600">{formatMoney(price)}</p>
-          </div>
+        <div className="mx-auto flex max-w-7xl items-center gap-2">
           <button
             type="button"
-            className="btn-wheat shrink-0 px-5 py-3 text-[10px] font-medium uppercase tracking-[0.18em]"
+            className="btn-outline min-h-12 flex-1 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.16em]"
             onClick={add}
             disabled={!canAdd}
           >
             Add to cart
+          </button>
+          <button
+            type="button"
+            className="btn-wheat min-h-12 flex-1 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.16em]"
+            onClick={buyNow}
+            disabled={!canAdd}
+          >
+            Buy now
           </button>
         </div>
       </div>

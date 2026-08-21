@@ -1,19 +1,43 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatch } from '../../utils/helpers';
+import { toast } from 'react-toastify';
+import { ChevronLeft, ChevronRight, Heart, ShoppingBag } from 'lucide-react';
+import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatch, getSizeStock } from '../../utils/helpers';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
 
 /** Lookbook-style product tile — image-led, minimal chrome. */
 export default function ProductCard({ product }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const { isSaved, toggle } = useWishlist();
+  const { addItem } = useCart();
   const liked = isSaved(product.id);
   const photos = (product.photos || []).filter(Boolean);
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
   const typeLabel = categoryLabel(product);
+  const inStock = totalStock(product) >= 1;
+
+  const quickAdd = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!inStock) return toast.error('Out of stock');
+    const color = product.colors?.[0] || null;
+    const size =
+      (product.sizes || []).find((s) => getSizeStock(product, s) > 0) ||
+      product.sizes?.[0] ||
+      null;
+    addItem(product, 1, color, size);
+    toast.success(
+      <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>Added to cart</span>
+        <Link to="/cart" className="font-semibold underline underline-offset-2">
+          View cart
+        </Link>
+      </span>
+    );
+  };
 
   const prev = (e) => {
     e.preventDefault();
@@ -90,12 +114,21 @@ export default function ProductCard({ product }) {
             e.stopPropagation();
             toggle(product);
           }}
-          className="absolute end-3 top-3 grid h-9 w-9 place-items-center bg-white/95 opacity-0 transition group-hover:opacity-100 hover:bg-white"
+          className="absolute end-3 top-3 grid h-9 w-9 place-items-center bg-white/95 opacity-100 sm:opacity-0 transition group-hover:opacity-100 hover:bg-white"
         >
           <Heart
             className={`h-4 w-4 ${liked ? 'fill-timber-900 text-timber-900' : 'text-timber-800'}`}
             strokeWidth={1.5}
           />
+        </button>
+        <button
+          type="button"
+          aria-label={inStock ? 'Add to cart' : 'Out of stock'}
+          disabled={!inStock}
+          onClick={quickAdd}
+          className="absolute end-3 bottom-3 grid h-10 w-10 place-items-center bg-timber-900 text-white transition hover:bg-timber-800 disabled:cursor-not-allowed disabled:bg-timber-300"
+        >
+          <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
 
@@ -137,6 +170,14 @@ export default function ProductCard({ product }) {
         {totalStock(product) < 1 && (
           <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
         )}
+        <button
+          type="button"
+          disabled={!inStock}
+          onClick={quickAdd}
+          className="btn-outline mt-3 w-full py-2.5 text-[10px] font-medium uppercase tracking-[0.18em] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {inStock ? 'Add to cart' : 'Out of stock'}
+        </button>
       </div>
     </Link>
   );
