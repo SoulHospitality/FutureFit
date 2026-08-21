@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Heart } from 'lucide-react';
-import { getImageUrl, formatMoney, PRODUCT_TYPES, totalStock } from '../../utils/helpers';
+import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatch } from '../../utils/helpers';
 import { useWishlist } from '../../context/WishlistContext';
+import StarRating from './StarRating';
 
 /** Lookbook-style product tile — image-led, minimal chrome. */
 export default function ProductCard({ product }) {
@@ -12,9 +13,7 @@ export default function ProductCard({ product }) {
   const photos = (product.photos || []).filter(Boolean);
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
-  const typeLabel =
-    PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
-    product.type.replace('_', ' ');
+  const typeLabel = categoryLabel(product);
 
   const prev = (e) => {
     e.preventDefault();
@@ -107,6 +106,12 @@ export default function ProductCard({ product }) {
         <h3 className="text-[15px] font-medium leading-snug text-timber-900 line-clamp-2 group-hover:underline group-hover:underline-offset-4 decoration-timber-300">
           {product.name}
         </h3>
+        {product.reviewCount > 0 && (
+          <div className="mt-1 flex items-center gap-1.5">
+            <StarRating value={product.ratingAvg} readOnly size={12} />
+            <span className="text-[11px] text-timber-400">({product.reviewCount})</span>
+          </div>
+        )}
         <div className="mt-1 flex items-baseline gap-2">
           <span className="text-sm tabular-nums text-timber-800">
             {formatMoney(price)}
@@ -117,6 +122,18 @@ export default function ProductCard({ product }) {
             </span>
           )}
         </div>
+        {product.colors?.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {product.colors.slice(0, 5).map((c) => (
+              <span
+                key={c}
+                title={c}
+                className="h-3 w-3 rounded-full border border-timber-200"
+                style={{ backgroundColor: colorSwatch(c) }}
+              />
+            ))}
+          </div>
+        )}
         {totalStock(product) < 1 && (
           <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
         )}

@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { PRODUCT_TYPES, formatMoney, getImageUrl, asArray, totalStock } from '../../utils/helpers';
+import { AUDIENCES, formatMoney, getImageUrl, asArray, totalStock, audienceLabel, categoryLabel } from '../../utils/helpers';
 
 const DEFAULT_SIZE_ROWS = [
   { size: 'S', stock: 0 },
@@ -17,6 +17,8 @@ const empty = {
   description: '',
   price: '',
   type: 'boxers',
+  audience: 'men',
+  categoryId: '',
   photos: '',
   driveFolder: '',
   colors: '',
@@ -49,11 +51,13 @@ export default function StaffProducts() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [loadingFolder, setLoadingFolder] = useState(false);
+  const [categories, setCategories] = useState([]);
   const stockQueue = useRef({});
 
   const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
   useEffect(() => {
     load();
+    api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
   }, []);
 
   const flushStock = async (id, size) => {
@@ -158,6 +162,8 @@ export default function StaffProducts() {
       description: p.description,
       price: p.price,
       type: p.type,
+      audience: p.audience || 'men',
+      categoryId: p.category?.id || p.categoryId || '',
       photos: (p.photos || []).join('\n'),
       driveFolder: '',
       colors: (p.colors || []).join(', '),
@@ -227,6 +233,8 @@ export default function StaffProducts() {
       description: form.description,
       price: Number(form.price),
       type: form.type,
+      audience: form.audience,
+      categoryId: form.categoryId || null,
       photos: links,
       colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean),
       sizeStocks,
@@ -280,7 +288,7 @@ export default function StaffProducts() {
           <thead>
             <tr>
               <th>Item</th>
-              <th>Type</th>
+              <th>Dept</th>
               <th>Price</th>
               <th>Stock by size</th>
               <th>Sale</th>
@@ -304,7 +312,10 @@ export default function StaffProducts() {
                       <span className="font-medium">{p.name}</span>
                     </div>
                   </td>
-                  <td className="capitalize">{p.type.replace('_', ' ')}</td>
+                  <td>
+                  {audienceLabel(p.audience)}
+                  {categoryLabel(p) ? ` · ${categoryLabel(p)}` : ''}
+                </td>
                   <td>{formatMoney(p.price)}</td>
                   <td>
                     <div className="space-y-1">
@@ -405,17 +416,36 @@ export default function StaffProducts() {
               />
             </div>
             <div>
-              <label className="label">Type</label>
+              <label className="label">Department</label>
               <select
                 className="input"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
+                value={form.audience}
+                onChange={(e) =>
+                  setForm({ ...form, audience: e.target.value, categoryId: '' })
+                }
               >
-                {PRODUCT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
+                {AUDIENCES.map((a) => (
+                  <option key={a.value} value={a.value}>
+                    {a.label}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Subcategory</label>
+              <select
+                className="input"
+                value={form.categoryId}
+                onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+              >
+                <option value="">Select…</option>
+                {categories
+                  .filter((c) => c.audience === form.audience)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>

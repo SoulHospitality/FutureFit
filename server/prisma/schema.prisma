@@ -23,6 +23,12 @@ enum ProductType {
   bundle
 }
 
+enum Audience {
+  men
+  women
+  kids
+}
+
 enum OrderStatus {
   pending
   confirmed
@@ -55,12 +61,29 @@ model User {
   createdProblems  ProblemRequest[] @relation("CreatedProblems")
 }
 
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String
+  audience  Audience
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@unique([audience, slug])
+  @@index([audience])
+}
+
 model Product {
   id           String      @id @default(uuid())
   name         String
   description  String
   price        Decimal     @db.Decimal(10, 2)
   type         ProductType
+  audience     Audience    @default(men)
+  categoryId   String?
   photos       String[]
   colors       String[]
   sizes        String[]    @default([])
@@ -70,8 +93,28 @@ model Product {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   sizeStocks ProductSize[]
   orderItems OrderItem[]
+  reviews    Review[]
+
+  @@index([audience])
+  @@index([categoryId])
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  name      String
+  rating    Int
+  comment   String
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
 }
 
 model ProductSize {

@@ -1,6 +1,8 @@
 const ADMIN_PAGES = [
   'dashboard',
   'products',
+  'categories',
+  'reviews',
   'orders',
   'deliveries',
   'problems',

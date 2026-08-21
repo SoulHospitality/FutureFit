@@ -1,14 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { toast } from 'react-toastify';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
-import { getImageUrl, PRODUCT_TYPES, asArray } from '../utils/helpers';
+import StarRating from '../components/store/StarRating';
+import { getImageUrl, AUDIENCES, asArray, FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
+
+const DEPT_COPY = {
+  men: 'Underwear, undershirts, and everyday essentials.',
+  women: 'Pieces cut for ease, presence, and all-day wear.',
+  kids: 'Soft staples sized for growing days.',
+};
 
 export default function HomePage() {
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [index, setIndex] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     api
@@ -20,11 +31,15 @@ export default function HomePage() {
       .then((r) => setProducts(asArray(r.data)))
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false));
+    api
+      .get('/reviews?visible=true&limit=6')
+      .then((r) => setReviews(asArray(r.data)))
+      .catch(() => setReviews([]));
   }, []);
 
   useEffect(() => {
     if (slides.length < 2) return undefined;
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 3500);
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 5000);
     return () => clearInterval(t);
   }, [slides.length]);
 
@@ -32,6 +47,11 @@ export default function HomePage() {
   const fallbackTitle = 'Setting trends with every stitch.';
   const fallbackDescription =
     'Classic cuts. Modern presence. Apparel made to move with you — from Cairo streets to every occasion.';
+
+  const go = (dir) => {
+    if (!slides.length) return;
+    setIndex((i) => (i + dir + slides.length) % slides.length);
+  };
 
   return (
     <div className="bg-white">
@@ -43,8 +63,8 @@ export default function HomePage() {
                 key={s.id}
                 src={getImageUrl(s.cloudinaryUrl)}
                 alt={s.title}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-in-out ${
-                  i === index ? 'opacity-55' : 'opacity-0'
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1400ms] ease-in-out ${
+                  i === index ? 'opacity-100' : 'opacity-0'
                 }`}
               />
             ))
@@ -52,74 +72,99 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-timber-900" />
           )}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/70" />
-        <div className="relative mx-auto flex min-h-[100svh] max-w-7xl items-center justify-center px-5 text-center sm:px-8">
-          <div className="max-w-3xl pb-24 pt-36 text-white sm:pt-40">
+        <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
+        <div className="relative mx-auto flex min-h-[100svh] max-w-7xl items-end px-5 pb-24 pt-40 sm:px-8 sm:pb-28">
+          <div className="max-w-xl text-white">
             <p className="text-[11px] font-medium uppercase tracking-[0.4em] text-white/70">
               FutureFit
             </p>
             <div key={slide?.id || 'fallback'} className="hero-copy-fade">
-              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.95] tracking-tight sm:text-7xl md:text-8xl">
+              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.95] tracking-tight sm:text-7xl">
                 {slide?.title || fallbackTitle}
               </h1>
-              <p className="mx-auto mt-6 max-w-md text-balance text-base leading-relaxed text-white/75 sm:text-lg">
+              <p className="mt-6 max-w-md text-balance text-base leading-relaxed text-white/80 sm:text-lg">
                 {slide?.description || fallbackDescription}
               </p>
             </div>
-            <div className="mt-10 flex flex-wrap justify-center gap-3">
-              <Link
-                to="/shop"
-                className="btn-wheat btn-lg text-[11px] uppercase tracking-[0.24em]"
-              >
-                Shop collection
-              </Link>
-              <Link
-                to="/about"
-                className="btn-outline btn-lg border-white/35 text-[11px] uppercase tracking-[0.24em] text-white hover:bg-white/10"
-              >
-                Our story
-              </Link>
-            </div>
+            <Link
+              to="/shop"
+              className="btn-wheat mt-10 inline-flex px-8 py-3.5 text-[11px] uppercase tracking-[0.24em]"
+            >
+              Shop collection
+            </Link>
           </div>
         </div>
         {slides.length > 1 && (
-          <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-2">
-            {slides.map((s, i) => (
-              <button
-                key={s.id}
-                type="button"
-                aria-label={`Slide ${i + 1}`}
-                onClick={() => setIndex(i)}
-                className={`h-px transition-all duration-500 ease-out ${
-                  i === index ? 'w-10 bg-white' : 'w-5 bg-white/35'
-                }`}
-              />
-            ))}
-          </div>
+          <>
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              className="absolute left-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 text-white transition hover:bg-white hover:text-timber-900 sm:grid"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 text-white transition hover:bg-white hover:text-timber-900 sm:grid"
+              aria-label="Next slide"
+            >
+              <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
+            </button>
+            <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-2">
+              {slides.map((s, i) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-label={`Slide ${i + 1}`}
+                  onClick={() => setIndex(i)}
+                  className={`h-px transition-all duration-500 ease-out ${
+                    i === index ? 'w-10 bg-white' : 'w-5 bg-white/35'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
         )}
       </section>
 
-      <section className="border-b border-timber-100">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-3 px-4 py-5 sm:px-6">
-          {PRODUCT_TYPES.slice(0, 5).map((t) => (
-            <Link
-              key={t.value}
-              to={`/shop?types=${t.value}`}
-              className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500 transition hover:text-timber-900"
-            >
-              {t.label}
-            </Link>
-          ))}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
+        <div className="mb-10 flex items-end justify-between">
+          <div>
+            <p className="brand-eyebrow">Shop</p>
+            <h2 className="mt-2 font-display text-4xl font-medium tracking-tight text-timber-900">
+              Departments
+            </h2>
+          </div>
           <Link
             to="/shop"
-            className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-900 underline underline-offset-8"
+            className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-500 underline-offset-8 hover:underline"
           >
-            View all
+            Shop all
           </Link>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          {AUDIENCES.map((a) => (
+            <Link
+              key={a.value}
+              to={`/shop?audience=${a.value}`}
+              className="group relative min-h-[280px] overflow-hidden bg-timber-900 p-8 text-white"
+            >
+              <div className="absolute inset-0 bg-timber-800 transition duration-700 group-hover:scale-105" />
+              <div className="relative flex h-full flex-col justify-end">
+                <h3 className="font-display text-4xl font-medium">{a.label}</h3>
+                <p className="mt-2 max-w-xs text-sm text-white/70">{DEPT_COPY[a.value]}</p>
+                <span className="mt-6 text-[10px] uppercase tracking-[0.24em] underline underline-offset-8">
+                  Shop {a.label}
+                </span>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
+      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
         <div className="mb-12 flex items-end justify-between gap-4">
           <div>
             <p className="brand-eyebrow">New season</p>
@@ -136,21 +181,21 @@ export default function HomePage() {
           </Link>
         </div>
         {loadingProducts ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4 lg:gap-x-6">
+          <div className="flex gap-6 overflow-hidden">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="animate-pulse">
+              <div key={i} className="w-[240px] shrink-0 animate-pulse">
                 <div className="aspect-[3/4] bg-timber-100" />
-                <div className="mt-4 h-3 w-1/3 bg-timber-100" />
-                <div className="mt-2 h-4 w-2/3 bg-timber-100" />
               </div>
             ))}
           </div>
         ) : products.length === 0 ? (
           <p className="text-sm text-timber-500">No products yet — check back soon.</p>
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4 lg:gap-x-6">
+          <div className="flex gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <div key={p.id} className="w-[240px] shrink-0 sm:w-[280px]">
+                <ProductCard product={p} />
+              </div>
             ))}
           </div>
         )}
@@ -177,15 +222,74 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-t border-timber-100 bg-timber-50 py-20">
+      {reviews.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
+          <p className="brand-eyebrow">Reviews</p>
+          <h2 className="mt-2 font-display text-4xl font-medium tracking-tight text-timber-900">
+            From the fitting room
+          </h2>
+          <div className="mt-10 grid gap-8 md:grid-cols-3">
+            {reviews.slice(0, 6).map((r) => (
+              <article key={r.id} className="border border-timber-100 p-6">
+                <StarRating value={r.rating} readOnly size={14} />
+                <p className="mt-4 text-sm leading-relaxed text-timber-600 line-clamp-4">
+                  {r.comment}
+                </p>
+                <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-timber-400">
+                  {r.name}
+                  {r.product?.name ? ` · ${r.product.name}` : ''}
+                </p>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="border-y border-timber-100 bg-timber-50 py-16">
+        <div className="mx-auto max-w-xl px-4 text-center">
+          <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
+            Newsletter
+          </p>
+          <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
+            Access what others don’t
+          </h2>
+          <form
+            className="mt-6 flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const list = JSON.parse(localStorage.getItem('newsletterEmails') || '[]');
+              if (email && !list.includes(email)) {
+                list.push(email);
+                localStorage.setItem('newsletterEmails', JSON.stringify(list));
+              }
+              toast.success('You’re on the list');
+              setEmail('');
+            }}
+          >
+            <input
+              type="email"
+              required
+              className="input flex-1"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button type="submit" className="btn-wheat px-6">
+              Subscribe
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section className="bg-white py-16">
         <div className="mx-auto grid max-w-7xl gap-12 px-4 text-center sm:px-6 md:grid-cols-3">
           {[
-            ['Tailored presence', 'Clean silhouettes that hold their shape'],
-            ['Stitch by stitch', 'Details finished for lasting wear'],
+            ['Free shipping', `On orders over ${formatMoney(FREE_SHIPPING_MIN)}`],
             ['Cash on delivery', 'Pay when your order arrives'],
+            ['14-day returns', 'Unworn items, easy exchange'],
           ].map(([t, d]) => (
             <div key={t}>
-              <h3 className="font-display text-2xl font-medium tracking-tight text-timber-900 sm:text-3xl">
+              <h3 className="font-display text-2xl font-medium tracking-tight text-timber-900">
                 {t}
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-timber-500">{d}</p>

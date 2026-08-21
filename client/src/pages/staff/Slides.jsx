@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import { Pencil } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import { getImageUrl, asArray } from '../../utils/helpers';
+
+const emptyForm = { title: '', description: '', imageUrl: '', sortOrder: 0 };
 
 export default function StaffSlides() {
   const [slides, setSlides] = useState([]);
   const [cloudOk, setCloudOk] = useState(false);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', sortOrder: 0 });
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const [fileData, setFileData] = useState(null);
 
   const load = () => {
@@ -25,19 +29,40 @@ export default function StaffSlides() {
     reader.readAsDataURL(file);
   };
 
-  const create = async (e) => {
+  const openCreate = () => {
+    setEditing(null);
+    setForm(emptyForm);
+    setFileData(null);
+    setOpen(true);
+  };
+
+  const openEdit = (s) => {
+    setEditing(s);
+    setForm({
+      title: s.title || '',
+      description: s.description || '',
+      imageUrl: '',
+      sortOrder: s.sortOrder || 0,
+    });
+    setFileData(null);
+    setOpen(true);
+  };
+
+  const save = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/slides', {
+      const payload = {
         title: form.title,
         description: form.description,
         sortOrder: Number(form.sortOrder) || 0,
         imageUrl: form.imageUrl || undefined,
         imageData: fileData || undefined,
-      });
-      toast.success('Slide added');
+      };
+      if (editing) await api.put(`/slides/${editing.id}`, payload);
+      else await api.post('/slides', payload);
+      toast.success(editing ? 'Slide updated' : 'Slide added');
       setOpen(false);
-      setForm({ title: '', description: '', imageUrl: '', sortOrder: 0 });
+      setForm(emptyForm);
       setFileData(null);
       load();
     } catch (err) {
@@ -62,7 +87,7 @@ export default function StaffSlides() {
             )}
           </p>
         </div>
-        <button type="button" className="btn-wheat" onClick={() => setOpen(true)}>Add slide</button>
+        <button type="button" className="btn-wheat" onClick={openCreate}>Add slide</button>
       </div>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -72,16 +97,22 @@ export default function StaffSlides() {
             <div className="p-4">
               <h3 className="font-semibold">{s.title}</h3>
               <p className="text-sm text-timber-500 mt-1">{s.description}</p>
-              <button type="button" className="btn-ghost btn-sm text-red-600 mt-3" onClick={() => remove(s.id)}>
-                Delete
-              </button>
+              <div className="mt-3 flex gap-2">
+                <button type="button" className="btn-ghost btn-sm" onClick={() => openEdit(s)}>
+                  <Pencil className="w-4 h-4" />
+                  Edit
+                </button>
+                <button type="button" className="btn-ghost btn-sm text-red-600" onClick={() => remove(s.id)}>
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="New slide">
-        <form onSubmit={create} className="space-y-4">
+      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit slide' : 'New slide'}>
+        <form onSubmit={save} className="space-y-4">
           <div>
             <label className="label">Title</label>
             <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
@@ -95,7 +126,7 @@ export default function StaffSlides() {
             <input type="number" className="input" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
           </div>
           <div>
-            <label className="label">Upload (Cloudinary)</label>
+            <label className="label">{editing ? 'Replace image (optional)' : 'Upload (Cloudinary)'}</label>
             <input type="file" accept="image/*" onChange={onFile} className="input" />
           </div>
           <div>

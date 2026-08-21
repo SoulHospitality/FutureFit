@@ -13,6 +13,8 @@ import {
   Boxes,
   X,
   Store,
+  Layers,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess } from '../../utils/permissions';
@@ -29,6 +31,8 @@ const NAV_GROUPS = [
     label: 'Catalog',
     items: [
       { path: '/staff/products', label: 'Products', icon: Package, page: 'products' },
+      { path: '/staff/categories', label: 'Categories', icon: Layers, page: 'categories' },
+      { path: '/staff/reviews', label: 'Reviews', icon: Star, page: 'reviews' },
       { path: '/staff/slides', label: 'Slideshow', icon: Images, page: 'slides' },
       { path: '/staff/promotions', label: 'Promotions', icon: Tag, page: 'promotions' },
     ],

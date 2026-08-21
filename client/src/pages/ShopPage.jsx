@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
-import { PRODUCT_TYPES } from '../utils/helpers';
+import { AUDIENCES, audienceLabel, asArray } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
@@ -23,7 +23,8 @@ function parseBound(raw) {
 function FiltersPanel({
   embedded = false,
   onClose,
-  selectedTypes,
+  categories,
+  selectedCategory,
   selectedColors,
   selectedSizes,
   availableColors,
@@ -33,7 +34,7 @@ function FiltersPanel({
   onMinChange,
   onMaxChange,
   onPriceBlur,
-  onToggleType,
+  onSelectCategory,
   onToggleColor,
   onToggleSize,
   onClear,
@@ -50,27 +51,40 @@ function FiltersPanel({
       </div>
 
       <div className="flex-1 space-y-8 overflow-y-auto pr-1">
-        <div>
-          <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
-            Category
-          </p>
-          <div className="space-y-3">
-            {PRODUCT_TYPES.map((t) => (
-              <label
-                key={t.value}
-                className="flex cursor-pointer items-center gap-3 text-sm text-timber-700"
+        {categories.length > 0 && (
+          <div>
+            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
+              Subcategory
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => onSelectCategory('')}
+                className={`border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] ${
+                  !selectedCategory
+                    ? 'border-timber-900 bg-timber-900 text-white'
+                    : 'border-timber-200 text-timber-700 hover:border-timber-900'
+                }`}
               >
-                <input
-                  type="checkbox"
-                  checked={selectedTypes.includes(t.value)}
-                  onChange={() => onToggleType(t.value)}
-                  className="h-3.5 w-3.5 rounded-none border-timber-300 text-timber-900 focus:ring-timber-800"
-                />
-                {t.label}
-              </label>
-            ))}
+                All
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => onSelectCategory(c.slug)}
+                  className={`border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] ${
+                    selectedCategory === c.slug
+                      ? 'border-timber-900 bg-timber-900 text-white'
+                      : 'border-timber-200 text-timber-700 hover:border-timber-900'
+                  }`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {availableColors.length > 0 && (
           <div className="border-t border-timber-100 pt-8">
@@ -137,13 +151,6 @@ function FiltersPanel({
               value={minInput}
               onChange={(e) => onMinChange(e.target.value)}
               onBlur={onPriceBlur}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  onPriceBlur();
-                  e.currentTarget.blur();
-                }
-              }}
             />
             <input
               type="number"
@@ -154,13 +161,6 @@ function FiltersPanel({
               value={maxInput}
               onChange={(e) => onMaxChange(e.target.value)}
               onBlur={onPriceBlur}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  onPriceBlur();
-                  e.currentTarget.blur();
-                }
-              }}
             />
           </div>
         </div>
@@ -183,14 +183,12 @@ function FiltersPanel({
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
   const [allProducts, setAllProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilters, setMobileFilters] = useState(false);
 
-  const selectedTypes = useMemo(() => {
-    if (params.get('types')) return params.get('types').split(',').filter(Boolean);
-    if (params.get('type')) return [params.get('type')];
-    return [];
-  }, [params]);
+  const audience = params.get('audience') || '';
+  const selectedCategory = params.get('category') || '';
   const selectedColors = useMemo(
     () => (params.get('colors') ? params.get('colors').split(',').filter(Boolean) : []),
     [params]
@@ -202,7 +200,6 @@ export default function ShopPage() {
   const sort = params.get('sort') || 'recommended';
   const minPrice = parseBound(params.get('minPrice'));
   const maxPrice = parseBound(params.get('maxPrice'));
-
   const [minInput, setMinInput] = useState(params.get('minPrice') || '');
   const [maxInput, setMaxInput] = useState(params.get('maxPrice') || '');
 
@@ -212,13 +209,28 @@ export default function ShopPage() {
   }, [params]);
 
   useEffect(() => {
-    setLoading(true);
     api
-      .get('/products')
+      .get('/categories')
+      .then((r) => setCategories(asArray(r.data)))
+      .catch(() => setCategories([]));
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    const query = new URLSearchParams();
+    if (audience) query.set('audience', audience);
+    if (selectedCategory) query.set('category', selectedCategory);
+    api
+      .get(`/products?${query.toString()}`)
       .then((r) => setAllProducts(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [audience, selectedCategory]);
+
+  const audienceCategories = useMemo(
+    () => (audience ? categories.filter((c) => c.audience === audience) : categories),
+    [categories, audience]
+  );
 
   const patchParams = (patch) => {
     const next = new URLSearchParams(params);
@@ -226,7 +238,6 @@ export default function ShopPage() {
       if (v == null || v === '' || (Array.isArray(v) && !v.length)) next.delete(k);
       else next.set(k, Array.isArray(v) ? v.join(',') : String(v));
     });
-    if (patch.types !== undefined) next.delete('type');
     setParams(next, { replace: true });
   };
 
@@ -236,8 +247,6 @@ export default function ShopPage() {
     else set.add(value);
     patchParams({ [key]: [...set] });
   };
-
-  const toggleType = (value) => toggleInList('types', selectedTypes, value);
 
   const applyPriceToUrl = () => {
     patchParams({
@@ -249,7 +258,9 @@ export default function ShopPage() {
   const clearFilters = () => {
     setMinInput('');
     setMaxInput('');
-    setParams(new URLSearchParams(), { replace: true });
+    const next = new URLSearchParams();
+    if (audience) next.set('audience', audience);
+    setParams(next, { replace: true });
   };
 
   const availableColors = useMemo(() => {
@@ -266,7 +277,6 @@ export default function ShopPage() {
 
   const products = useMemo(() => {
     let list = [...allProducts];
-    if (selectedTypes.length) list = list.filter((p) => selectedTypes.includes(p.type));
     if (selectedColors.length) {
       list = list.filter((p) => (p.colors || []).some((c) => selectedColors.includes(c)));
     }
@@ -296,18 +306,11 @@ export default function ShopPage() {
       });
     }
     return list;
-  }, [
-    allProducts,
-    selectedTypes,
-    selectedColors,
-    selectedSizes,
-    minPrice,
-    maxPrice,
-    sort,
-  ]);
+  }, [allProducts, selectedColors, selectedSizes, minPrice, maxPrice, sort]);
 
   const filterProps = {
-    selectedTypes,
+    categories: audienceCategories,
+    selectedCategory,
     selectedColors,
     selectedSizes,
     availableColors,
@@ -317,11 +320,13 @@ export default function ShopPage() {
     onMinChange: setMinInput,
     onMaxChange: setMaxInput,
     onPriceBlur: applyPriceToUrl,
-    onToggleType: toggleType,
+    onSelectCategory: (slug) => patchParams({ category: slug || null }),
     onToggleColor: (c) => toggleInList('colors', selectedColors, c),
     onToggleSize: (s) => toggleInList('sizes', selectedSizes, s),
     onClear: clearFilters,
   };
+
+  const heading = audience ? audienceLabel(audience) : 'The collection';
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white">
@@ -331,40 +336,37 @@ export default function ShopPage() {
             FutureFit
           </p>
           <h1 className="mt-3 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl">
-            The collection
+            {heading}
           </h1>
           <p className="mt-3 max-w-md text-sm text-timber-500">
-            Classic cuts and refined staples — browse by category, colour, and size.
+            Classic cuts and refined staples — browse by department, colour, and size.
           </p>
           <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3">
             <button
               type="button"
-              onClick={() => patchParams({ types: [] })}
+              onClick={() => patchParams({ audience: null, category: null })}
               className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
-                selectedTypes.length === 0
+                !audience
                   ? 'text-timber-900 underline underline-offset-8'
                   : 'text-timber-400 hover:text-timber-800'
               }`}
             >
               All
             </button>
-            {PRODUCT_TYPES.map((t) => {
-              const active = selectedTypes.length === 1 && selectedTypes[0] === t.value;
-              return (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => patchParams({ types: [t.value] })}
-                  className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
-                    active
-                      ? 'text-timber-900 underline underline-offset-8'
-                      : 'text-timber-400 hover:text-timber-800'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
+            {AUDIENCES.map((a) => (
+              <button
+                key={a.value}
+                type="button"
+                onClick={() => patchParams({ audience: a.value, category: null })}
+                className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
+                  audience === a.value
+                    ? 'text-timber-900 underline underline-offset-8'
+                    : 'text-timber-400 hover:text-timber-800'
+                }`}
+              >
+                {a.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -394,7 +396,6 @@ export default function ShopPage() {
                   <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
                   Filters
                 </button>
-
                 <label className="relative inline-flex items-center">
                   <span className="sr-only">Sort</span>
                   <select
@@ -426,7 +427,7 @@ export default function ShopPage() {
             ) : products.length === 0 ? (
               <EmptyState
                 title="No pieces found"
-                subtitle="Try clearing filters or adjusting category, colour, size, or price."
+                subtitle="Try clearing filters or another department."
                 action={
                   <button
                     type="button"

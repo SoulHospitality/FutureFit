@@ -1,8 +1,8 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
-
 const prisma = new PrismaClient();
+const { TYPE_TO_SLUG, DEFAULT_CATEGORIES } = require('../utils/catalog');
 
 /** Local product photos served from the Vite public folder (and Railway client). */
 const photo = (file) => `/images/products/${file}`;
@@ -266,15 +266,26 @@ async function seedCoupons() {
 }
 
 async function seedCatalog() {
+  await prisma.review.deleteMany().catch(() => {});
   await prisma.orderItem.deleteMany().catch(() => {});
   await prisma.slide.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.category.deleteMany();
 
   await prisma.slide.createMany({ data: SLIDES });
   console.log(`Seeded ${SLIDES.length} hero slides`);
 
+  await prisma.category.createMany({ data: DEFAULT_CATEGORIES });
+  const categories = await prisma.category.findMany();
+  const byKey = Object.fromEntries(
+    categories.map((c) => [`${c.audience}:${c.slug}`, c])
+  );
+  console.log(`Seeded ${categories.length} subcategories`);
+
   for (const product of PRODUCTS) {
     const sizeStocks = sizeStockRows(product.sizes, product.stock);
+    const slug = TYPE_TO_SLUG[product.type] || 'boxers';
+    const category = byKey[`men:${slug}`];
     await prisma.product.create({
       data: {
         name: product.name,
@@ -283,6 +294,8 @@ async function seedCatalog() {
         salePrice: product.salePrice ?? null,
         isSaleActive: Boolean(product.isSaleActive),
         type: product.type,
+        audience: 'men',
+        categoryId: category?.id || null,
         photos: product.photos,
         colors: product.colors,
         sizes: product.sizes,

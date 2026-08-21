@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import BrandLogo from '../BrandLogo';
+import { AUDIENCES } from '../../utils/helpers';
 
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function StoreFooter() {
+  const [email, setEmail] = useState('');
+
   return (
     <footer className="mt-auto bg-timber-900 text-timber-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 grid md:grid-cols-3 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-16 grid md:grid-cols-4 gap-12">
         <div>
           <BrandLogo to="/" size="md" invert className="opacity-95" />
           <p className="mt-5 text-sm leading-relaxed text-timber-400 max-w-xs">
@@ -24,13 +29,21 @@ export default function StoreFooter() {
         </div>
         <div>
           <h4 className="text-white text-[11px] font-medium uppercase tracking-[0.28em] mb-4">
-            Explore
+            Shop
           </h4>
           <div className="space-y-3 text-sm">
-            <Link to="/shop" className="block hover:text-white transition">Shop</Link>
-            <Link to="/about" className="block hover:text-white transition">About</Link>
-            <Link to="/contact" className="block hover:text-white transition">Contact</Link>
-            <Link to="/wishlist" className="block hover:text-white transition">Wishlist</Link>
+            {AUDIENCES.map((a) => (
+              <Link
+                key={a.value}
+                to={`/shop?audience=${a.value}`}
+                className="block hover:text-white transition"
+              >
+                {a.label}
+              </Link>
+            ))}
+            <Link to="/shop" className="block hover:text-white transition">
+              Shop all
+            </Link>
           </div>
         </div>
         <div>
@@ -38,10 +51,43 @@ export default function StoreFooter() {
             Help
           </h4>
           <div className="space-y-3 text-sm">
+            <Link to="/about" className="block hover:text-white transition">About</Link>
+            <Link to="/contact" className="block hover:text-white transition">Contact</Link>
             <Link to="/returns" className="block hover:text-white transition">Returns</Link>
             <Link to="/privacy" className="block hover:text-white transition">Privacy</Link>
             <Link to="/terms" className="block hover:text-white transition">Terms</Link>
           </div>
+        </div>
+        <div>
+          <h4 className="text-white text-[11px] font-medium uppercase tracking-[0.28em] mb-4">
+            Newsletter
+          </h4>
+          <p className="text-sm text-timber-400">New drops, first.</p>
+          <form
+            className="mt-4 flex flex-col gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const list = JSON.parse(localStorage.getItem('newsletterEmails') || '[]');
+              if (email && !list.includes(email)) {
+                list.push(email);
+                localStorage.setItem('newsletterEmails', JSON.stringify(list));
+              }
+              toast.success('You’re on the list');
+              setEmail('');
+            }}
+          >
+            <input
+              type="email"
+              required
+              className="input bg-white/10 border-white/20 text-white placeholder:text-white/40"
+              placeholder="E-mail"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button type="submit" className="btn-wheat">
+              Subscribe
+            </button>
+          </form>
         </div>
       </div>
       <div className="border-t border-white/10 text-center text-[10px] uppercase tracking-[0.22em] text-timber-500 py-5">

@@ -13,6 +13,8 @@ const slideRoutes = require('./routes/slideRoutes');
 const couponRoutes = require('./routes/couponRoutes');
 const problemRoutes = require('./routes/problemRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 
 const app = express();
 
@@ -32,6 +34,8 @@ app.use('/api/slides', slideRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });

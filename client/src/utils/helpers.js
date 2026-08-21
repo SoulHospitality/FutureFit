@@ -30,6 +30,39 @@ export const PRODUCT_TYPES = [
   { value: 'bundle', label: 'Bundles' },
 ];
 
+export const AUDIENCES = [
+  { value: 'men', label: 'Men' },
+  { value: 'women', label: 'Women' },
+  { value: 'kids', label: 'Kids' },
+];
+
+export const audienceLabel = (value) =>
+  AUDIENCES.find((a) => a.value === value)?.label || value;
+
+export const categoryLabel = (product) =>
+  product?.category?.name ||
+  PRODUCT_TYPES.find((t) => t.value === product?.type)?.label ||
+  '';
+
+const COLOR_SWATCH = {
+  black: '#111111',
+  white: '#f4f4f5',
+  navy: '#1e3a5f',
+  grey: '#737373',
+  gray: '#737373',
+  charcoal: '#36454f',
+  ash: '#9ca3af',
+  brown: '#6b4423',
+  wheat: '#c4a574',
+};
+
+export const colorSwatch = (name) => {
+  const key = String(name || '')
+    .toLowerCase()
+    .split(/[\s/]+/)[0];
+  return COLOR_SWATCH[key] || '#a1a1aa';
+};
+
 export const formatMoney = (n) =>
   new Intl.NumberFormat('en-EG', {
     style: 'currency',

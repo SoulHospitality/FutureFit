@@ -1,29 +1,45 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
+import { ChevronDown, Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { isStaff } from '../../utils/permissions';
+import { AUDIENCES, asArray } from '../../utils/helpers';
 import BrandLogo from '../BrandLogo';
-
-const NAV = [
-  { to: '/shop', label: 'Shop' },
-  { to: '/about', label: 'About' },
-  { to: '/contact', label: 'Contact' },
-];
+import api from '../../api/axios';
 
 export default function StoreHeader() {
   const { user, logout } = useAuth();
   const { count } = useCart();
   const { count: wishCount } = useWishlist();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [mobileDept, setMobileDept] = useState(null);
+  const [categories, setCategories] = useState([]);
 
   const overHero = pathname === '/';
   const solid = !overHero || scrolled;
   const lightLogo = overHero && !scrolled;
+  const params = new URLSearchParams(search);
+  const activeAudience = pathname === '/shop' ? params.get('audience') : null;
+
+  useEffect(() => {
+    api
+      .get('/categories')
+      .then((r) => setCategories(asArray(r.data)))
+      .catch(() => setCategories([]));
+  }, []);
+
+  const byAudience = useMemo(() => {
+    const map = { men: [], women: [], kids: [] };
+    categories.forEach((c) => {
+      if (map[c.audience]) map[c.audience].push(c);
+    });
+    return map;
+  }, [categories]);
 
   useEffect(() => {
     if (!overHero) {
@@ -45,7 +61,9 @@ export default function StoreHeader() {
 
   useEffect(() => {
     setMobileOpen(false);
-  }, [pathname]);
+    setOpenMenu(null);
+    setMobileDept(null);
+  }, [pathname, search]);
 
   const linkCls = solid
     ? 'text-timber-600 hover:text-timber-900'
@@ -59,6 +77,7 @@ export default function StoreHeader() {
             ? 'bg-white/95 shadow-[0_1px_0_rgba(9,9,11,0.08)] backdrop-blur-md'
             : 'bg-transparent'
         }`}
+        onMouseLeave={() => setOpenMenu(null)}
       >
         <div className="bg-timber-900 text-center text-[10px] font-medium uppercase tracking-[0.28em] text-white/90 px-4 py-2.5">
           Free shipping over EGP 2,000 · COD · InstaPay · Vodafone Cash
@@ -68,8 +87,28 @@ export default function StoreHeader() {
             <BrandLogo size="header" invert={lightLogo} />
           </div>
 
-          <nav className="pointer-events-none absolute inset-x-0 hidden items-center justify-center gap-8 xl:gap-10 lg:flex">
-            {NAV.map((item) => (
+          <nav className="pointer-events-none absolute inset-x-0 hidden items-center justify-center gap-7 xl:gap-9 lg:flex">
+            {AUDIENCES.map((dept) => (
+              <div
+                key={dept.value}
+                className="pointer-events-auto"
+                onMouseEnter={() => setOpenMenu(dept.value)}
+              >
+                <Link
+                  to={`/shop?audience=${dept.value}`}
+                  className={`inline-flex items-center gap-1 text-[11px] xl:text-[12px] font-medium uppercase tracking-[0.28em] transition-colors ${
+                    activeAudience === dept.value && solid ? 'text-timber-900' : linkCls
+                  }`}
+                >
+                  {dept.label}
+                  <ChevronDown className="h-3 w-3 opacity-70" strokeWidth={1.5} />
+                </Link>
+              </div>
+            ))}
+            {[
+              { to: '/about', label: 'About' },
+              { to: '/contact', label: 'Contact' },
+            ].map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -78,7 +117,6 @@ export default function StoreHeader() {
                     isActive && solid ? 'text-timber-900' : linkCls
                   }`
                 }
-                end={item.to === '/shop' ? false : true}
               >
                 {item.label}
               </NavLink>
@@ -90,9 +128,7 @@ export default function StoreHeader() {
               to="/wishlist"
               aria-label="Wishlist"
               className={`relative grid h-11 w-11 place-items-center transition ${
-                solid
-                  ? 'text-timber-700 hover:bg-timber-100'
-                  : 'text-white hover:bg-white/10'
+                solid ? 'text-timber-700 hover:bg-timber-100' : 'text-white hover:bg-white/10'
               }`}
             >
               <Heart className="h-5 w-5" strokeWidth={1.5} />
@@ -106,9 +142,7 @@ export default function StoreHeader() {
               to="/cart"
               aria-label="Cart"
               className={`relative grid h-11 w-11 place-items-center transition ${
-                solid
-                  ? 'text-timber-700 hover:bg-timber-100'
-                  : 'text-white hover:bg-white/10'
+                solid ? 'text-timber-700 hover:bg-timber-100' : 'text-white hover:bg-white/10'
               }`}
             >
               <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
@@ -180,6 +214,35 @@ export default function StoreHeader() {
             </button>
           </div>
         </div>
+
+        {openMenu && (
+          <div className="hidden border-t border-timber-100 bg-white lg:block">
+            <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-8 py-8 xl:grid-cols-4">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
+                  {AUDIENCES.find((a) => a.value === openMenu)?.label}
+                </p>
+                <Link
+                  to={`/shop?audience=${openMenu}`}
+                  className="mt-4 inline-block text-sm font-medium text-timber-900 underline underline-offset-4"
+                >
+                  Shop all
+                </Link>
+              </div>
+              <div className="col-span-1 xl:col-span-3 grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-3">
+                {byAudience[openMenu]?.map((c) => (
+                  <Link
+                    key={c.id}
+                    to={`/shop?audience=${openMenu}&category=${c.slug}`}
+                    className="py-1.5 text-sm text-timber-600 hover:text-timber-900"
+                  >
+                    {c.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       {mobileOpen && (
@@ -203,16 +266,55 @@ export default function StoreHeader() {
               </button>
             </div>
             <nav className="flex-1 space-y-1 overflow-y-auto px-5 py-6">
-              {NAV.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setMobileOpen(false)}
-                  className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
-                >
-                  {item.label}
-                </Link>
+              {AUDIENCES.map((dept) => (
+                <div key={dept.value} className="border-b border-timber-100">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+                    onClick={() => setMobileDept((v) => (v === dept.value ? null : dept.value))}
+                  >
+                    {dept.label}
+                    <ChevronDown
+                      className={`h-4 w-4 transition ${mobileDept === dept.value ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                  {mobileDept === dept.value && (
+                    <div className="space-y-1 pb-4">
+                      <Link
+                        to={`/shop?audience=${dept.value}`}
+                        onClick={() => setMobileOpen(false)}
+                        className="block py-1.5 text-sm text-timber-900"
+                      >
+                        Shop all {dept.label}
+                      </Link>
+                      {byAudience[dept.value]?.map((c) => (
+                        <Link
+                          key={c.id}
+                          to={`/shop?audience=${dept.value}&category=${c.slug}`}
+                          onClick={() => setMobileOpen(false)}
+                          className="block py-1.5 text-sm text-timber-500"
+                        >
+                          {c.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
+              <Link
+                to="/about"
+                onClick={() => setMobileOpen(false)}
+                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+              >
+                About
+              </Link>
+              <Link
+                to="/contact"
+                onClick={() => setMobileOpen(false)}
+                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+              >
+                Contact
+              </Link>
               <Link
                 to="/wishlist"
                 onClick={() => setMobileOpen(false)}

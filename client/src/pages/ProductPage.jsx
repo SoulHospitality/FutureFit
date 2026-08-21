@@ -13,7 +13,8 @@ import {
 import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { formatMoney, getImageUrl, getSizeStock, totalStock, PRODUCT_TYPES, FREE_SHIPPING_MIN } from '../utils/helpers';
+import { formatMoney, getImageUrl, getSizeStock, totalStock, PRODUCT_TYPES, FREE_SHIPPING_MIN, audienceLabel, categoryLabel } from '../utils/helpers';
+import StarRating from '../components/store/StarRating';
 
 function Accordion({ title, open, onToggle, children }) {
   return (
@@ -143,6 +144,10 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1);
   const [activePhoto, setActivePhoto] = useState(0);
   const [openSection, setOpenSection] = useState('details');
+  const [reviewName, setReviewName] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [sendingReview, setSendingReview] = useState(false);
 
   useEffect(() => {
     api.get(`/products/${id}`).then((r) => {
@@ -173,7 +178,7 @@ export default function ProductPage() {
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
   const photos = product.photos?.length ? product.photos : [''];
-  const typeLabel =
+  const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
   const available = getSizeStock(product, size);
@@ -213,8 +218,30 @@ export default function ProductPage() {
           <Link to="/shop" className="hover:text-timber-800">
             Shop
           </Link>
+          {product.audience && (
+            <>
+              <span className="mx-3 text-timber-200">/</span>
+              <Link
+                to={`/shop?audience=${product.audience}`}
+                className="hover:text-timber-800"
+              >
+                {audienceLabel(product.audience)}
+              </Link>
+            </>
+          )}
+          {product.category?.slug && (
+            <>
+              <span className="mx-3 text-timber-200">/</span>
+              <Link
+                to={`/shop?audience=${product.audience || 'men'}&category=${product.category.slug}`}
+                className="hover:text-timber-800"
+              >
+                {product.category.name}
+              </Link>
+            </>
+          )}
           <span className="mx-3 text-timber-200">/</span>
-          <span className="text-timber-600">{typeLabel}</span>
+          <span className="text-timber-600">{product.name}</span>
         </nav>
 
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
@@ -285,6 +312,15 @@ export default function ProductPage() {
                 </span>
               )}
             </div>
+            {product.reviewCount > 0 && (
+              <div className="mt-3 flex items-center gap-2">
+                <StarRating value={product.ratingAvg} readOnly size={16} />
+                <span className="text-sm text-timber-500">
+                  {product.ratingAvg} · {product.reviewCount} review
+                  {product.reviewCount === 1 ? '' : 's'}
+                </span>
+              </div>
+            )}
 
             {product.colors?.length > 0 && (
               <div className="mt-10">
@@ -506,6 +542,86 @@ export default function ProductPage() {
             </div>
           </div>
         </div>
+
+        <section className="mt-16 border-t border-timber-100 pt-12">
+          <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
+            Reviews
+          </p>
+          <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-timber-900">
+            What customers say
+          </h2>
+          <div className="mt-10 grid gap-12 lg:grid-cols-12">
+            <div className="lg:col-span-7 space-y-8">
+              {(product.reviews || []).length === 0 ? (
+                <p className="text-sm text-timber-500">No reviews yet — be the first.</p>
+              ) : (
+                (product.reviews || []).map((r) => (
+                  <article key={r.id} className="border-b border-timber-100 pb-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-medium text-timber-900">{r.name}</p>
+                      <StarRating value={r.rating} readOnly size={14} />
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-timber-600">{r.comment}</p>
+                  </article>
+                ))
+              )}
+            </div>
+            <form
+              className="lg:col-span-5 space-y-4 border border-timber-200 p-6"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSendingReview(true);
+                try {
+                  await api.post(`/products/${product.id}/reviews`, {
+                    name: reviewName,
+                    rating: reviewRating,
+                    comment: reviewComment,
+                  });
+                  toast.success('Thank you for your review');
+                  setReviewName('');
+                  setReviewComment('');
+                  setReviewRating(5);
+                  const { data } = await api.get(`/products/${product.id}`);
+                  setProduct(data);
+                } catch (err) {
+                  toast.error(err.response?.data?.message || 'Could not post review');
+                } finally {
+                  setSendingReview(false);
+                }
+              }}
+            >
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-timber-700">
+                Write a review
+              </p>
+              <div>
+                <label className="label">Name</label>
+                <input
+                  required
+                  className="input"
+                  value={reviewName}
+                  onChange={(e) => setReviewName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="label">Rating</label>
+                <StarRating value={reviewRating} onChange={setReviewRating} size={20} />
+              </div>
+              <div>
+                <label className="label">Comment</label>
+                <textarea
+                  required
+                  rows={4}
+                  className="input"
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                />
+              </div>
+              <button type="submit" className="btn-wheat w-full" disabled={sendingReview}>
+                {sendingReview ? 'Sending…' : 'Submit review'}
+              </button>
+            </form>
+          </div>
+        </section>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">

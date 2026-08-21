@@ -5,8 +5,10 @@ const {
   normalizeSizeStocks,
   sizeStockWrites,
 } = require('../utils/sizeStock');
+const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
+const { listProductReviews, createProductReview } = require('./reviewController');
 
-const serializeProduct = (p) => {
+const serializeProduct = (p, { includeReviews = false } = {}) => {
   const variants = Array.isArray(p.sizeStocks)
     ? [...p.sizeStocks].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     : [];
@@ -15,14 +17,40 @@ const serializeProduct = (p) => {
   const stock = sizeStocks.length
     ? sizeStocks.reduce((n, s) => n + s.stock, 0)
     : p.stock;
-  return {
+  const { ratingAvg, reviewCount } = ratingSummary(p.reviews || []);
+  const category = p.category
+    ? {
+        id: p.category.id,
+        name: p.category.name,
+        slug: p.category.slug,
+        audience: p.category.audience,
+      }
+    : null;
+  const out = {
     ...p,
     price: Number(p.price),
     salePrice: p.salePrice != null ? Number(p.salePrice) : null,
     sizes,
     sizeStocks,
     stock,
+    audience: p.audience || 'men',
+    category,
+    ratingAvg,
+    reviewCount,
   };
+  delete out.reviews;
+  if (includeReviews) {
+    out.reviews = (p.reviews || [])
+      .filter((r) => r.isVisible !== false)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        rating: r.rating,
+        comment: r.comment,
+        createdAt: r.createdAt,
+      }));
+  }
+  return out;
 };
 
 const PRODUCT_SELECT = {
@@ -31,6 +59,8 @@ const PRODUCT_SELECT = {
   description: true,
   price: true,
   type: true,
+  audience: true,
+  categoryId: true,
   photos: true,
   colors: true,
   sizes: true,
@@ -39,9 +69,32 @@ const PRODUCT_SELECT = {
   salePrice: true,
   createdAt: true,
   updatedAt: true,
+  category: {
+    select: { id: true, name: true, slug: true, audience: true },
+  },
   sizeStocks: {
     select: { size: true, stock: true, sortOrder: true },
     orderBy: { sortOrder: 'asc' },
+  },
+  reviews: {
+    where: { isVisible: true },
+    select: { rating: true, isVisible: true },
+  },
+};
+
+const PRODUCT_DETAIL_SELECT = {
+  ...PRODUCT_SELECT,
+  reviews: {
+    where: { isVisible: true },
+    select: {
+      id: true,
+      name: true,
+      rating: true,
+      comment: true,
+      isVisible: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'desc' },
   },
 };
 
@@ -62,16 +115,35 @@ const applySizeStocks = (rows) => ({
   },
 });
 
+const resolveAudienceAndCategory = async (body) => {
+  const audience = AUDIENCES.includes(body.audience) ? body.audience : 'men';
+  let category = null;
+  if (body.categoryId) {
+    category = await prisma.category.findUnique({ where: { id: body.categoryId } });
+    if (!category) {
+      const err = new Error('Subcategory not found');
+      err.status = 400;
+      throw err;
+    }
+  }
+  const type = body.type || typeFromCategory(category, 'boxers');
+  return { audience, categoryId: category?.id || null, type };
+};
+
 const listProducts = async (req, res) => {
   try {
-    const { type, q, limit } = req.query;
+    const { type, q, limit, audience, category } = req.query;
     const take = Math.min(Number(limit) || 100, 100);
     const useCache = !req.headers.authorization;
-    const cacheKey = `products:${type || ''}:${q || ''}:${take}`;
+    const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${take}`;
 
     const load = async () => {
       const where = {};
       if (type) where.type = type;
+      if (audience && AUDIENCES.includes(audience)) where.audience = audience;
+      if (category) {
+        where.category = { slug: category, ...(where.audience ? { audience: where.audience } : {}) };
+      }
       if (q) {
         where.OR = [
           { name: { contains: q, mode: 'insensitive' } },
@@ -84,7 +156,7 @@ const listProducts = async (req, res) => {
         orderBy: { createdAt: 'desc' },
         take,
       });
-      return rows.map(serializeProduct);
+      return rows.map((row) => serializeProduct(row));
     };
 
     const products = useCache
@@ -111,9 +183,9 @@ const getProduct = async (req, res) => {
       async () => {
         const row = await prisma.product.findUnique({
           where: { id: req.params.id },
-          select: PRODUCT_SELECT,
+          select: PRODUCT_DETAIL_SELECT,
         });
-        return row ? serializeProduct(row) : null;
+        return row ? serializeProduct(row, { includeReviews: true }) : null;
       }
     );
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -136,18 +208,9 @@ const resolvePhotos = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      price,
-      type,
-      photos,
-      colors,
-      isSaleActive,
-      salePrice,
-    } = req.body;
-    if (!name || !description || price == null || !type) {
-      return res.status(400).json({ message: 'Name, description, price, and type are required' });
+    const { name, description, price, photos, colors, isSaleActive, salePrice } = req.body;
+    if (!name || !description || price == null) {
+      return res.status(400).json({ message: 'Name, description, and price are required' });
     }
 
     const sizeRows = normalizeSizeStocks(req.body);
@@ -155,6 +218,7 @@ const createProduct = async (req, res) => {
       return res.status(400).json({ message: 'Add at least one size with stock' });
     }
 
+    const { audience, categoryId, type } = await resolveAudienceAndCategory(req.body);
     const resolvedPhotos = await resolvePhotoLinks(photos || []);
 
     const product = await prisma.product.create({
@@ -163,6 +227,8 @@ const createProduct = async (req, res) => {
         description,
         price,
         type,
+        audience,
+        categoryId,
         photos: resolvedPhotos,
         colors: colors || [],
         sizes: sizeRows.map((r) => r.size),
@@ -176,6 +242,7 @@ const createProduct = async (req, res) => {
     bustProductCache();
     res.status(201).json(serializeProduct(product));
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
   }
 };
@@ -201,6 +268,19 @@ const updateProduct = async (req, res) => {
       data.photos = await resolvePhotoLinks(data.photos);
     }
     if (
+      req.body.audience !== undefined ||
+      req.body.categoryId !== undefined
+    ) {
+      const resolved = await resolveAudienceAndCategory({
+        audience: req.body.audience,
+        categoryId: req.body.categoryId,
+        type: req.body.type,
+      });
+      data.audience = resolved.audience;
+      data.categoryId = resolved.categoryId;
+      if (!req.body.type) data.type = resolved.type;
+    }
+    if (
       req.body.sizeStocks !== undefined ||
       req.body.sizes !== undefined ||
       req.body.stock !== undefined
@@ -219,6 +299,7 @@ const updateProduct = async (req, res) => {
     bustProductCache();
     res.json(serializeProduct(product));
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
   }
 };
@@ -305,4 +386,6 @@ module.exports = {
   updateProduct,
   adjustStock,
   deleteProduct,
+  listProductReviews,
+  createProductReview,
 };

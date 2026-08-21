@@ -53,14 +53,14 @@ const createSlide = async (req, res) => {
 
 const updateSlide = async (req, res) => {
   try {
-    const data = { ...req.body };
-    if (data.imageData) {
-      data.cloudinaryUrl = await uploadImage(data.imageData, 'futurefit/slides');
-      delete data.imageData;
-    }
-    if (data.imageUrl) {
-      data.cloudinaryUrl = data.imageUrl;
-      delete data.imageUrl;
+    const data = {};
+    if (req.body.title !== undefined) data.title = req.body.title;
+    if (req.body.description !== undefined) data.description = req.body.description;
+    if (req.body.sortOrder !== undefined) data.sortOrder = Number(req.body.sortOrder) || 0;
+    if (req.body.imageData) {
+      data.cloudinaryUrl = await uploadImage(req.body.imageData, 'futurefit/slides');
+    } else if (req.body.imageUrl) {
+      data.cloudinaryUrl = req.body.imageUrl;
     }
     const slide = await prisma.slide.update({
       where: { id: req.params.id },
