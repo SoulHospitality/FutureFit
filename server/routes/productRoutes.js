@@ -4,6 +4,7 @@ const {
   getProduct,
   resolvePhotos,
   createProduct,
+  bulkCreateProducts,
   updateProduct,
   adjustStock,
   deleteProduct,
@@ -16,6 +17,7 @@ const router = express.Router();
 
 router.get('/', listProducts);
 router.post('/resolve-photos', protect, adminOnly, resolvePhotos);
+router.post('/bulk', protect, adminOnly, bulkCreateProducts);
 router.get('/:id/reviews', listProductReviews);
 router.post('/:id/reviews', createProductReview);
 router.get('/:id', getProduct);

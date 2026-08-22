@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2 } from 'lucide-react';
+import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import BulkUploadModal from '../../components/staff/BulkUploadModal';
 import { AUDIENCES, formatMoney, getImageUrl, asArray, totalStock, audienceLabel, categoryLabel } from '../../utils/helpers';
 
 const DEFAULT_SIZE_ROWS = [
@@ -52,6 +53,7 @@ export default function StaffProducts() {
   const [saving, setSaving] = useState(false);
   const [loadingFolder, setLoadingFolder] = useState(false);
   const [categories, setCategories] = useState([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const stockQueue = useRef({});
 
   const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
@@ -278,9 +280,15 @@ export default function StaffProducts() {
             Manage catalog, stock, colors, and Drive photo folders
           </p>
         </div>
-        <button type="button" className="btn-wheat" onClick={openCreate}>
-          Add product
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-outline" onClick={() => setBulkOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Bulk upload
+          </button>
+          <button type="button" className="btn-wheat" onClick={openCreate}>
+            Add product
+          </button>
+        </div>
       </div>
 
       <div className="table-wrapper">
@@ -587,6 +595,12 @@ export default function StaffProducts() {
           </button>
         </form>
       </Modal>
+
+      <BulkUploadModal
+        open={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        onComplete={load}
+      />
     </>
   );
 }

@@ -125,9 +125,59 @@ const resolveAudienceAndCategory = async (body) => {
       err.status = 400;
       throw err;
     }
+  } else if (body.category || body.categorySlug) {
+    const slug = String(body.categorySlug || body.category)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    if (slug) {
+      category = await prisma.category.findFirst({
+        where: { slug, audience },
+      });
+    }
   }
   const type = body.type || typeFromCategory(category, 'boxers');
   return { audience, categoryId: category?.id || null, type };
+};
+
+const buildProductCreateData = async (body) => {
+  const { name, description, price, photos, colors, isSaleActive, salePrice } = body;
+  if (!name || !description || price == null) {
+    const err = new Error('Name, description, and price are required');
+    err.status = 400;
+    throw err;
+  }
+
+  const sizeRows = normalizeSizeStocks(body);
+  if (!sizeRows.length) {
+    const err = new Error('Add at least one size with stock');
+    err.status = 400;
+    throw err;
+  }
+
+  const { audience, categoryId, type } = await resolveAudienceAndCategory(body);
+  const photoLinks = [...(photos || [])];
+  if (body.driveFolder?.trim()) {
+    photoLinks.push(body.driveFolder.trim());
+  }
+  const resolvedPhotos = await resolvePhotoLinks(photoLinks);
+
+  return {
+    name: String(name).trim(),
+    description: String(description).trim(),
+    price,
+    type,
+    audience,
+    categoryId,
+    photos: resolvedPhotos,
+    colors: colors || [],
+    sizes: sizeRows.map((r) => r.size),
+    stock: sizeRows.reduce((n, r) => n + r.stock, 0),
+    isSaleActive: Boolean(isSaleActive),
+    salePrice: salePrice || null,
+    sizeStocks: { create: sizeStockWrites(sizeRows) },
+  };
 };
 
 const listProducts = async (req, res) => {
@@ -208,41 +258,58 @@ const resolvePhotos = async (req, res) => {
 
 const createProduct = async (req, res) => {
   try {
-    const { name, description, price, photos, colors, isSaleActive, salePrice } = req.body;
-    if (!name || !description || price == null) {
-      return res.status(400).json({ message: 'Name, description, and price are required' });
-    }
-
-    const sizeRows = normalizeSizeStocks(req.body);
-    if (!sizeRows.length) {
-      return res.status(400).json({ message: 'Add at least one size with stock' });
-    }
-
-    const { audience, categoryId, type } = await resolveAudienceAndCategory(req.body);
-    const resolvedPhotos = await resolvePhotoLinks(photos || []);
-
+    const data = await buildProductCreateData(req.body);
     const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price,
-        type,
-        audience,
-        categoryId,
-        photos: resolvedPhotos,
-        colors: colors || [],
-        sizes: sizeRows.map((r) => r.size),
-        stock: sizeRows.reduce((n, r) => n + r.stock, 0),
-        isSaleActive: Boolean(isSaleActive),
-        salePrice: salePrice || null,
-        sizeStocks: { create: sizeStockWrites(sizeRows) },
-      },
+      data,
       select: PRODUCT_SELECT,
     });
     bustProductCache();
     res.status(201).json(serializeProduct(product));
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const bulkCreateProducts = async (req, res) => {
+  try {
+    const items = req.body.products;
+    if (!Array.isArray(items) || !items.length) {
+      return res.status(400).json({ message: 'products array is required' });
+    }
+    if (items.length > 100) {
+      return res.status(400).json({ message: 'Maximum 100 products per upload' });
+    }
+
+    const created = [];
+    const errors = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const row = items[i];
+      try {
+        const data = await buildProductCreateData(row);
+        const product = await prisma.product.create({
+          data,
+          select: PRODUCT_SELECT,
+        });
+        created.push(serializeProduct(product));
+      } catch (err) {
+        errors.push({
+          row: i + 1,
+          name: row?.name || '',
+          message: err.message || 'Could not create product',
+        });
+      }
+    }
+
+    if (created.length) bustProductCache();
+    res.status(created.length ? 201 : 400).json({
+      created: created.length,
+      failed: errors.length,
+      products: created,
+      errors,
+    });
+  } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
@@ -383,6 +450,7 @@ module.exports = {
   getProduct,
   resolvePhotos,
   createProduct,
+  bulkCreateProducts,
   updateProduct,
   adjustStock,
   deleteProduct,
