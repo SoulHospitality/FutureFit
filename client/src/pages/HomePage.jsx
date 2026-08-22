@@ -192,11 +192,15 @@ export default function HomePage() {
                 ) : (
                   <div className="absolute inset-0 bg-timber-800" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10 transition duration-300 group-hover:from-black/85" />
-                <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 sm:min-h-[320px]">
-                  <h3 className="font-display text-3xl font-medium sm:text-4xl">{a.label}</h3>
-                  <p className="mt-2 max-w-xs text-sm text-white/75">{DEPT_COPY[a.value]}</p>
-                  <span className="mt-6 text-[10px] uppercase tracking-[0.24em] underline underline-offset-8">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15 transition duration-300 group-hover:from-black/95" />
+                <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 text-white sm:min-h-[320px]">
+                  <h3 className="font-display text-3xl font-medium text-white drop-shadow-sm sm:text-4xl">
+                    {a.label}
+                  </h3>
+                  <p className="mt-2 max-w-xs text-sm text-white/95 drop-shadow-sm">
+                    {DEPT_COPY[a.value]}
+                  </p>
+                  <span className="mt-6 text-[10px] font-medium uppercase tracking-[0.24em] text-white underline underline-offset-8">
                     Shop {a.label}
                   </span>
                 </div>
