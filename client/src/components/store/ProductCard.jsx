@@ -1,5 +1,5 @@
+import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight, Heart, ShoppingBag } from 'lucide-react';
 import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatch, getSizeStock } from '../../utils/helpers';
@@ -8,7 +8,7 @@ import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
 
 /** Lookbook-style product tile — image-led, minimal chrome. */
-export default function ProductCard({ product }) {
+function ProductCard({ product, priority = false }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const { isSaved, toggle } = useWishlist();
   const { addItem } = useCart();
@@ -58,9 +58,14 @@ export default function ProductCard({ product }) {
       <div className="relative aspect-[3/4] overflow-hidden bg-timber-100">
         {photos.length ? (
           <img
-            src={getImageUrl(photos[photoIndex])}
+            src={getImageUrl(photos[photoIndex], { width: 600 })}
             alt={product.name}
-            className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-[1.04]"
+            width={600}
+            height={800}
+            loading={priority ? 'eager' : 'lazy'}
+            decoding="async"
+            fetchPriority={priority ? 'high' : 'auto'}
+            className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-[1.03]"
             draggable={false}
           />
         ) : (
@@ -93,16 +98,6 @@ export default function ProductCard({ product }) {
             >
               <ChevronRight size={16} strokeWidth={1.5} />
             </button>
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
-              {photos.slice(0, 5).map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-px transition-all ${
-                    i === photoIndex ? 'w-5 bg-white' : 'w-2.5 bg-white/45'
-                  }`}
-                />
-              ))}
-            </div>
           </>
         )}
 
@@ -182,3 +177,5 @@ export default function ProductCard({ product }) {
     </Link>
   );
 }
+
+export default memo(ProductCard);

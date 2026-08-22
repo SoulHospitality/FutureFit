@@ -22,26 +22,31 @@ export default function HomePage() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    api
-      .get('/slides')
-      .then((r) => setSlides(asArray(r.data)))
-      .catch(() => setSlides([]));
-    api
-      .get('/products?limit=8')
-      .then((r) => setProducts(asArray(r.data)))
-      .catch(() => setProducts([]))
-      .finally(() => setLoadingProducts(false));
-    api
-      .get('/reviews?visible=true&limit=6')
-      .then((r) => setReviews(asArray(r.data)))
-      .catch(() => setReviews([]));
+    Promise.all([
+      api.get('/slides').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/products?limit=8').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
+    ]).then(([slideData, productData, reviewData]) => {
+      setSlides(slideData);
+      setProducts(productData);
+      setReviews(reviewData);
+      setLoadingProducts(false);
+    });
   }, []);
 
   useEffect(() => {
     if (slides.length < 2) return undefined;
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 5000);
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 6000);
     return () => clearInterval(t);
   }, [slides.length]);
+
+  useEffect(() => {
+    if (slides.length < 2) return;
+    const next = slides[(index + 1) % slides.length];
+    if (!next?.cloudinaryUrl) return;
+    const img = new Image();
+    img.src = getImageUrl(next.cloudinaryUrl, { width: 1400 });
+  }, [index, slides]);
 
   const slide = slides[index];
   const fallbackTitle = 'Setting trends with every stitch.';
@@ -55,31 +60,32 @@ export default function HomePage() {
 
   return (
     <div className="bg-white">
-      <section className="relative min-h-[100svh] w-full overflow-hidden bg-timber-900">
+      <section className="relative min-h-[72svh] w-full overflow-hidden bg-timber-900 sm:min-h-[85svh]">
         <div className="absolute inset-0">
-          {slides.length > 0 ? (
-            slides.map((s, i) => (
-              <img
-                key={s.id}
-                src={getImageUrl(s.cloudinaryUrl)}
-                alt={s.title}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-[1400ms] ease-in-out ${
-                  i === index ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
-            ))
+          {slide?.cloudinaryUrl ? (
+            <img
+              key={slide.id}
+              src={getImageUrl(slide.cloudinaryUrl, { width: 1400 })}
+              alt={slide.title}
+              width={1400}
+              height={900}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out"
+            />
           ) : (
             <div className="absolute inset-0 bg-timber-900" />
           )}
         </div>
         <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
-        <div className="relative mx-auto flex min-h-[100svh] max-w-7xl items-end px-5 pb-24 pt-40 sm:px-8 sm:pb-28">
+        <div className="relative mx-auto flex min-h-[72svh] max-w-7xl items-end px-5 pb-20 pt-32 sm:min-h-[85svh] sm:px-8 sm:pb-24 sm:pt-40">
           <div className="max-w-xl text-white">
             <p className="text-[11px] font-medium uppercase tracking-[0.4em] text-white/70">
               FutureFit
             </p>
             <div key={slide?.id || 'fallback'} className="hero-copy-fade">
-              <h1 className="mt-5 font-display text-5xl font-medium leading-[0.95] tracking-tight sm:text-7xl">
+              <h1 className="mt-5 font-display text-4xl font-medium leading-[0.95] tracking-tight sm:text-7xl">
                 {slide?.title || fallbackTitle}
               </h1>
               <p className="mt-6 max-w-md text-balance text-base leading-relaxed text-white/80 sm:text-lg">
@@ -149,11 +155,11 @@ export default function HomePage() {
             <Link
               key={a.value}
               to={`/shop?audience=${a.value}`}
-              className="group relative min-h-[280px] overflow-hidden bg-timber-900 p-8 text-white"
+              className="group relative min-h-[240px] overflow-hidden bg-timber-900 p-8 text-white sm:min-h-[280px]"
             >
-              <div className="absolute inset-0 bg-timber-800 transition duration-700 group-hover:scale-105" />
+              <div className="absolute inset-0 bg-timber-800 transition duration-500 group-hover:scale-105" />
               <div className="relative flex h-full flex-col justify-end">
-                <h3 className="font-display text-4xl font-medium">{a.label}</h3>
+                <h3 className="font-display text-3xl font-medium sm:text-4xl">{a.label}</h3>
                 <p className="mt-2 max-w-xs text-sm text-white/70">{DEPT_COPY[a.value]}</p>
                 <span className="mt-6 text-[10px] uppercase tracking-[0.24em] underline underline-offset-8">
                   Shop {a.label}
@@ -181,9 +187,9 @@ export default function HomePage() {
           </Link>
         </div>
         {loadingProducts ? (
-          <div className="flex gap-6 overflow-hidden">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="w-[240px] shrink-0 animate-pulse">
+              <div key={i} className="animate-pulse">
                 <div className="aspect-[3/4] bg-timber-100" />
               </div>
             ))}
@@ -191,11 +197,9 @@ export default function HomePage() {
         ) : products.length === 0 ? (
           <p className="text-sm text-timber-500">No products yet — check back soon.</p>
         ) : (
-          <div className="flex gap-6 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {products.map((p) => (
-              <div key={p.id} className="w-[240px] shrink-0 sm:w-[280px]">
-                <ProductCard product={p} />
-              </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+            {products.map((p, i) => (
+              <ProductCard key={p.id} product={p} priority={i < 2} />
             ))}
           </div>
         )}
@@ -251,10 +255,10 @@ export default function HomePage() {
             Newsletter
           </p>
           <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
-            Access what others don’t
+            Access what others don't
           </h2>
           <form
-            className="mt-6 flex gap-2"
+            className="mt-6 flex flex-col gap-2 sm:flex-row"
             onSubmit={(e) => {
               e.preventDefault();
               const list = JSON.parse(localStorage.getItem('newsletterEmails') || '[]');
@@ -262,7 +266,7 @@ export default function HomePage() {
                 list.push(email);
                 localStorage.setItem('newsletterEmails', JSON.stringify(list));
               }
-              toast.success('You’re on the list');
+              toast.success('You\'re on the list');
               setEmail('');
             }}
           >
@@ -297,19 +301,6 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-
-      <style>{`
-        .hero-copy-fade {
-          animation: heroCopyFade 900ms ease;
-        }
-        @keyframes heroCopyFade {
-          from { opacity: 0; transform: translateY(8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .hero-copy-fade { animation: none; }
-        }
-      `}</style>
     </div>
   );
 }

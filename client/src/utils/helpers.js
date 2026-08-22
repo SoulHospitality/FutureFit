@@ -1,5 +1,5 @@
 /** Normalize Drive / remote image URLs for <img src> */
-export const getImageUrl = (path) => {
+export const getImageUrl = (path, { width } = {}) => {
   if (!path) return '';
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
 
@@ -9,16 +9,27 @@ export const getImageUrl = (path) => {
       path
     );
 
+  let url = path;
   if (isDriveRelated) {
     const id =
       path.match(/\/file\/d\/([^/?&#]+)/)?.[1] ||
       path.match(/lh3\.googleusercontent\.com\/d\/([^?=&#]+)/)?.[1] ||
       path.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1];
-    if (id) return `https://lh3.googleusercontent.com/d/${id}`;
+    if (id) url = `https://lh3.googleusercontent.com/d/${id}`;
+  } else if (!path.startsWith('http')) {
+    url = path;
   }
 
-  if (path.startsWith('http')) return path;
-  return path;
+  if (url.includes('res.cloudinary.com') && width) {
+    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+  }
+
+  if (width && url.includes('googleusercontent.com') && !/=[sw]\d/.test(url)) {
+    return `${url}=w${width}`;
+  }
+
+  if (url.startsWith('http')) return url;
+  return url;
 };
 
 export const PRODUCT_TYPES = [

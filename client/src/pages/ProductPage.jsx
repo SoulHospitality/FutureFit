@@ -172,7 +172,23 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-20 text-center text-timber-400">Loading…</div>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
+        <div className="animate-pulse">
+          <div className="mb-8 h-3 w-48 bg-timber-100" />
+          <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
+            <div className="lg:col-span-7">
+              <div className="aspect-[3/4] bg-timber-100 sm:aspect-[4/5]" />
+            </div>
+            <div className="space-y-4 lg:col-span-5">
+              <div className="h-3 w-24 bg-timber-100" />
+              <div className="h-10 w-3/4 bg-timber-100" />
+              <div className="h-6 w-32 bg-timber-100" />
+              <div className="mt-8 h-12 w-full bg-timber-100" />
+              <div className="h-12 w-full bg-timber-100" />
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -269,8 +285,13 @@ export default function ProductPage() {
             <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
               {photos[activePhoto] ? (
                 <img
-                  src={getImageUrl(photos[activePhoto])}
+                  src={getImageUrl(photos[activePhoto], { width: 900 })}
                   alt={product.name}
+                  width={900}
+                  height={1125}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -309,7 +330,15 @@ export default function ProductPage() {
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
                   >
-                    <img src={getImageUrl(p)} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={getImageUrl(p, { width: 120 })}
+                      alt=""
+                      width={120}
+                      height={150}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover"
+                    />
                   </button>
                 ))}
               </div>

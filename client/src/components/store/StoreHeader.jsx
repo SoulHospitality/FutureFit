@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ChevronDown, Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCategories } from '../../context/CategoriesContext';
 import { isStaff } from '../../utils/permissions';
-import { AUDIENCES, asArray } from '../../utils/helpers';
+import { AUDIENCES } from '../../utils/helpers';
 import BrandLogo from '../BrandLogo';
-import api from '../../api/axios';
 
 export default function StoreHeader() {
   const { user, logout } = useAuth();
@@ -18,20 +18,13 @@ export default function StoreHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileDept, setMobileDept] = useState(null);
-  const [categories, setCategories] = useState([]);
+  const { categories } = useCategories();
 
   const overHero = pathname === '/';
   const solid = !overHero || scrolled;
   const lightLogo = overHero && !scrolled;
   const params = new URLSearchParams(search);
   const activeAudience = pathname === '/shop' ? params.get('audience') : null;
-
-  useEffect(() => {
-    api
-      .get('/categories')
-      .then((r) => setCategories(asArray(r.data)))
-      .catch(() => setCategories([]));
-  }, []);
 
   const byAudience = useMemo(() => {
     const map = { men: [], women: [], kids: [] };
@@ -82,7 +75,7 @@ export default function StoreHeader() {
         <div className="bg-timber-900 text-center text-[10px] font-medium uppercase tracking-[0.28em] text-white/90 px-4 py-2.5">
           Free shipping over EGP 2,000 · COD · InstaPay · Vodafone Cash
         </div>
-        <div className="relative mx-auto flex h-[88px] sm:h-[96px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="relative mx-auto flex h-[72px] sm:h-[80px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
           <div className="relative z-10 shrink-0">
             <BrandLogo size="header" invert={lightLogo} />
           </div>

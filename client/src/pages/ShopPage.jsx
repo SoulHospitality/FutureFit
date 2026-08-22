@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
-import { AUDIENCES, audienceLabel, asArray } from '../utils/helpers';
+import { useCategories } from '../context/CategoriesContext';
+import { AUDIENCES, audienceLabel } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
@@ -182,8 +183,8 @@ function FiltersPanel({
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
+  const { categories } = useCategories();
   const [allProducts, setAllProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilters, setMobileFilters] = useState(false);
 
@@ -207,13 +208,6 @@ export default function ShopPage() {
     setMinInput(params.get('minPrice') || '');
     setMaxInput(params.get('maxPrice') || '');
   }, [params]);
-
-  useEffect(() => {
-    api
-      .get('/categories')
-      .then((r) => setCategories(asArray(r.data)))
-      .catch(() => setCategories([]));
-  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -328,6 +322,27 @@ export default function ShopPage() {
 
   const heading = audience ? audienceLabel(audience) : 'The collection';
 
+  const activeFilters = useMemo(() => {
+    const chips = [];
+    if (selectedCategory) {
+      const cat = categories.find((c) => c.slug === selectedCategory);
+      chips.push({ key: 'category', label: cat?.name || selectedCategory, clear: () => patchParams({ category: null }) });
+    }
+    selectedColors.forEach((c) =>
+      chips.push({ key: `color-${c}`, label: c, clear: () => toggleInList('colors', selectedColors, c) })
+    );
+    selectedSizes.forEach((s) =>
+      chips.push({ key: `size-${s}`, label: `Size ${s}`, clear: () => toggleInList('sizes', selectedSizes, s) })
+    );
+    if (minPrice != null) {
+      chips.push({ key: 'min', label: `Min ${minPrice}`, clear: () => patchParams({ minPrice: null }) });
+    }
+    if (maxPrice != null) {
+      chips.push({ key: 'max', label: `Max ${maxPrice}`, clear: () => patchParams({ maxPrice: null }) });
+    }
+    return chips;
+  }, [selectedCategory, selectedColors, selectedSizes, minPrice, maxPrice, categories]);
+
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white">
       <div className="border-b border-timber-100 bg-timber-50">
@@ -413,6 +428,29 @@ export default function ShopPage() {
                 </label>
               </div>
             </div>
+
+            {activeFilters.length > 0 && (
+              <div className="mb-6 flex flex-wrap items-center gap-2">
+                {activeFilters.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={f.clear}
+                    className="inline-flex items-center gap-1.5 border border-timber-200 bg-timber-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-timber-700 transition hover:border-timber-900"
+                  >
+                    {f.label}
+                    <X className="h-3 w-3" strokeWidth={1.5} />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
 
             {loading ? (
               <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">

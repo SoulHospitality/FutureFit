@@ -5,26 +5,28 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
+import { CategoriesProvider } from './context/CategoriesContext';
 import StoreHeader from './components/store/StoreHeader';
 import StoreFooter from './components/store/StoreFooter';
 import StaffLayout from './components/staff/StaffLayout';
+import ScrollToTop from './components/ScrollToTop';
 import { defaultStaffPage, isStaff } from './utils/permissions';
 
 import { COMING_SOON } from './config';
-import ComingSoonPage from './pages/ComingSoonPage';
 import HomePage from './pages/HomePage';
-import ShopPage from './pages/ShopPage';
-import ProductPage from './pages/ProductPage';
-import CartPage from './pages/CartPage';
-import WishlistPage from './pages/WishlistPage';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import OrderSuccessPage from './pages/OrderSuccessPage';
-import AboutPage from './pages/AboutPage';
-import ContactPage from './pages/ContactPage';
 // Dashboard is the staff landing page — load eagerly so the shell isn't blank
 import StaffDashboard from './pages/staff/Dashboard';
 
+const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage'));
+const ShopPage = lazy(() => import('./pages/ShopPage'));
+const ProductPage = lazy(() => import('./pages/ProductPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const WishlistPage = lazy(() => import('./pages/WishlistPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const SignupPage = lazy(() => import('./pages/SignupPage'));
+const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'));
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const AccountPage = lazy(() => import('./pages/AccountPage'));
 const OrderPage = lazy(() => import('./pages/OrderPage'));
@@ -150,6 +152,7 @@ function StaffHome() {
 function AppRoutes() {
   return (
     <StoreShell>
+      <ScrollToTop />
       <PrefetchStaffChunks />
       <Routes>
         {COMING_SOON ? (
@@ -214,23 +217,25 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <ToastContainer
-              position="top-center"
-              theme="light"
-              limit={3}
-              newestOnTop
-              closeOnClick
-              hideProgressBar={false}
-              icon={false}
-              toastClassName="ff-toast"
-              bodyClassName="ff-toast-body"
-              progressClassName="ff-toast-progress"
-            />
-            <AppRoutes />
-          </WishlistProvider>
-        </CartProvider>
+        <CategoriesProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <ToastContainer
+                position="top-center"
+                theme="light"
+                limit={3}
+                newestOnTop
+                closeOnClick
+                hideProgressBar={false}
+                icon={false}
+                toastClassName="ff-toast"
+                bodyClassName="ff-toast-body"
+                progressClassName="ff-toast-progress"
+              />
+              <AppRoutes />
+            </WishlistProvider>
+          </CartProvider>
+        </CategoriesProvider>
       </AuthProvider>
     </BrowserRouter>
   );
