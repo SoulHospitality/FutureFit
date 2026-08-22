@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Minus, Plus, Truck, ShieldCheck, Trash2 } from 'lucide-react';
+import { Minus, Plus, Pencil, Truck, ShieldCheck, Trash2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import CartEditModal from '../components/store/CartEditModal';
 import {
   formatMoney,
   getImageUrl,
@@ -10,8 +12,9 @@ import {
 import EmptyState from '../components/ui/EmptyState';
 
 export default function CartPage() {
-  const { items, updateQty, removeItem, subtotal } = useCart();
+  const { items, updateQty, updateItem, removeItem, subtotal } = useCart();
   const navigate = useNavigate();
+  const [editingItem, setEditingItem] = useState(null);
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
@@ -88,17 +91,29 @@ export default function CartPage() {
                         {formatMoney(item.price)}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      className="text-timber-400 transition hover:text-timber-900"
-                      onClick={() => removeItem(item.productId, item.color, item.size)}
-                      aria-label="Remove item"
-                      title="Remove"
-                    >
-                      <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        className="grid h-8 w-8 place-items-center text-timber-400 transition hover:text-timber-900"
+                        onClick={() => setEditingItem(item)}
+                        aria-label="Edit item"
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" strokeWidth={1.5} />
+                      </button>
+                      <button
+                        type="button"
+                        className="grid h-8 w-8 place-items-center text-timber-400 transition hover:text-timber-900"
+                        onClick={() => removeItem(item.productId, item.color, item.size)}
+                        aria-label="Remove item"
+                        title="Remove"
+                      >
+                        <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="mt-4 inline-flex w-fit items-center border border-timber-200">
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <div className="inline-flex w-fit items-center border border-timber-200">
                     <button
                       type="button"
                       className="px-2.5 py-2 text-timber-700 hover:bg-timber-50"
@@ -134,6 +149,14 @@ export default function CartPage() {
                       aria-label="Increase quantity"
                     >
                       <Plus className="h-4 w-4" strokeWidth={1.5} />
+                    </button>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-[10px] font-medium uppercase tracking-[0.18em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+                      onClick={() => setEditingItem(item)}
+                    >
+                      Edit
                     </button>
                   </div>
                 </div>
@@ -198,6 +221,22 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      <CartEditModal
+        item={editingItem}
+        open={Boolean(editingItem)}
+        onClose={() => setEditingItem(null)}
+        onSave={(next, product) => {
+          if (!editingItem) return;
+          updateItem(
+            editingItem.productId,
+            editingItem.color,
+            editingItem.size,
+            next,
+            product
+          );
+        }}
+      />
     </div>
   );
 }
