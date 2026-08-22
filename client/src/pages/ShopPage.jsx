@@ -4,7 +4,7 @@ import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories } from '../context/CategoriesContext';
-import { AUDIENCES, audienceLabel } from '../utils/helpers';
+import { AUDIENCES, audienceLabel, colorSwatch } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
@@ -14,11 +14,51 @@ const SORT_OPTIONS = [
   { value: 'price_desc', label: 'Price: High to Low' },
 ];
 
+const PRICE_PRESETS = [
+  { id: 'any', label: 'Any', min: null, max: null },
+  { id: 'under-500', label: '< 500', min: null, max: 500 },
+  { id: '500-1000', label: '500–1k', min: 500, max: 1000 },
+  { id: 'over-1000', label: '1k+', min: 1000, max: null },
+];
+
 function parseBound(raw) {
   const trimmed = String(raw ?? '').trim();
   if (trimmed === '') return null;
   const n = Number(trimmed);
   return Number.isFinite(n) ? n : null;
+}
+
+function matchPricePreset(minPrice, maxPrice) {
+  const preset = PRICE_PRESETS.find(
+    (p) => p.min === minPrice && p.max === maxPrice
+  );
+  return preset?.id || 'custom';
+}
+
+function FilterSection({ title, hint, open, onToggle, children }) {
+  return (
+    <div className="border-b border-timber-100 last:border-b-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 py-3.5 text-left"
+      >
+        <div className="min-w-0">
+          <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-timber-800">
+            {title}
+          </span>
+          {!open && hint ? (
+            <p className="mt-0.5 truncate text-[11px] text-timber-400">{hint}</p>
+          ) : null}
+        </div>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 text-timber-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          strokeWidth={1.5}
+        />
+      </button>
+      {open ? <div className="pb-4">{children}</div> : null}
+    </div>
+  );
 }
 
 function FiltersPanel({
@@ -32,39 +72,94 @@ function FiltersPanel({
   availableSizes,
   minInput,
   maxInput,
+  minPrice,
+  maxPrice,
   onMinChange,
   onMaxChange,
   onPriceBlur,
+  onApplyPricePreset,
   onSelectCategory,
   onToggleColor,
   onToggleSize,
   onClear,
 }) {
+  const activePreset = matchPricePreset(minPrice, maxPrice);
+  const hasFilters =
+    selectedCategory ||
+    selectedColors.length > 0 ||
+    selectedSizes.length > 0 ||
+    minPrice != null ||
+    maxPrice != null;
+
+  const [open, setOpen] = useState(() => ({
+    type: Boolean(selectedCategory),
+    color: selectedColors.length > 0,
+    size: selectedSizes.length > 0,
+    price: minPrice != null || maxPrice != null,
+  }));
+
+  const toggle = (key) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const typeHint = selectedCategory
+    ? categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory
+    : 'All types';
+  const colorHint = selectedColors.length
+    ? selectedColors.length === 1
+      ? selectedColors[0]
+      : `${selectedColors.length} selected`
+    : 'Any';
+  const sizeHint = selectedSizes.length
+    ? selectedSizes.length === 1
+      ? selectedSizes[0]
+      : selectedSizes.join(', ')
+    : 'Any';
+  const priceHint =
+    activePreset !== 'custom' && activePreset !== 'any'
+      ? PRICE_PRESETS.find((p) => p.id === activePreset)?.label
+      : minPrice != null || maxPrice != null
+        ? [minPrice != null ? `≥ ${minPrice}` : null, maxPrice != null ? `≤ ${maxPrice}` : null]
+            .filter(Boolean)
+            .join(' · ')
+        : 'Any';
+
   return (
-    <div className={embedded ? 'flex h-full flex-col' : 'flex flex-col'}>
-      <div className="mb-8 shrink-0 border-b border-timber-200 pb-6">
-        <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
+    <div
+      className={`flex flex-col ${embedded ? 'h-full' : 'max-h-[calc(100vh-7rem)]'}`}
+    >
+      <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
           Refine
         </p>
-        <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-timber-900">
-          Filters
-        </h2>
+        {hasFilters ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClear();
+              onClose?.();
+            }}
+            className="text-[10px] font-medium uppercase tracking-[0.16em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+          >
+            Reset
+          </button>
+        ) : null}
       </div>
 
-      <div className="flex-1 space-y-8 overflow-y-auto pr-1">
-        {categories.length > 0 && (
-          <div>
-            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
-              Subcategory
-            </p>
-            <div className="flex flex-wrap gap-2">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
+        {categories.length > 0 ? (
+          <FilterSection
+            title="Type"
+            hint={typeHint}
+            open={open.type}
+            onToggle={() => toggle('type')}
+          >
+            <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => onSelectCategory('')}
-                className={`border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] ${
+                className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
                   !selectedCategory
-                    ? 'border-timber-900 bg-timber-900 text-white'
-                    : 'border-timber-200 text-timber-700 hover:border-timber-900'
+                    ? 'bg-timber-900 text-white'
+                    : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
                 }`}
               >
                 All
@@ -74,49 +169,61 @@ function FiltersPanel({
                   key={c.id}
                   type="button"
                   onClick={() => onSelectCategory(c.slug)}
-                  className={`border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] ${
+                  className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
                     selectedCategory === c.slug
-                      ? 'border-timber-900 bg-timber-900 text-white'
-                      : 'border-timber-200 text-timber-700 hover:border-timber-900'
+                      ? 'bg-timber-900 text-white'
+                      : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
                   }`}
                 >
                   {c.name}
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          </FilterSection>
+        ) : null}
 
-        {availableColors.length > 0 && (
-          <div className="border-t border-timber-100 pt-8">
-            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
-              Colors
-            </p>
-            <div className="max-h-40 space-y-3 overflow-y-auto">
-              {availableColors.map((c) => (
-                <label
-                  key={c}
-                  className="flex cursor-pointer items-center gap-3 text-sm text-timber-700"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedColors.includes(c)}
-                    onChange={() => onToggleColor(c)}
-                    className="h-3.5 w-3.5 rounded-none border-timber-300 text-timber-900 focus:ring-timber-800"
-                  />
-                  {c}
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {availableSizes.length > 0 && (
-          <div className="border-t border-timber-100 pt-8">
-            <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
-              Sizes
-            </p>
+        {availableColors.length > 0 ? (
+          <FilterSection
+            title="Colour"
+            hint={colorHint}
+            open={open.color}
+            onToggle={() => toggle('color')}
+          >
             <div className="flex flex-wrap gap-2">
+              {availableColors.map((c) => {
+                const active = selectedColors.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    title={c}
+                    onClick={() => onToggleColor(c)}
+                    className={`group relative grid h-8 w-8 place-items-center rounded-full border transition ${
+                      active
+                        ? 'border-timber-900 ring-2 ring-timber-900 ring-offset-2'
+                        : 'border-timber-200 hover:border-timber-500'
+                    }`}
+                  >
+                    <span
+                      className="h-5 w-5 rounded-full border border-black/10"
+                      style={{ backgroundColor: colorSwatch(c) }}
+                    />
+                    <span className="sr-only">{c}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </FilterSection>
+        ) : null}
+
+        {availableSizes.length > 0 ? (
+          <FilterSection
+            title="Size"
+            hint={sizeHint}
+            open={open.size}
+            onToggle={() => toggle('size')}
+          >
+            <div className="grid grid-cols-4 gap-1.5">
               {availableSizes.map((s) => {
                 const active = selectedSizes.includes(s);
                 return (
@@ -124,10 +231,10 @@ function FiltersPanel({
                     key={s}
                     type="button"
                     onClick={() => onToggleSize(s)}
-                    className={`min-w-[2.75rem] border px-3 py-2 text-[11px] font-medium uppercase tracking-[0.12em] transition ${
+                    className={`py-2 text-[11px] font-medium uppercase tracking-[0.08em] transition ${
                       active
-                        ? 'border-timber-900 bg-timber-900 text-white'
-                        : 'border-timber-200 bg-white text-timber-700 hover:border-timber-900'
+                        ? 'bg-timber-900 text-white'
+                        : 'bg-timber-50 text-timber-700 hover:bg-timber-100'
                     }`}
                   >
                     {s}
@@ -135,48 +242,67 @@ function FiltersPanel({
                 );
               })}
             </div>
-          </div>
-        )}
+          </FilterSection>
+        ) : null}
 
-        <div className="border-t border-timber-100 pt-8">
-          <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-500">
-            Price (EGP)
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="Min"
-              className="input"
-              value={minInput}
-              onChange={(e) => onMinChange(e.target.value)}
-              onBlur={onPriceBlur}
-            />
-            <input
-              type="number"
-              min="0"
-              inputMode="numeric"
-              placeholder="Max"
-              className="input"
-              value={maxInput}
-              onChange={(e) => onMaxChange(e.target.value)}
-              onBlur={onPriceBlur}
-            />
+        <FilterSection
+          title="Price"
+          hint={priceHint}
+          open={open.price}
+          onToggle={() => toggle('price')}
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {PRICE_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => onApplyPricePreset(p.min, p.max)}
+                className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
+                  activePreset === p.id
+                    ? 'bg-timber-900 text-white'
+                    : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
-        </div>
+          {activePreset === 'custom' ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="Min"
+                className="input py-2 text-xs"
+                value={minInput}
+                onChange={(e) => onMinChange(e.target.value)}
+                onBlur={onPriceBlur}
+              />
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                placeholder="Max"
+                className="input py-2 text-xs"
+                value={maxInput}
+                onChange={(e) => onMaxChange(e.target.value)}
+                onBlur={onPriceBlur}
+              />
+            </div>
+          ) : null}
+        </FilterSection>
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          onClear();
-          onClose?.();
-        }}
-        className="mt-8 w-full shrink-0 border border-timber-200 bg-white px-4 py-3 text-[11px] font-medium uppercase tracking-[0.22em] text-timber-600 transition hover:border-timber-900 hover:text-timber-900"
-      >
-        Clear filters
-      </button>
+      {embedded ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className="btn-wheat mt-4 w-full shrink-0 py-3 text-[11px] uppercase tracking-[0.2em]"
+        >
+          Show results
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -249,6 +375,15 @@ export default function ShopPage() {
     });
   };
 
+  const applyPricePreset = (min, max) => {
+    setMinInput(min != null ? String(min) : '');
+    setMaxInput(max != null ? String(max) : '');
+    patchParams({
+      minPrice: min != null ? String(min) : null,
+      maxPrice: max != null ? String(max) : null,
+    });
+  };
+
   const clearFilters = () => {
     setMinInput('');
     setMaxInput('');
@@ -311,9 +446,12 @@ export default function ShopPage() {
     availableSizes,
     minInput,
     maxInput,
+    minPrice,
+    maxPrice,
     onMinChange: setMinInput,
     onMaxChange: setMaxInput,
     onPriceBlur: applyPriceToUrl,
+    onApplyPricePreset: applyPricePreset,
     onSelectCategory: (slug) => patchParams({ category: slug || null }),
     onToggleColor: (c) => toggleInList('colors', selectedColors, c),
     onToggleSize: (s) => toggleInList('sizes', selectedSizes, s),
@@ -387,9 +525,9 @@ export default function ShopPage() {
       </div>
 
       <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
-        <div className="lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-12 xl:grid-cols-[260px_minmax(0,1fr)]">
+        <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
-            <div className="sticky top-28">
+            <div className="sticky top-28 rounded-sm border border-timber-100 bg-timber-50/50 p-4">
               <FiltersPanel {...filterProps} />
             </div>
           </aside>
@@ -490,20 +628,21 @@ export default function ShopPage() {
       {mobileFilters && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-timber-900/40" onClick={() => setMobileFilters(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-[min(100%,360px)] flex-col bg-white p-5 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between border-b border-timber-100 pb-4">
+          <div className="absolute inset-y-0 left-0 flex w-[min(100%,320px)] flex-col bg-white p-5 shadow-2xl">
+            <div className="mb-2 flex shrink-0 items-center justify-between border-b border-timber-100 pb-4">
               <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-timber-800">
-                Filters
+                Refine
               </span>
               <button
                 type="button"
                 className="grid h-9 w-9 place-items-center hover:bg-timber-50"
                 onClick={() => setMobileFilters(false)}
+                aria-label="Close filters"
               >
                 <X className="h-5 w-5" strokeWidth={1.5} />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="min-h-0 flex-1">
               <FiltersPanel
                 {...filterProps}
                 embedded
