@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import StarRating from '../components/store/StarRating';
-import { getImageUrl, AUDIENCES, asArray, FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
+import { getImageUrl, AUDIENCES, DEPT_IMAGES, asArray, FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
 
 const DEPT_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
@@ -17,6 +17,7 @@ export default function HomePage() {
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [deptPhotos, setDeptPhotos] = useState({});
   const [index, setIndex] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [email, setEmail] = useState('');
@@ -30,6 +31,25 @@ export default function HomePage() {
       setSlides(slideData);
       setProducts(productData);
       setReviews(reviewData);
+      const sortedSlides = [...slideData].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      );
+      const productPhotoByAudience = {};
+      productData.forEach((p) => {
+        const key = p.audience || 'men';
+        if (!productPhotoByAudience[key] && p.photos?.[0]) {
+          productPhotoByAudience[key] = p.photos[0];
+        }
+      });
+      const photos = {};
+      AUDIENCES.forEach((a, i) => {
+        photos[a.value] =
+          sortedSlides[i]?.cloudinaryUrl ||
+          DEPT_IMAGES[a.value] ||
+          productPhotoByAudience[a.value] ||
+          null;
+      });
+      setDeptPhotos(photos);
       setLoadingProducts(false);
     });
   }, []);
@@ -151,22 +171,38 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          {AUDIENCES.map((a) => (
-            <Link
-              key={a.value}
-              to={`/shop?audience=${a.value}`}
-              className="group relative min-h-[240px] overflow-hidden bg-timber-900 p-8 text-white sm:min-h-[280px]"
-            >
-              <div className="absolute inset-0 bg-timber-800 transition duration-500 group-hover:scale-105" />
-              <div className="relative flex h-full flex-col justify-end">
-                <h3 className="font-display text-3xl font-medium sm:text-4xl">{a.label}</h3>
-                <p className="mt-2 max-w-xs text-sm text-white/70">{DEPT_COPY[a.value]}</p>
-                <span className="mt-6 text-[10px] uppercase tracking-[0.24em] underline underline-offset-8">
-                  Shop {a.label}
-                </span>
-              </div>
-            </Link>
-          ))}
+          {AUDIENCES.map((a) => {
+            const photo = deptPhotos[a.value];
+            return (
+              <Link
+                key={a.value}
+                to={`/shop?audience=${a.value}`}
+                className="group relative min-h-[280px] overflow-hidden bg-timber-900 sm:min-h-[320px]"
+              >
+                {photo ? (
+                  <img
+                    src={getImageUrl(photo, { width: 800 })}
+                    alt={`${a.label} collection`}
+                    width={800}
+                    height={1000}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-timber-800" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10 transition duration-300 group-hover:from-black/85" />
+                <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 sm:min-h-[320px]">
+                  <h3 className="font-display text-3xl font-medium sm:text-4xl">{a.label}</h3>
+                  <p className="mt-2 max-w-xs text-sm text-white/75">{DEPT_COPY[a.value]}</p>
+                  <span className="mt-6 text-[10px] uppercase tracking-[0.24em] underline underline-offset-8">
+                    Shop {a.label}
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

@@ -47,6 +47,13 @@ export const AUDIENCES = [
   { value: 'kids', label: 'Kids' },
 ];
 
+/** Fallback department cover photos when no catalog product exists yet. */
+export const DEPT_IMAGES = {
+  men: '/images/products/uw-hero-1.png',
+  women: '/images/products/uw-hero-2.png',
+  kids: '/images/products/uw-bundle.png',
+};
+
 export const audienceLabel = (value) =>
   AUDIENCES.find((a) => a.value === value)?.label || value;
 
