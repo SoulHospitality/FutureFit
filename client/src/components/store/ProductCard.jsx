@@ -165,14 +165,6 @@ function ProductCard({ product, priority = false }) {
         {totalStock(product) < 1 && (
           <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
         )}
-        <button
-          type="button"
-          disabled={!inStock}
-          onClick={quickAdd}
-          className="btn-outline mt-3 w-full py-2.5 text-[10px] font-medium uppercase tracking-[0.18em] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {inStock ? 'Add to cart' : 'Out of stock'}
-        </button>
       </div>
     </Link>
   );
