@@ -1,12 +1,90 @@
 import { useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import { Download, Loader2, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '../../api/axios';
 import Modal from '../ui/Modal';
 
-const CSV_TEMPLATE = `name,description,price,audience,category,colors,sizes,stocks,photos,drive_folder,is_sale,sale_price
-Relaxed Cotton Boxers,"Classic woven boxers with a soft waistband",349,men,boxers,"White,Navy","S,M,L,XL","10,10,10,10",,,false,
-Starter Essentials Pack,"Boxers, briefs, and undershirt bundle",849,men,bundles,"Black,White","S,M,L,XL","5,5,5,5",,https://drive.google.com/drive/folders/YOUR_FOLDER_ID,true,799`;
+const HEADERS = [
+  'name',
+  'description',
+  'price',
+  'audience',
+  'category',
+  'colors',
+  'sizes',
+  'stocks',
+  'photos',
+  'drive_folder',
+  'is_sale',
+  'sale_price',
+];
+
+const TEMPLATE_ROWS = [
+  [
+    'Relaxed Cotton Boxers',
+    'Classic woven boxers with a soft waistband',
+    349,
+    'men',
+    'boxers',
+    'White,Navy',
+    'S,M,L,XL',
+    '10,10,10,10',
+    '',
+    '',
+    false,
+    '',
+  ],
+  [
+    'Starter Essentials Pack',
+    'Boxers, briefs, and undershirt bundle',
+    849,
+    'men',
+    'bundles',
+    'Black,White',
+    'S,M,L,XL',
+    '5,5,5,5',
+    '',
+    'https://drive.google.com/drive/folders/YOUR_FOLDER_ID',
+    true,
+    799,
+  ],
+];
+
+function cellToString(value) {
+  if (value == null || value === '') return '';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (value instanceof Date) return value.toISOString();
+  return String(value).trim();
+}
+
+function normalizeRow(raw, rowNumber) {
+  const row = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    row[String(key).toLowerCase().trim()] = cellToString(value);
+  });
+  row.__row = rowNumber;
+  return row;
+}
+
+function parseCsv(text) {
+  const lines = text
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
+  return lines.slice(1).map((line, index) => {
+    const cells = parseCsvLine(line);
+    const row = {};
+    headers.forEach((header, i) => {
+      row[header] = cells[i] ?? '';
+    });
+    return normalizeRow(row, index + 2);
+  });
+}
 
 function parseCsvLine(line) {
   const values = [];
@@ -33,24 +111,16 @@ function parseCsvLine(line) {
   return values;
 }
 
-function parseCsv(text) {
-  const lines = text
-    .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (lines.length < 2) return [];
+function parseExcel(arrayBuffer) {
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return [];
 
-  const headers = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
-  return lines.slice(1).map((line, index) => {
-    const cells = parseCsvLine(line);
-    const row = {};
-    headers.forEach((header, i) => {
-      row[header] = cells[i] ?? '';
-    });
-    row.__row = index + 2;
-    return row;
-  });
+  const sheet = workbook.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+  return json
+    .map((row, index) => normalizeRow(row, index + 2))
+    .filter((row) => row.name || row.description || row.price);
 }
 
 function splitList(value, separator = ',') {
@@ -97,13 +167,35 @@ export function csvRowsToProducts(rows) {
 }
 
 function downloadTemplate() {
-  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'futurefit-products-template.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  const sheet = XLSX.utils.aoa_to_sheet([HEADERS, ...TEMPLATE_ROWS]);
+  sheet['!cols'] = [
+    { wch: 28 },
+    { wch: 42 },
+    { wch: 8 },
+    { wch: 10 },
+    { wch: 12 },
+    { wch: 16 },
+    { wch: 14 },
+    { wch: 14 },
+    { wch: 24 },
+    { wch: 36 },
+    { wch: 8 },
+    { wch: 10 },
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Products');
+  XLSX.writeFile(workbook, 'futurefit-products-template.xlsx');
+}
+
+async function readUploadFile(file) {
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (ext === 'csv') {
+    return parseCsv(await file.text());
+  }
+  if (ext === 'xlsx' || ext === 'xls') {
+    return parseExcel(await file.arrayBuffer());
+  }
+  throw new Error('unsupported');
 }
 
 export default function BulkUploadModal({ open, onClose, onComplete }) {
@@ -111,10 +203,12 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
   const [rows, setRows] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
+  const [fileLabel, setFileLabel] = useState('');
 
   const reset = () => {
     setRows([]);
     setResult(null);
+    setFileLabel('');
     if (inputRef.current) inputRef.current.value = '';
   };
 
@@ -123,28 +217,25 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
     onClose();
   };
 
-  const handleFile = (file) => {
+  const handleFile = async (file) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const parsed = parseCsv(String(reader.result || ''));
-        if (!parsed.length) {
-          toast.error('No product rows found in the file');
-          return;
-        }
-        setRows(parsed);
-        setResult(null);
-        toast.success(`Loaded ${parsed.length} row${parsed.length === 1 ? '' : 's'}`);
-      } catch {
-        toast.error('Could not read CSV file');
+    try {
+      const parsed = await readUploadFile(file);
+      if (!parsed.length) {
+        toast.error('No product rows found in the file');
+        return;
       }
-    };
-    reader.readAsText(file);
+      setRows(parsed);
+      setFileLabel(file.name);
+      setResult(null);
+      toast.success(`Loaded ${parsed.length} row${parsed.length === 1 ? '' : 's'}`);
+    } catch {
+      toast.error('Use an Excel file (.xlsx, .xls) or CSV with the template columns');
+    }
   };
 
   const upload = async () => {
-    if (!rows.length) return toast.error('Choose a CSV file first');
+    if (!rows.length) return toast.error('Choose an Excel or CSV file first');
     const products = csvRowsToProducts(rows);
     const invalid = products.filter(
       (p) => !p.name || !p.description || !Number.isFinite(p.price) || !p.sizeStocks.length
@@ -181,27 +272,34 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
     <Modal open={open} onClose={handleClose} title="Bulk upload products" wide>
       <div className="space-y-5">
         <p className="text-sm text-timber-500">
-          Upload a CSV to create many products at once. Use the template for the correct columns.
-          Photo URLs can be pipe-separated; each row can also include a Google Drive folder link.
+          Upload an Excel sheet (.xlsx) or CSV to create many products at once. Download the
+          template, fill in the &quot;Products&quot; sheet, then upload it here. Photo URLs can be
+          pipe-separated; each row can also include a Google Drive folder link.
         </p>
 
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-outline btn-sm" onClick={downloadTemplate}>
             <Download className="h-4 w-4" />
-            Download template
+            Download Excel template
           </button>
           <label className="btn-dark btn-sm cursor-pointer">
             <Upload className="h-4 w-4" />
-            Choose CSV
+            Choose file
             <input
               ref={inputRef}
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
               className="sr-only"
               onChange={(e) => handleFile(e.target.files?.[0])}
             />
           </label>
         </div>
+
+        {fileLabel ? (
+          <p className="text-xs text-timber-500">
+            Selected: <span className="font-medium text-timber-700">{fileLabel}</span>
+          </p>
+        ) : null}
 
         {rows.length > 0 && !result ? (
           <div className="rounded border border-timber-100 bg-timber-50/50 p-4">
