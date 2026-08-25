@@ -13,11 +13,11 @@ import ScrollToTop from './components/ScrollToTop';
 import { defaultStaffPage, isStaff } from './utils/permissions';
 
 import { COMING_SOON } from './config';
-import HomePage from './pages/HomePage';
 // Dashboard is the staff landing page — load eagerly so the shell isn't blank
 import StaffDashboard from './pages/staff/Dashboard';
 
 const ComingSoonPage = lazy(() => import('./pages/ComingSoonPage'));
+const HomePage = lazy(() => import('./pages/HomePage'));
 const ShopPage = lazy(() => import('./pages/ShopPage'));
 const ProductPage = lazy(() => import('./pages/ProductPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -100,10 +100,14 @@ function StaffRoute({ page, children }) {
 function PrefetchStaffChunks() {
   const { user } = useAuth();
   useEffect(() => {
-    if (!user || !isStaff(user)) return undefined;
-    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 200));
+    const idle = window.requestIdleCallback || ((cb) => setTimeout(cb, 400));
     const id = idle(() => {
-      STAFF_PREFETCH.forEach((load) => load());
+      // Warm the most common storefront routes
+      import('./pages/ShopPage');
+      import('./pages/ProductPage');
+      if (user && isStaff(user)) {
+        STAFF_PREFETCH.forEach((load) => load());
+      }
     });
     return () => {
       if (window.cancelIdleCallback) window.cancelIdleCallback(id);

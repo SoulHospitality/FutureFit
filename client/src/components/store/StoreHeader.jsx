@@ -39,7 +39,15 @@ export default function StoreHeader() {
       setScrolled(false);
       return undefined;
     }
-    const onScroll = () => setScrolled(window.scrollY > 24);
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        setScrolled(window.scrollY > 24);
+        ticking = false;
+      });
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
@@ -65,9 +73,9 @@ export default function StoreHeader() {
   return (
     <>
       <header
-        className={`${overHero ? 'fixed' : 'sticky'} top-0 inset-x-0 z-50 transition-all duration-300 ${
+        className={`${overHero ? 'fixed' : 'sticky'} top-0 inset-x-0 z-50 transition-colors duration-200 ${
           solid
-            ? 'bg-white/95 shadow-[0_1px_0_rgba(9,9,11,0.08)] backdrop-blur-md'
+            ? 'bg-white shadow-[0_1px_0_rgba(9,9,11,0.08)]'
             : 'bg-transparent'
         }`}
         onMouseLeave={() => setOpenMenu(null)}

@@ -313,6 +313,7 @@ export default function ShopPage() {
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilters, setMobileFilters] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
 
   const audience = params.get('audience') || '';
   const selectedCategory = params.get('category') || '';
@@ -337,6 +338,7 @@ export default function ShopPage() {
 
   useEffect(() => {
     setLoading(true);
+    setVisibleCount(24);
     const query = new URLSearchParams();
     if (audience) query.set('audience', audience);
     if (selectedCategory) query.set('category', selectedCategory);
@@ -615,11 +617,24 @@ export default function ShopPage() {
                 }
               />
             ) : (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
+                  {products.slice(0, visibleCount).map((p, i) => (
+                    <ProductCard key={p.id} product={p} priority={i < 2} />
+                  ))}
+                </div>
+                {visibleCount < products.length ? (
+                  <div className="mt-12 flex justify-center">
+                    <button
+                      type="button"
+                      className="btn-outline px-8 text-[11px] uppercase tracking-[0.2em]"
+                      onClick={() => setVisibleCount((n) => n + 24)}
+                    >
+                      Load more ({products.length - visibleCount} left)
+                    </button>
+                  </div>
+                ) : null}
+              </>
             )}
           </section>
         </div>

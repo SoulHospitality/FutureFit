@@ -25,7 +25,7 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       api.get('/slides').then((r) => asArray(r.data)).catch(() => []),
-      api.get('/products?limit=8').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/products?limit=4').then((r) => asArray(r.data)).catch(() => []),
       api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
     ]).then(([slideData, productData, reviewData]) => {
       setSlides(slideData);
@@ -92,7 +92,8 @@ export default function HomePage() {
               loading="eager"
               fetchPriority="high"
               decoding="async"
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ease-in-out"
+              className="absolute inset-0 h-full w-full object-cover"
+              sizes="100vw"
             />
           ) : (
             <div className="absolute inset-0 bg-timber-900" />
@@ -187,12 +188,12 @@ export default function HomePage() {
                     height={1000}
                     loading="lazy"
                     decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : (
                   <div className="absolute inset-0 bg-timber-800" />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15 transition duration-300 group-hover:from-black/95" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15" />
                 <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 text-white sm:min-h-[320px]">
                   <h3 className="font-display text-3xl font-medium text-white drop-shadow-sm sm:text-4xl">
                     {a.label}

@@ -17,7 +17,8 @@ export const getImageUrl = (path, { width } = {}) => {
       path.match(/[?&]id=([a-zA-Z0-9_-]+)/)?.[1];
     if (id) url = `https://lh3.googleusercontent.com/d/${id}`;
   } else if (!path.startsWith('http')) {
-    url = path;
+    // Local catalog assets ship as WebP; rewrite legacy .png DB paths.
+    url = path.replace(/\/images\/products\/([^/?#]+)\.png$/i, '/images/products/$1.webp');
   }
 
   if (url.includes('res.cloudinary.com') && width) {
@@ -49,9 +50,9 @@ export const AUDIENCES = [
 
 /** Fallback department cover photos when no catalog product exists yet. */
 export const DEPT_IMAGES = {
-  men: '/images/products/uw-hero-1.png',
-  women: '/images/products/uw-hero-2.png',
-  kids: '/images/products/uw-bundle.png',
+  men: '/images/products/uw-hero-1.webp',
+  women: '/images/products/uw-hero-2.webp',
+  kids: '/images/products/uw-bundle.webp',
 };
 
 export const audienceLabel = (value) =>

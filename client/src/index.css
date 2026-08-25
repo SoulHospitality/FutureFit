@@ -5,6 +5,14 @@
 @layer base {
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
   body {
     @apply font-sans text-timber-700 bg-cream antialiased;
   }
@@ -84,14 +92,18 @@
 
 @layer utilities {
   .text-balance { text-wrap: balance; }
+  .product-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 420px;
+  }
 }
 
 .hero-copy-fade {
-  animation: heroCopyFade 900ms ease;
+  animation: heroCopyFade 500ms ease;
 }
 
 @keyframes heroCopyFade {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 

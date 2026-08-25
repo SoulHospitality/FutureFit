@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 const { TYPE_TO_SLUG, DEFAULT_CATEGORIES } = require('../utils/catalog');
 
 /** Local product photos served from the Vite public folder (and Railway client). */
-const photo = (file) => `/images/products/${file}`;
+const photo = (file) => `/images/products/${file.replace(/\.png$/i, '.webp')}`;
 
 const sizeStockRows = (sizes, total) => {
   if (!sizes?.length) return [];

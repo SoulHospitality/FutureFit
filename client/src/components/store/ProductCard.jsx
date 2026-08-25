@@ -54,7 +54,7 @@ function ProductCard({ product, priority = false }) {
   };
 
   return (
-    <Link to={`/product/${product.id}`} className="group flex flex-col">
+    <Link to={`/product/${product.id}`} className="product-card group flex flex-col">
       <div className="relative aspect-[3/4] overflow-hidden bg-timber-100">
         {photos.length ? (
           <img
@@ -62,10 +62,11 @@ function ProductCard({ product, priority = false }) {
             alt={product.name}
             width={600}
             height={800}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 280px"
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
             fetchPriority={priority ? 'high' : 'auto'}
-            className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-[1.03]"
+            className="h-full w-full object-cover"
             draggable={false}
           />
         ) : (
@@ -85,7 +86,7 @@ function ProductCard({ product, priority = false }) {
             <button
               type="button"
               onClick={prev}
-              className="absolute start-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition group-hover:opacity-100"
+              className="absolute start-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition-opacity group-hover:opacity-100"
               aria-label="Previous photo"
             >
               <ChevronLeft size={16} strokeWidth={1.5} />
@@ -93,7 +94,7 @@ function ProductCard({ product, priority = false }) {
             <button
               type="button"
               onClick={next}
-              className="absolute end-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition group-hover:opacity-100"
+              className="absolute end-0 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition-opacity group-hover:opacity-100"
               aria-label="Next photo"
             >
               <ChevronRight size={16} strokeWidth={1.5} />
@@ -109,7 +110,7 @@ function ProductCard({ product, priority = false }) {
             e.stopPropagation();
             toggle(product);
           }}
-          className="absolute end-3 top-3 grid h-9 w-9 place-items-center bg-white/95 opacity-100 sm:opacity-0 transition group-hover:opacity-100 hover:bg-white"
+          className="absolute end-3 top-3 grid h-9 w-9 place-items-center bg-white/95 opacity-100 transition-opacity sm:opacity-0 group-hover:opacity-100 hover:bg-white"
         >
           <Heart
             className={`h-4 w-4 ${liked ? 'fill-timber-900 text-timber-900' : 'text-timber-800'}`}
