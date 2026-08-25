@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories } from '../context/CategoriesContext';
@@ -35,28 +35,13 @@ function matchPricePreset(minPrice, maxPrice) {
   return preset?.id || 'custom';
 }
 
-function FilterSection({ title, hint, open, onToggle, children }) {
+function FilterSection({ title, children }) {
   return (
-    <div className="border-b border-timber-100 last:border-b-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 py-3.5 text-left"
-      >
-        <div className="min-w-0">
-          <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-timber-800">
-            {title}
-          </span>
-          {!open && hint ? (
-            <p className="mt-0.5 truncate text-[11px] text-timber-400">{hint}</p>
-          ) : null}
-        </div>
-        <ChevronDown
-          className={`h-3.5 w-3.5 shrink-0 text-timber-400 transition-transform ${open ? 'rotate-180' : ''}`}
-          strokeWidth={1.5}
-        />
-      </button>
-      {open ? <div className="pb-4">{children}</div> : null}
+    <div className="border-b border-timber-100 py-4 last:border-b-0">
+      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-timber-800">
+        {title}
+      </p>
+      {children}
     </div>
   );
 }
@@ -91,43 +76,12 @@ function FiltersPanel({
     minPrice != null ||
     maxPrice != null;
 
-  const [open, setOpen] = useState(() => ({
-    type: Boolean(selectedCategory),
-    color: selectedColors.length > 0,
-    size: selectedSizes.length > 0,
-    price: minPrice != null || maxPrice != null,
-  }));
-
-  const toggle = (key) => setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
-
-  const typeHint = selectedCategory
-    ? categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory
-    : 'All types';
-  const colorHint = selectedColors.length
-    ? selectedColors.length === 1
-      ? selectedColors[0]
-      : `${selectedColors.length} selected`
-    : 'Any';
-  const sizeHint = selectedSizes.length
-    ? selectedSizes.length === 1
-      ? selectedSizes[0]
-      : selectedSizes.join(', ')
-    : 'Any';
-  const priceHint =
-    activePreset !== 'custom' && activePreset !== 'any'
-      ? PRICE_PRESETS.find((p) => p.id === activePreset)?.label
-      : minPrice != null || maxPrice != null
-        ? [minPrice != null ? `≥ ${minPrice}` : null, maxPrice != null ? `≤ ${maxPrice}` : null]
-            .filter(Boolean)
-            .join(' · ')
-        : 'Any';
-
   return (
     <div
       className={`flex flex-col ${embedded ? 'h-full' : 'max-h-[calc(100vh-7rem)]'}`}
     >
       <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
           Refine
         </p>
         {hasFilters ? (
@@ -137,7 +91,7 @@ function FiltersPanel({
               onClear();
               onClose?.();
             }}
-            className="text-[10px] font-medium uppercase tracking-[0.16em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
           >
             Reset
           </button>
@@ -146,12 +100,7 @@ function FiltersPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
         {categories.length > 0 ? (
-          <FilterSection
-            title="Type"
-            hint={typeHint}
-            open={open.type}
-            onToggle={() => toggle('type')}
-          >
+          <FilterSection title="Type">
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
@@ -183,12 +132,7 @@ function FiltersPanel({
         ) : null}
 
         {availableColors.length > 0 ? (
-          <FilterSection
-            title="Colour"
-            hint={colorHint}
-            open={open.color}
-            onToggle={() => toggle('color')}
-          >
+          <FilterSection title="Colour">
             <div className="flex flex-wrap gap-2">
               {availableColors.map((c) => {
                 const active = selectedColors.includes(c);
@@ -217,12 +161,7 @@ function FiltersPanel({
         ) : null}
 
         {availableSizes.length > 0 ? (
-          <FilterSection
-            title="Size"
-            hint={sizeHint}
-            open={open.size}
-            onToggle={() => toggle('size')}
-          >
+          <FilterSection title="Size">
             <div className="grid grid-cols-4 gap-1.5">
               {availableSizes.map((s) => {
                 const active = selectedSizes.includes(s);
@@ -245,12 +184,7 @@ function FiltersPanel({
           </FilterSection>
         ) : null}
 
-        <FilterSection
-          title="Price"
-          hint={priceHint}
-          open={open.price}
-          onToggle={() => toggle('price')}
-        >
+        <FilterSection title="Price">
           <div className="flex flex-wrap gap-1.5">
             {PRICE_PRESETS.map((p) => (
               <button
