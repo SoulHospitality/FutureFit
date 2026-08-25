@@ -115,7 +115,7 @@ export default function HomePage() {
             </div>
             <Link
               to="/shop"
-              className="btn-wheat mt-10 inline-flex px-8 py-3.5 text-[11px] uppercase tracking-[0.24em]"
+              className="btn-wheat btn-lg mt-10"
             >
               Shop collection
             </Link>
@@ -157,16 +157,16 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="mb-10 flex items-end justify-between">
+        <div className="mb-10 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
           <div>
             <p className="brand-eyebrow">Shop</p>
-            <h2 className="mt-2 font-display text-4xl font-medium tracking-tight text-timber-900">
+            <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
               Departments
             </h2>
           </div>
           <Link
             to="/shop"
-            className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-500 underline-offset-8 hover:underline"
+            className="mb-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
           >
             Shop all
           </Link>
@@ -212,17 +212,17 @@ export default function HomePage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="mb-12 flex items-end justify-between gap-4">
+        <div className="mb-12 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
           <div>
             <p className="brand-eyebrow">New season</p>
-            <h2 className="mt-2 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
+            <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
               Featured
             </h2>
             <p className="mt-2 text-sm text-timber-500">Pieces selected for fit and finish</p>
           </div>
           <Link
             to="/shop"
-            className="shrink-0 text-[10px] font-medium uppercase tracking-[0.24em] text-timber-500 underline-offset-8 hover:text-timber-900 hover:underline"
+            className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
           >
             View all
           </Link>
@@ -260,7 +260,7 @@ export default function HomePage() {
           </p>
           <Link
             to="/about"
-            className="mt-8 inline-flex border border-white/30 px-7 py-3 text-[11px] font-medium uppercase tracking-[0.24em] text-white transition hover:bg-white hover:text-timber-900"
+            className="btn-outline mt-8 border-white text-white hover:bg-white hover:text-timber-900"
           >
             Read our story
           </Link>

@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ChevronDown, Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
+import { ArrowRight, ChevronDown, Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
@@ -70,42 +70,57 @@ export default function StoreHeader() {
     ? 'text-timber-600 hover:text-timber-900'
     : 'text-white/85 hover:text-white';
 
+  const iconBtn = solid
+    ? 'text-timber-700 hover:bg-timber-100'
+    : 'text-white hover:bg-white/10';
+
+  const openDept = AUDIENCES.find((a) => a.value === openMenu);
+
   return (
     <>
       <header
         className={`${overHero ? 'fixed' : 'sticky'} top-0 inset-x-0 z-50 transition-colors duration-200 ${
           solid
-            ? 'bg-white shadow-[0_1px_0_rgba(9,9,11,0.08)]'
-            : 'bg-transparent'
+            ? 'border-b border-timber-100 bg-white'
+            : 'border-b border-transparent bg-transparent'
         }`}
         onMouseLeave={() => setOpenMenu(null)}
       >
-        <div className="bg-timber-900 text-center text-[10px] font-medium uppercase tracking-[0.28em] text-white/90 px-4 py-2.5">
+        <div className="bg-timber-900 px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.32em] text-white/90">
           Free shipping over EGP 2,000 · COD · InstaPay · Vodafone Cash
         </div>
-        <div className="relative mx-auto flex h-[72px] sm:h-[80px] max-w-7xl items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="relative mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-5 sm:h-[84px] sm:px-8">
           <div className="relative z-10 shrink-0">
             <BrandLogo size="header" invert={lightLogo} />
           </div>
 
-          <nav className="pointer-events-none absolute inset-x-0 hidden items-center justify-center gap-7 xl:gap-9 lg:flex">
-            {AUDIENCES.map((dept) => (
-              <div
-                key={dept.value}
-                className="pointer-events-auto"
-                onMouseEnter={() => setOpenMenu(dept.value)}
-              >
-                <Link
-                  to={`/shop?audience=${dept.value}`}
-                  className={`inline-flex items-center gap-1 text-[11px] xl:text-[12px] font-medium uppercase tracking-[0.28em] transition-colors ${
-                    activeAudience === dept.value && solid ? 'text-timber-900' : linkCls
-                  }`}
+          <nav className="pointer-events-none absolute inset-x-0 hidden items-center justify-center gap-8 xl:gap-10 lg:flex">
+            {AUDIENCES.map((dept) => {
+              const active = activeAudience === dept.value;
+              return (
+                <div
+                  key={dept.value}
+                  className="pointer-events-auto"
+                  onMouseEnter={() => setOpenMenu(dept.value)}
                 >
-                  {dept.label}
-                  <ChevronDown className="h-3 w-3 opacity-70" strokeWidth={1.5} />
-                </Link>
-              </div>
-            ))}
+                  <Link
+                    to={`/shop?audience=${dept.value}`}
+                    data-active={active ? 'true' : 'false'}
+                    className={`nav-link-accent ${
+                      active && solid ? 'text-timber-900' : linkCls
+                    }`}
+                  >
+                    {dept.label}
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                        openMenu === dept.value ? 'rotate-180' : 'opacity-70'
+                      }`}
+                      strokeWidth={1.75}
+                    />
+                  </Link>
+                </div>
+              );
+            })}
             {[
               { to: '/about', label: 'About' },
               { to: '/contact', label: 'Contact' },
@@ -114,10 +129,11 @@ export default function StoreHeader() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `pointer-events-auto text-[11px] xl:text-[12px] font-medium uppercase tracking-[0.28em] transition-colors ${
+                  `nav-link-accent pointer-events-auto ${
                     isActive && solid ? 'text-timber-900' : linkCls
                   }`
                 }
+                data-active={pathname === item.to ? 'true' : 'false'}
               >
                 {item.label}
               </NavLink>
@@ -128,13 +144,11 @@ export default function StoreHeader() {
             <Link
               to="/wishlist"
               aria-label="Wishlist"
-              className={`relative grid h-11 w-11 place-items-center transition ${
-                solid ? 'text-timber-700 hover:bg-timber-100' : 'text-white hover:bg-white/10'
-              }`}
+              className={`relative grid h-11 w-11 place-items-center transition-colors ${iconBtn}`}
             >
               <Heart className="h-5 w-5" strokeWidth={1.5} />
               {wishCount > 0 && (
-                <span className="absolute -top-0.5 -end-0.5 grid h-5 min-w-5 place-items-center bg-timber-900 px-1 text-[10px] font-semibold text-white">
+                <span className="absolute -end-0.5 -top-0.5 grid h-5 min-w-5 place-items-center bg-timber-900 px-1 text-[10px] font-semibold text-white">
                   {wishCount}
                 </span>
               )}
@@ -142,47 +156,38 @@ export default function StoreHeader() {
             <Link
               to="/cart"
               aria-label="Cart"
-              className={`relative grid h-11 w-11 place-items-center transition ${
-                solid ? 'text-timber-700 hover:bg-timber-100' : 'text-white hover:bg-white/10'
-              }`}
+              className={`relative grid h-11 w-11 place-items-center transition-colors ${iconBtn}`}
             >
               <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
               {count > 0 && (
-                <span className="absolute -top-0.5 -end-0.5 grid h-5 min-w-5 place-items-center bg-timber-900 px-1 text-[10px] font-semibold text-white">
+                <span className="absolute -end-0.5 -top-0.5 grid h-5 min-w-5 place-items-center bg-timber-900 px-1 text-[10px] font-semibold text-white">
                   {count}
                 </span>
               )}
             </Link>
 
             {user ? (
-              <div className="hidden sm:flex items-center gap-2">
+              <div className="hidden items-center gap-2 sm:flex">
                 {isStaff(user) && (
-                  <Link
-                    to="/staff"
-                    className={`border px-4 py-2 text-[10px] font-medium uppercase tracking-[0.2em] transition ${
-                      solid
-                        ? 'border-timber-200 text-timber-700 hover:bg-timber-50'
-                        : 'border-white/30 text-white hover:bg-white/10'
-                    }`}
-                  >
+                  <Link to="/staff" className="btn-outline btn-sm">
                     Staff
                   </Link>
                 )}
                 <Link
                   to="/account"
-                  className={`inline-flex items-center gap-2 border px-4 py-2 text-sm font-medium transition ${
+                  className={`inline-flex items-center gap-2 border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition ${
                     solid
-                      ? 'border-timber-200 bg-white text-timber-700 hover:bg-timber-50'
-                      : 'border-white/25 bg-white/5 text-white backdrop-blur-sm hover:bg-white/10'
+                      ? 'border-timber-200 text-timber-800 hover:border-timber-900 hover:bg-timber-50'
+                      : 'border-white/30 text-white hover:bg-white/10'
                   }`}
                 >
-                  <User size={16} strokeWidth={1.5} />
-                  <span className="hidden md:inline">{user.name.split(' ')[0]}</span>
+                  <User size={15} strokeWidth={1.5} />
+                  <span className="hidden md:inline">{(user.name || 'Account').split(' ')[0]}</span>
                 </Link>
                 <button
                   type="button"
                   onClick={logout}
-                  className={`px-3.5 py-2 text-[10px] font-medium uppercase tracking-[0.2em] transition ${
+                  className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] transition ${
                     solid ? 'text-timber-500 hover:text-timber-900' : 'text-white/75 hover:text-white'
                   }`}
                 >
@@ -192,22 +197,16 @@ export default function StoreHeader() {
             ) : (
               <Link
                 to="/login"
-                className={`hidden sm:inline-flex items-center gap-2 border px-5 py-2 text-sm font-medium transition ${
-                  solid
-                    ? 'border-timber-900 bg-timber-900 text-white hover:bg-timber-800'
-                    : 'border-white/30 bg-white/10 text-white backdrop-blur-sm hover:bg-white/15'
-                }`}
+                className={`hidden sm:inline-flex ${solid ? 'btn-wheat btn-sm' : 'btn-outline btn-sm border-white text-white hover:bg-white hover:text-timber-900'}`}
               >
-                <User size={16} strokeWidth={1.5} />
+                <User size={14} strokeWidth={1.5} />
                 Sign in
               </Link>
             )}
 
             <button
               type="button"
-              className={`lg:hidden grid h-11 w-11 place-items-center transition ${
-                solid ? 'text-timber-700 hover:bg-timber-100' : 'text-white hover:bg-white/10'
-              }`}
+              className={`grid h-11 w-11 place-items-center transition-colors lg:hidden ${iconBtn}`}
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
@@ -217,29 +216,51 @@ export default function StoreHeader() {
         </div>
 
         {openMenu && (
-          <div className="hidden border-t border-timber-100 bg-white lg:block">
-            <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-8 py-8 xl:grid-cols-4">
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
-                  {AUDIENCES.find((a) => a.value === openMenu)?.label}
+          <div className="mega-dropdown hidden border-t border-timber-100 bg-white lg:block">
+            <div className="mx-auto grid max-w-7xl gap-0 px-8 py-0 lg:grid-cols-[220px_1fr]">
+              <div className="border-r border-timber-100 py-8 pr-8">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-timber-400">
+                  Department
+                </p>
+                <h3 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
+                  {openDept?.label}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-timber-500">
+                  Essentials cut for everyday presence.
                 </p>
                 <Link
                   to={`/shop?audience=${openMenu}`}
-                  className="mt-4 inline-block text-sm font-medium text-timber-900 underline underline-offset-4"
+                  className="mt-6 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-timber-900 underline decoration-timber-300 underline-offset-8 transition hover:decoration-timber-900"
                 >
-                  Shop all
+                  Shop all {openDept?.label}
+                  <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </Link>
               </div>
-              <div className="col-span-1 xl:col-span-3 grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-3">
-                {byAudience[openMenu]?.map((c) => (
-                  <Link
-                    key={c.id}
-                    to={`/shop?audience=${openMenu}&category=${c.slug}`}
-                    className="py-1.5 text-sm text-timber-600 hover:text-timber-900"
-                  >
-                    {c.name}
-                  </Link>
-                ))}
+              <div className="py-8 pl-8">
+                <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
+                  Categories
+                </p>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-3">
+                  {byAudience[openMenu]?.length ? (
+                    byAudience[openMenu].map((c) => (
+                      <Link
+                        key={c.id}
+                        to={`/shop?audience=${openMenu}&category=${c.slug}`}
+                        className="group flex items-center justify-between border-b border-transparent py-2.5 text-sm text-timber-600 transition hover:border-timber-200 hover:text-timber-900"
+                      >
+                        <span>{c.name}</span>
+                        <ArrowRight
+                          className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
+                          strokeWidth={1.5}
+                        />
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="col-span-full py-2 text-sm text-timber-400">
+                      Browse the full {openDept?.label?.toLowerCase()} collection.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -260,7 +281,7 @@ export default function StoreHeader() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                className="grid h-10 w-10 place-items-center text-timber-700"
+                className="grid h-10 w-10 place-items-center text-timber-700 hover:bg-timber-50"
                 aria-label="Close menu"
               >
                 <X size={22} strokeWidth={1.5} />
@@ -271,20 +292,22 @@ export default function StoreHeader() {
                 <div key={dept.value} className="border-b border-timber-100">
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+                    className="flex w-full items-center justify-between py-4 text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-900"
                     onClick={() => setMobileDept((v) => (v === dept.value ? null : dept.value))}
                   >
                     {dept.label}
                     <ChevronDown
-                      className={`h-4 w-4 transition ${mobileDept === dept.value ? 'rotate-180' : ''}`}
+                      className={`h-4 w-4 text-timber-400 transition ${
+                        mobileDept === dept.value ? 'rotate-180' : ''
+                      }`}
                     />
                   </button>
                   {mobileDept === dept.value && (
-                    <div className="space-y-1 pb-4">
+                    <div className="space-y-0.5 pb-4">
                       <Link
                         to={`/shop?audience=${dept.value}`}
                         onClick={() => setMobileOpen(false)}
-                        className="block py-1.5 text-sm text-timber-900"
+                        className="block bg-timber-50 px-3 py-2.5 text-sm font-medium text-timber-900"
                       >
                         Shop all {dept.label}
                       </Link>
@@ -293,7 +316,7 @@ export default function StoreHeader() {
                           key={c.id}
                           to={`/shop?audience=${dept.value}&category=${c.slug}`}
                           onClick={() => setMobileOpen(false)}
-                          className="block py-1.5 text-sm text-timber-500"
+                          className="block px-3 py-2.5 text-sm text-timber-500 hover:bg-timber-50 hover:text-timber-900"
                         >
                           {c.name}
                         </Link>
@@ -302,40 +325,30 @@ export default function StoreHeader() {
                   )}
                 </div>
               ))}
-              <Link
-                to="/about"
-                onClick={() => setMobileOpen(false)}
-                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
-              >
-                About
-              </Link>
-              <Link
-                to="/contact"
-                onClick={() => setMobileOpen(false)}
-                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
-              >
-                Contact
-              </Link>
-              <Link
-                to="/wishlist"
-                onClick={() => setMobileOpen(false)}
-                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
-              >
-                Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}
-              </Link>
-              <Link
-                to="/cart"
-                onClick={() => setMobileOpen(false)}
-                className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
-              >
-                Cart{count > 0 ? ` (${count})` : ''}
-              </Link>
+              {[
+                { to: '/about', label: 'About' },
+                { to: '/contact', label: 'Contact' },
+                {
+                  to: '/wishlist',
+                  label: `Wishlist${wishCount > 0 ? ` (${wishCount})` : ''}`,
+                },
+                { to: '/cart', label: `Cart${count > 0 ? ` (${count})` : ''}` },
+              ].map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setMobileOpen(false)}
+                  className="block border-b border-timber-100 py-4 text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-900"
+                >
+                  {item.label}
+                </Link>
+              ))}
               {user ? (
                 <>
                   <Link
                     to="/account"
                     onClick={() => setMobileOpen(false)}
-                    className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+                    className="block border-b border-timber-100 py-4 text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-900"
                   >
                     Account
                   </Link>
@@ -343,14 +356,14 @@ export default function StoreHeader() {
                     <Link
                       to="/staff"
                       onClick={() => setMobileOpen(false)}
-                      className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+                      className="block border-b border-timber-100 py-4 text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-900"
                     >
                       Staff
                     </Link>
                   )}
                   <button
                     type="button"
-                    className="block w-full border-b border-timber-100 py-4 text-start text-[12px] font-medium uppercase tracking-[0.24em] text-timber-500"
+                    className="block w-full border-b border-timber-100 py-4 text-start text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-500"
                     onClick={() => {
                       logout();
                       setMobileOpen(false);
@@ -363,7 +376,7 @@ export default function StoreHeader() {
                 <Link
                   to="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="block border-b border-timber-100 py-4 text-[12px] font-medium uppercase tracking-[0.24em] text-timber-800"
+                  className="block border-b border-timber-100 py-4 text-[12px] font-semibold uppercase tracking-[0.24em] text-timber-900"
                 >
                   Sign in
                 </Link>
@@ -373,7 +386,7 @@ export default function StoreHeader() {
               <Link
                 to="/shop"
                 onClick={() => setMobileOpen(false)}
-                className="btn-wheat block w-full py-3.5 text-center text-[11px] font-medium uppercase tracking-[0.24em]"
+                className="btn-wheat block w-full py-3.5 text-center"
               >
                 Shop the collection
               </Link>

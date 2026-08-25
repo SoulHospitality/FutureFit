@@ -487,23 +487,21 @@ export default function ShopPage() {
     <div className="min-h-[calc(100vh-4rem)] bg-white">
       <div className="border-b border-timber-100 bg-timber-50">
         <div className="mx-auto max-w-[1280px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-timber-400">
-            FutureFit
-          </p>
-          <h1 className="mt-3 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl">
+          <p className="brand-eyebrow">FutureFit</p>
+          <h1 className="mt-4 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl lg:text-7xl">
             {heading}
           </h1>
-          <p className="mt-3 max-w-md text-sm text-timber-500">
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-timber-500">
             Classic cuts and refined staples — browse by department, colour, and size.
           </p>
-          <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3">
+          <div className="mt-10 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => patchParams({ audience: null, category: null })}
-              className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
+              className={`border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
                 !audience
-                  ? 'text-timber-900 underline underline-offset-8'
-                  : 'text-timber-400 hover:text-timber-800'
+                  ? 'border-timber-900 bg-timber-900 text-white'
+                  : 'border-timber-200 bg-white text-timber-500 hover:border-timber-900 hover:text-timber-900'
               }`}
             >
               All
@@ -513,10 +511,10 @@ export default function ShopPage() {
                 key={a.value}
                 type="button"
                 onClick={() => patchParams({ audience: a.value, category: null })}
-                className={`text-[11px] font-medium uppercase tracking-[0.24em] transition ${
+                className={`border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
                   audience === a.value
-                    ? 'text-timber-900 underline underline-offset-8'
-                    : 'text-timber-400 hover:text-timber-800'
+                    ? 'border-timber-900 bg-timber-900 text-white'
+                    : 'border-timber-200 bg-white text-timber-500 hover:border-timber-900 hover:text-timber-900'
                 }`}
               >
                 {a.label}
@@ -529,23 +527,30 @@ export default function ShopPage() {
       <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
-            <div className="sticky top-28 rounded-sm border border-timber-100 bg-timber-50/50 p-4">
-              <FiltersPanel {...filterProps} />
+            <div className="sticky top-28 border border-timber-200 bg-white p-1 shadow-[0_12px_32px_-24px_rgba(9,9,11,0.35)]">
+              <div className="border border-timber-100 bg-timber-50/80 px-4 py-1">
+                <FiltersPanel {...filterProps} />
+              </div>
             </div>
           </aside>
 
           <section>
             <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-timber-100 pb-5">
-              <p className="text-sm text-timber-500">
-                {loading
-                  ? 'Loading…'
-                  : `${products.length} piece${products.length === 1 ? '' : 's'}`}
-              </p>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-timber-400">
+                  Results
+                </p>
+                <p className="mt-1 text-sm font-medium text-timber-800">
+                  {loading
+                    ? 'Loading…'
+                    : `${products.length} piece${products.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 border border-timber-200 bg-white px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.18em] text-timber-700 lg:hidden"
+                  className="btn-outline btn-sm lg:hidden"
                   onClick={() => setMobileFilters(true)}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -556,7 +561,7 @@ export default function ShopPage() {
                   <select
                     value={sort}
                     onChange={(e) => patchParams({ sort: e.target.value })}
-                    className="appearance-none border border-timber-200 bg-white py-2.5 pl-4 pr-10 text-[11px] font-medium uppercase tracking-[0.14em] text-timber-700 focus:outline-none focus:ring-1 focus:ring-timber-800"
+                    className="input select-input min-w-[11rem] border-timber-900/15 py-2.5 pl-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-timber-800"
                   >
                     {SORT_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -564,7 +569,6 @@ export default function ShopPage() {
                       </option>
                     ))}
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 h-3.5 w-3.5 text-timber-400" />
                 </label>
               </div>
             </div>
