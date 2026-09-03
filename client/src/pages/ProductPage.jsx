@@ -13,8 +13,21 @@ import {
 import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { formatMoney, getImageUrl, getSizeStock, totalStock, PRODUCT_TYPES, FREE_SHIPPING_MIN, audienceLabel, categoryLabel } from '../utils/helpers';
+import {
+  formatMoney,
+  getImageUrl,
+  getSizeStock,
+  totalStock,
+  PRODUCT_TYPES,
+  FREE_SHIPPING_MIN,
+  audienceLabel,
+  categoryLabel,
+  colorSwatch,
+  asArray,
+} from '../utils/helpers';
 import StarRating from '../components/store/StarRating';
+import ProductCard from '../components/store/ProductCard';
+import ProductLightbox from '../components/store/ProductLightbox';
 
 function Accordion({ title, open, onToggle, children }) {
   return (
@@ -137,7 +150,7 @@ function TrustRow() {
 export default function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, openDrawer } = useCart();
   const { isSaved, toggle } = useWishlist();
   const [product, setProduct] = useState(null);
   const [color, setColor] = useState('');
@@ -149,18 +162,71 @@ export default function ProductPage() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [sendingReview, setSendingReview] = useState(false);
+  const [related, setRelated] = useState([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const selectColor = (c) => {
+    setColor(c);
+    if (!product?.photos?.length) return;
+    const mapped = product.photoByColor?.[c];
+    const mappedUrl = Array.isArray(mapped) ? mapped[0] : mapped;
+    if (mappedUrl) {
+      const mappedIndex = product.photos.indexOf(mappedUrl);
+      if (mappedIndex >= 0) {
+        setActivePhoto(mappedIndex);
+        return;
+      }
+    }
+    const i = product.colors?.indexOf(c);
+    if (i >= 0 && product.photos[i]) setActivePhoto(i);
+  };
 
   useEffect(() => {
+    setRelated([]);
     api.get(`/products/${id}`).then((r) => {
       setProduct(r.data);
-      setColor(r.data.colors?.[0] || '');
+      const firstColor = r.data.colors?.[0] || '';
+      setColor(firstColor);
       const firstInStock =
         (r.data.sizes || []).find((s) => getSizeStock(r.data, s) > 0) || r.data.sizes?.[0] || '';
       setSize(firstInStock);
-      setActivePhoto(0);
+      let photoIdx = 0;
+      const mapped = firstColor ? r.data.photoByColor?.[firstColor] : null;
+      const mappedUrl = Array.isArray(mapped) ? mapped[0] : mapped;
+      if (mappedUrl && r.data.photos?.length) {
+        const mi = r.data.photos.indexOf(mappedUrl);
+        if (mi >= 0) photoIdx = mi;
+      } else if (firstColor && r.data.photos?.[0]) {
+        const ci = r.data.colors?.indexOf(firstColor);
+        if (ci >= 0 && r.data.photos[ci]) photoIdx = ci;
+      }
+      setActivePhoto(photoIdx);
       setQty(1);
     });
   }, [id]);
+
+  useEffect(() => {
+    if (!product?.id) return undefined;
+    const query = new URLSearchParams({ limit: '8' });
+    if (product.audience) query.set('audience', product.audience);
+    if (product.type) query.set('type', product.type);
+    let cancelled = false;
+    api
+      .get(`/products?${query.toString()}`)
+      .then((r) => {
+        if (cancelled) return;
+        const list = asArray(r.data)
+          .filter((p) => p.id !== product.id)
+          .slice(0, 4);
+        setRelated(list);
+      })
+      .catch(() => {
+        if (!cancelled) setRelated([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id, product?.audience, product?.type]);
 
   const detailBullets = useMemo(() => {
     if (!product?.description) return [];
@@ -226,17 +292,7 @@ export default function ProductPage() {
 
   const add = () => {
     if (!addToCart()) return;
-    toast.success(
-      <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span>Added to cart</span>
-        <Link to="/cart" className="font-semibold underline underline-offset-2">
-          View cart
-        </Link>
-        <Link to="/checkout" className="font-semibold underline underline-offset-2">
-          Checkout
-        </Link>
-      </span>
-    );
+    openDrawer();
   };
 
   const buyNow = () => {
@@ -284,16 +340,23 @@ export default function ProductPage() {
           <div className="space-y-3 lg:col-span-7">
             <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
               {photos[activePhoto] ? (
-                <img
-                  src={getImageUrl(photos[activePhoto], { width: 900 })}
-                  alt={product.name}
-                  width={900}
-                  height={1125}
-                  loading="eager"
-                  fetchPriority="high"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
+                <button
+                  type="button"
+                  className="block h-full w-full cursor-zoom-in"
+                  onClick={() => setLightboxOpen(true)}
+                  aria-label="View larger image"
+                >
+                  <img
+                    src={getImageUrl(photos[activePhoto], { width: 900 })}
+                    alt={product.name}
+                    width={900}
+                    height={1125}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                </button>
               ) : (
                 <div className="grid h-full place-items-center text-timber-400">No photo</div>
               )}
@@ -379,21 +442,29 @@ export default function ProductPage() {
                   </span>
                   <span className="text-sm text-timber-500">{color}</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {product.colors.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setColor(c)}
-                      className={`border px-4 py-2.5 text-sm transition ${
-                        color === c
-                          ? 'border-timber-900 bg-timber-900 text-white'
-                          : 'border-timber-200 bg-white text-timber-800 hover:border-timber-900'
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-3">
+                  {product.colors.map((c) => {
+                    const selected = color === c;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        title={c}
+                        onClick={() => selectColor(c)}
+                        className={`relative grid h-10 w-10 place-items-center rounded-full border transition ${
+                          selected
+                            ? 'border-timber-900 ring-2 ring-timber-900 ring-offset-2'
+                            : 'border-timber-200 hover:border-timber-500'
+                        }`}
+                      >
+                        <span
+                          className="h-7 w-7 rounded-full border border-black/10"
+                          style={{ backgroundColor: colorSwatch(c) }}
+                        />
+                        <span className="sr-only">{c}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -682,6 +753,33 @@ export default function ProductPage() {
           </div>
         </section>
       </div>
+
+      {related.length > 0 && (
+        <section className="border-t border-timber-100 bg-timber-50/50">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
+            <div className="mb-10 border-b border-timber-100 pb-6">
+              <p className="brand-eyebrow">Continue browsing</p>
+              <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900 sm:text-4xl">
+                You may also like
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+              {related.map((p, i) => (
+                <ProductCard key={p.id} product={p} priority={i < 2} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <ProductLightbox
+        open={lightboxOpen}
+        photos={photos.filter(Boolean)}
+        index={Math.min(activePhoto, Math.max(0, photos.filter(Boolean).length - 1))}
+        alt={product.name}
+        onClose={() => setLightboxOpen(false)}
+        onIndexChange={setActivePhoto}
+      />
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-2">

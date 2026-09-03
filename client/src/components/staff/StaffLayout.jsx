@@ -15,6 +15,7 @@ const PAGE_TITLES = {
   '/staff/slides': 'Slideshow',
   '/staff/promotions': 'Promotions',
   '/staff/finance': 'Finance',
+  '/staff/newsletter': 'Newsletter',
 };
 
 export default function StaffLayout({ children, page }) {

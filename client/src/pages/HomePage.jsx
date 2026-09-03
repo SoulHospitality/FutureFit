@@ -16,6 +16,7 @@ const DEPT_COPY = {
 export default function HomePage() {
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);
+  const [packs, setPacks] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [deptPhotos, setDeptPhotos] = useState({});
   const [index, setIndex] = useState(0);
@@ -25,11 +26,19 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       api.get('/slides').then((r) => asArray(r.data)).catch(() => []),
-      api.get('/products?limit=4').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/products?limit=8').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/products?type=bundle&limit=4').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/products?limit=12').then((r) => asArray(r.data)).catch(() => []),
       api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
-    ]).then(([slideData, productData, reviewData]) => {
+    ]).then(([slideData, productData, packData, moreProducts, reviewData]) => {
       setSlides(slideData);
       setProducts(productData);
+      const featuredIds = new Set(productData.map((p) => p.id));
+      const secondRail =
+        packData.length > 0
+          ? packData
+          : moreProducts.filter((p) => !featuredIds.has(p.id)).slice(0, 4);
+      setPacks(secondRail);
       setReviews(reviewData);
       const sortedSlides = [...slideData].sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
@@ -229,7 +238,7 @@ export default function HomePage() {
         </div>
         {loadingProducts ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="aspect-[3/4] bg-timber-100" />
               </div>
@@ -245,6 +254,56 @@ export default function HomePage() {
           </div>
         )}
       </section>
+
+      <section className="border-y border-timber-100 bg-white py-16 sm:py-20">
+        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-4 sm:flex-row sm:items-end sm:px-6">
+          <div className="max-w-xl">
+            <p className="brand-eyebrow">Fabric &amp; fit</p>
+            <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900 sm:text-4xl">
+              Soft hand. Clean lines. All-day hold.
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-timber-500 sm:text-base">
+              Considered fabrics and precise cuts — underwear and essentials made to stay
+              comfortable from morning through late.
+            </p>
+          </div>
+          <Link
+            to="/about"
+            className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-700 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
+          >
+            How we make it
+          </Link>
+        </div>
+      </section>
+
+      {packs.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+          <div className="mb-12 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
+            <div>
+              <p className="brand-eyebrow">Keep exploring</p>
+              <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
+                {packs.some((p) => p.type === 'bundle') ? 'Packs & bundles' : 'More to discover'}
+              </h2>
+              <p className="mt-2 text-sm text-timber-500">
+                {packs.some((p) => p.type === 'bundle')
+                  ? 'Stock up on the pieces you wear most'
+                  : 'Fresh picks from the collection'}
+              </p>
+            </div>
+            <Link
+              to="/shop"
+              className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
+            >
+              Shop all
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+            {packs.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="bg-timber-900 py-24 text-white">
         <div className="mx-auto max-w-3xl px-5 text-center sm:px-8">
@@ -296,19 +355,22 @@ export default function HomePage() {
             Newsletter
           </p>
           <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
-            Access what others don't
+            Stay in the loop
           </h2>
+          <p className="mt-2 text-sm text-timber-500">
+            Leave your email and we&apos;ll save your interest for drops and restocks.
+          </p>
           <form
             className="mt-6 flex flex-col gap-2 sm:flex-row"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const list = JSON.parse(localStorage.getItem('newsletterEmails') || '[]');
-              if (email && !list.includes(email)) {
-                list.push(email);
-                localStorage.setItem('newsletterEmails', JSON.stringify(list));
+              try {
+                await api.post('/newsletter', { email, source: 'home' });
+                toast.success('Interest saved — thanks for signing up');
+                setEmail('');
+              } catch (err) {
+                toast.error(err.response?.data?.message || 'Could not save email');
               }
-              toast.success('You\'re on the list');
-              setEmail('');
             }}
           >
             <input

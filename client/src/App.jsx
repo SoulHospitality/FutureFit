@@ -8,6 +8,7 @@ import { WishlistProvider } from './context/WishlistContext';
 import { CategoriesProvider } from './context/CategoriesContext';
 import StoreHeader from './components/store/StoreHeader';
 import StoreFooter from './components/store/StoreFooter';
+import MiniCartDrawer from './components/store/MiniCartDrawer';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
 import { defaultStaffPage, isStaff } from './utils/permissions';
@@ -50,6 +51,7 @@ const StaffPromotions = lazy(() => import('./pages/staff/Promotions'));
 const StaffFinance = lazy(() => import('./pages/staff/Finance'));
 const StaffCategories = lazy(() => import('./pages/staff/Categories'));
 const StaffReviews = lazy(() => import('./pages/staff/Reviews'));
+const StaffNewsletter = lazy(() => import('./pages/staff/Newsletter'));
 
 const STAFF_PREFETCH = [
   () => import('./pages/staff/Products'),
@@ -62,6 +64,7 @@ const STAFF_PREFETCH = [
   () => import('./pages/staff/Finance'),
   () => import('./pages/staff/Categories'),
   () => import('./pages/staff/Reviews'),
+  () => import('./pages/staff/Newsletter'),
 ];
 
 function PageLoader() {
@@ -133,6 +136,7 @@ function StoreShell({ children }) {
         <Suspense fallback={<PageLoader />}>{children}</Suspense>
       </div>
       {!hideChrome && <StoreFooter />}
+      {!hideChrome && <MiniCartDrawer />}
     </div>
   );
 }
@@ -168,6 +172,7 @@ function AppRoutes() {
             <Route path="/staff/products" element={<StaffRoute page="products"><StaffProducts /></StaffRoute>} />
             <Route path="/staff/categories" element={<StaffRoute page="categories"><StaffCategories /></StaffRoute>} />
             <Route path="/staff/reviews" element={<StaffRoute page="reviews"><StaffReviews /></StaffRoute>} />
+            <Route path="/staff/newsletter" element={<StaffRoute page="newsletter"><StaffNewsletter /></StaffRoute>} />
             <Route path="/staff/orders" element={<StaffRoute page="orders"><StaffOrders /></StaffRoute>} />
             <Route path="/staff/deliveries" element={<StaffRoute page="deliveries"><StaffDeliveries /></StaffRoute>} />
             <Route path="/staff/problems" element={<StaffRoute page="problems"><StaffProblems /></StaffRoute>} />
@@ -185,6 +190,9 @@ function AppRoutes() {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/wishlist" element={<WishlistPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/checkout/contact" element={<CheckoutPage />} />
+            <Route path="/checkout/shipping" element={<CheckoutPage />} />
+            <Route path="/checkout/payment" element={<CheckoutPage />} />
             <Route path="/order-success" element={<OrderSuccessPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
@@ -201,6 +209,7 @@ function AppRoutes() {
             <Route path="/staff/products" element={<StaffRoute page="products"><StaffProducts /></StaffRoute>} />
             <Route path="/staff/categories" element={<StaffRoute page="categories"><StaffCategories /></StaffRoute>} />
             <Route path="/staff/reviews" element={<StaffRoute page="reviews"><StaffReviews /></StaffRoute>} />
+            <Route path="/staff/newsletter" element={<StaffRoute page="newsletter"><StaffNewsletter /></StaffRoute>} />
             <Route path="/staff/orders" element={<StaffRoute page="orders"><StaffOrders /></StaffRoute>} />
             <Route path="/staff/deliveries" element={<StaffRoute page="deliveries"><StaffDeliveries /></StaffRoute>} />
             <Route path="/staff/problems" element={<StaffRoute page="problems"><StaffProblems /></StaffRoute>} />

@@ -1,14 +1,14 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
-import { useCart } from '../context/CartContext';
 import ProductCard from '../components/store/ProductCard';
+import QuickAddSheet from '../components/store/QuickAddSheet';
 import EmptyState from '../components/ui/EmptyState';
-import { toast } from 'react-toastify';
 
 export default function WishlistPage() {
   const { items, remove, clear } = useWishlist();
-  const { addItem } = useCart();
+  const [sheetProduct, setSheetProduct] = useState(null);
 
   if (!items.length) {
     return (
@@ -51,57 +51,52 @@ export default function WishlistPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-4 lg:gap-x-6">
-          {items.map((item) => (
-            <div key={item.id} className="relative">
-              <ProductCard
-                product={{
-                  id: item.id,
-                  name: item.name,
-                  photos: item.photos?.length ? item.photos : [item.image],
-                  price: item.originalPrice ?? item.price,
-                  salePrice: item.salePrice,
-                  isSaleActive: item.isSaleActive,
-                  type: item.type,
-                  colors: item.colors,
-                  stock: item.stock,
-                }}
-              />
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  className="btn-wheat btn-sm flex-1 text-[10px] uppercase tracking-[0.16em]"
-                  disabled={item.stock < 1}
-                  onClick={() => {
-                    addItem(
-                      {
-                        id: item.id,
-                        name: item.name,
-                        photos: item.photos?.length ? item.photos : [item.image],
-                        price: item.originalPrice ?? item.price,
-                        salePrice: item.salePrice,
-                        isSaleActive: item.isSaleActive,
-                        stock: item.stock,
-                      },
-                      1
-                    );
-                    toast.success('Added to cart');
-                  }}
-                >
-                  {item.stock < 1 ? 'Out of stock' : 'Add to cart'}
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm border border-timber-200"
-                  aria-label="Remove from wishlist"
-                  onClick={() => remove(item.id)}
-                >
-                  <Heart className="h-4 w-4 fill-timber-900 text-timber-900" strokeWidth={1.5} />
-                </button>
+          {items.map((item) => {
+            const product = {
+              id: item.id,
+              name: item.name,
+              photos: item.photos?.length ? item.photos : [item.image],
+              price: item.originalPrice ?? item.price,
+              salePrice: item.salePrice,
+              isSaleActive: item.isSaleActive,
+              type: item.type,
+              colors: item.colors,
+              sizes: item.sizes,
+              sizeStocks: item.sizeStocks,
+              stock: item.stock,
+            };
+            return (
+              <div key={item.id} className="relative">
+                <ProductCard product={product} />
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    className="btn-wheat btn-sm flex-1 text-[10px] uppercase tracking-[0.16em]"
+                    disabled={item.stock < 1}
+                    onClick={() => setSheetProduct(product)}
+                  >
+                    {item.stock < 1 ? 'Out of stock' : 'Add to cart'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm border border-timber-200"
+                    aria-label="Remove from wishlist"
+                    onClick={() => remove(item.id)}
+                  >
+                    <Heart className="h-4 w-4 fill-timber-900 text-timber-900" strokeWidth={1.5} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
+
+      <QuickAddSheet
+        product={sheetProduct}
+        open={Boolean(sheetProduct)}
+        onClose={() => setSheetProduct(null)}
+      />
     </div>
   );
 }

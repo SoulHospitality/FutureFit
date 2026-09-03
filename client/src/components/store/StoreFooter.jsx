@@ -3,11 +3,13 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BrandLogo from '../BrandLogo';
 import { AUDIENCES } from '../../utils/helpers';
+import api from '../../api/axios';
 
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function StoreFooter() {
   const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
 
   return (
     <footer className="mt-auto bg-timber-900 text-timber-300">
@@ -65,15 +67,18 @@ export default function StoreFooter() {
           <p className="text-sm text-timber-400">New drops, first.</p>
           <form
             className="mt-4 flex flex-col gap-2"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const list = JSON.parse(localStorage.getItem('newsletterEmails') || '[]');
-              if (email && !list.includes(email)) {
-                list.push(email);
-                localStorage.setItem('newsletterEmails', JSON.stringify(list));
+              setSending(true);
+              try {
+                await api.post('/newsletter', { email, source: 'footer' });
+                toast.success('Interest saved — thanks for signing up');
+                setEmail('');
+              } catch (err) {
+                toast.error(err.response?.data?.message || 'Could not save email');
+              } finally {
+                setSending(false);
               }
-              toast.success('You’re on the list');
-              setEmail('');
             }}
           >
             <input
@@ -84,8 +89,8 @@ export default function StoreFooter() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <button type="submit" className="btn-wheat">
-              Subscribe
+            <button type="submit" className="btn-wheat" disabled={sending}>
+              {sending ? 'Saving…' : 'Subscribe'}
             </button>
           </form>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { Truck, ShieldCheck } from 'lucide-react';
 import api from '../api/axios';
@@ -23,13 +23,23 @@ const ADDRESS_FIELDS = [
   { key: 'country', label: 'Country' },
 ];
 
-export default function CheckoutPage() {
-  const { user } = useAuth();
-  const { items, subtotal, clear } = useCart();
-  const navigate = useNavigate();
-  const orderPlacedRef = useRef(false);
+const STEPS = [
+  { id: 1, label: 'Contact', path: '/checkout/contact' },
+  { id: 2, label: 'Shipping', path: '/checkout/shipping' },
+  { id: 3, label: 'Payment', path: '/checkout/payment' },
+];
+
+const stepFromPath = (pathname) => {
+  if (pathname.includes('/payment')) return 3;
+  if (pathname.includes('/shipping')) return 2;
+  return 1;
+};
+
+const FORM_KEY = 'ff_checkout_form';
+
+const loadSavedForm = (user) => {
   const addr = user?.address || {};
-  const [form, setForm] = useState({
+  const base = {
     name: user?.name || '',
     phone: user?.phone || '',
     email: user?.email || '',
@@ -40,10 +50,33 @@ export default function CheckoutPage() {
     country: addr.country || 'Egypt',
     paymentMethod: 'Cash on Delivery',
     couponCode: '',
-  });
+  };
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(FORM_KEY) || 'null');
+    if (saved && typeof saved === 'object') {
+      return { ...base, ...saved, email: user?.email || saved.email || '' };
+    }
+  } catch {
+    /* ignore */
+  }
+  return base;
+};
+
+export default function CheckoutPage() {
+  const { user } = useAuth();
+  const { items, subtotal, clear } = useCart();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const orderPlacedRef = useRef(false);
+  const step = stepFromPath(pathname);
+  const [form, setForm] = useState(() => loadSavedForm(user));
   const [loading, setLoading] = useState(false);
   const shipping = calcShipping(subtotal);
   const total = subtotal + shipping;
+
+  useEffect(() => {
+    sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
+  }, [form]);
 
   useEffect(() => {
     if (!items.length && !orderPlacedRef.current && !loading) {
@@ -51,13 +84,59 @@ export default function CheckoutPage() {
     }
   }, [items.length, navigate, loading]);
 
+  if (pathname === '/checkout' || pathname === '/checkout/') {
+    return <Navigate to="/checkout/contact" replace />;
+  }
+
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  const validateStep = (s) => {
+    if (s === 1) {
+      if (!form.name.trim() || !form.phone.trim()) {
+        toast.error('Name and phone are required');
+        return false;
+      }
+      return true;
+    }
+    if (s === 2) {
+      if (!form.street.trim() || !form.city.trim() || !form.country.trim()) {
+        toast.error('Street, city, and country are required');
+        return false;
+      }
+      return true;
+    }
+    return true;
+  };
+
+  const goToStep = (target) => {
+    if (target === step) return;
+    if (target > step) {
+      for (let n = step; n < target; n += 1) {
+        if (!validateStep(n)) return;
+      }
+    }
+    navigate(STEPS[target - 1].path);
+  };
+
+  const goNext = () => {
+    if (!validateStep(step)) return;
+    if (step < 3) navigate(STEPS[step].path);
+  };
+
+  const goBack = () => {
+    if (step > 1) navigate(STEPS[step - 2].path);
+  };
 
   const submit = async (e) => {
     e.preventDefault();
+    if (step !== 3) {
+      goNext();
+      return;
+    }
     if (!items.length) return toast.error('Cart is empty');
-    if (!form.name.trim() || !form.phone.trim()) {
-      return toast.error('Name and phone are required');
+    if (!validateStep(1) || !validateStep(2)) {
+      navigate(!form.name.trim() || !form.phone.trim() ? '/checkout/contact' : '/checkout/shipping');
+      return;
     }
 
     const shippingAddress = {
@@ -105,6 +184,7 @@ export default function CheckoutPage() {
       }
 
       orderPlacedRef.current = true;
+      sessionStorage.removeItem(FORM_KEY);
       navigate('/order-success', { state: { order: data }, replace: true });
       clear();
       toast.success('Order placed');
@@ -120,152 +200,208 @@ export default function CheckoutPage() {
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <div className="mb-10 border-b border-timber-100 pb-6">
+        <div className="mb-8 border-b border-timber-100 pb-6">
           <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
             Secure checkout
           </p>
           <h1 className="mt-2 font-display text-5xl font-medium tracking-tight text-timber-900">
             Checkout
           </h1>
+          <nav
+            className="mt-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] font-semibold uppercase tracking-[0.22em]"
+            aria-label="Checkout steps"
+          >
+            {STEPS.map((s, i) => (
+              <span key={s.id} className="inline-flex items-center gap-3">
+                {i > 0 && <span className="text-timber-300" aria-hidden>·</span>}
+                <button
+                  type="button"
+                  onClick={() => goToStep(s.id)}
+                  className={
+                    step === s.id
+                      ? 'text-timber-900'
+                      : step > s.id
+                        ? 'text-timber-600 hover:text-timber-900'
+                        : 'text-timber-300'
+                  }
+                  aria-current={step === s.id ? 'step' : undefined}
+                >
+                  {s.id} {s.label}
+                </button>
+              </span>
+            ))}
+          </nav>
         </div>
 
         <form onSubmit={submit} className="grid gap-10 lg:grid-cols-5 lg:gap-12">
           <div className="space-y-8 lg:col-span-3">
-            <section className="space-y-4 border-b border-timber-100 pb-8">
-              <h2 className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
-                Contact
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="label">Full name</label>
-                  <input required className="input" value={form.name} onChange={set('name')} />
-                </div>
-                <div>
-                  <label className="label">Phone</label>
-                  <input
-                    required
-                    type="tel"
-                    className="input"
-                    value={form.phone}
-                    onChange={set('phone')}
-                    placeholder="01xxxxxxxxx"
-                  />
-                </div>
-                <div>
-                  <label className="label">Email {user ? '' : '(optional)'}</label>
-                  <input
-                    type="email"
-                    className="input"
-                    value={form.email}
-                    onChange={set('email')}
-                    disabled={Boolean(user)}
-                  />
-                </div>
-              </div>
-            </section>
-
-            <section className="space-y-4 border-b border-timber-100 pb-8">
-              <h2 className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
-                Shipping address
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {ADDRESS_FIELDS.map(({ key, label, span }) => (
-                  <div key={key} className={span ? 'md:col-span-2' : ''}>
-                    <label className="label">{label}</label>
+            {step === 1 && (
+              <section className="space-y-4">
+                <h2 className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
+                  Contact
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="label">Full name</label>
+                    <input required className="input" value={form.name} onChange={set('name')} />
+                  </div>
+                  <div>
+                    <label className="label">Phone</label>
                     <input
-                      required={key === 'street' || key === 'city' || key === 'country'}
+                      required
+                      type="tel"
                       className="input"
-                      value={form[key]}
-                      onChange={set(key)}
+                      value={form.phone}
+                      onChange={set('phone')}
+                      placeholder="01xxxxxxxxx"
                     />
                   </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="space-y-4">
-              <div>
-                <h2 className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
-                  Payment
-                </h2>
-                <div className="space-y-2">
-                  {PAYMENT_METHODS.map((method) => {
-                    const selected = form.paymentMethod === method.value;
-                    return (
-                      <label
-                        key={method.value}
-                        className={`flex cursor-pointer items-start gap-3 border px-3.5 py-3.5 transition ${
-                          selected
-                            ? 'border-timber-900 bg-timber-50'
-                            : 'border-timber-200 bg-white hover:border-timber-400'
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          className="mt-1 h-4 w-4 border-timber-300 text-timber-900 focus:ring-timber-800"
-                          checked={selected}
-                          onChange={() => setForm({ ...form, paymentMethod: method.value })}
-                        />
-                        <span className="min-w-0">
-                          <span className="block text-sm font-medium text-timber-800">
-                            {method.label}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-timber-500">{method.hint}</span>
-                        </span>
-                      </label>
-                    );
-                  })}
+                  <div>
+                    <label className="label">Email {user ? '' : '(optional)'}</label>
+                    <input
+                      type="email"
+                      className="input"
+                      value={form.email}
+                      onChange={set('email')}
+                      disabled={Boolean(user)}
+                    />
+                  </div>
                 </div>
-                {form.paymentMethod === 'InstaPay' && (
-                  <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
-                    {INSTAPAY_HANDLE ? (
-                      <>
-                        Send to InstaPay:{' '}
-                        <span className="font-medium text-timber-800">{INSTAPAY_HANDLE}</span>.
-                        Include your order phone in the note.
-                      </>
-                    ) : (
-                      'After you place the order, we’ll share our InstaPay details by phone.'
-                    )}
+                {!user && (
+                  <p className="text-sm text-timber-500">
+                    Checking out as guest.{' '}
+                    <Link
+                      to="/login?redirect=/checkout/contact"
+                      className="font-medium text-timber-800 underline-offset-4 hover:underline"
+                    >
+                      Sign in
+                    </Link>{' '}
+                    if you already have an account.
                   </p>
                 )}
-                {form.paymentMethod === 'Vodafone Cash' && (
-                  <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
-                    {VODAFONE_CASH_NUMBER ? (
-                      <>
-                        Send to Vodafone Cash:{' '}
-                        <span className="font-medium text-timber-800">{VODAFONE_CASH_NUMBER}</span>.
-                        Include your name in the transfer note.
-                      </>
-                    ) : (
-                      'After you place the order, we’ll share our Vodafone Cash number by phone.'
-                    )}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="label">Promo code</label>
-                <input
-                  className="input"
-                  value={form.couponCode}
-                  onChange={set('couponCode')}
-                  placeholder="Optional"
-                />
-              </div>
-            </section>
+                <div className="flex justify-end pt-2">
+                  <button type="button" className="btn-wheat min-h-12 px-8" onClick={goNext}>
+                    Continue
+                  </button>
+                </div>
+              </section>
+            )}
 
-            {!user && (
-              <p className="text-sm text-timber-500">
-                Checking out as guest.{' '}
-                <Link
-                  to="/login?redirect=/checkout"
-                  className="font-medium text-timber-800 underline-offset-4 hover:underline"
-                >
-                  Sign in
-                </Link>{' '}
-                if you already have an account.
-              </p>
+            {step === 2 && (
+              <section className="space-y-4">
+                <h2 className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
+                  Shipping address
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {ADDRESS_FIELDS.map(({ key, label, span }) => (
+                    <div key={key} className={span ? 'md:col-span-2' : ''}>
+                      <label className="label">{label}</label>
+                      <input
+                        required={key === 'street' || key === 'city' || key === 'country'}
+                        className="input"
+                        value={form[key]}
+                        onChange={set(key)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap justify-between gap-3 pt-2">
+                  <button type="button" className="btn-outline min-h-12 px-6" onClick={goBack}>
+                    Back
+                  </button>
+                  <button type="button" className="btn-wheat min-h-12 px-8" onClick={goNext}>
+                    Continue
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {step === 3 && (
+              <section className="space-y-4">
+                <div>
+                  <h2 className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-timber-700">
+                    Payment
+                  </h2>
+                  <div className="space-y-2">
+                    {PAYMENT_METHODS.map((method) => {
+                      const selected = form.paymentMethod === method.value;
+                      return (
+                        <label
+                          key={method.value}
+                          className={`flex cursor-pointer items-start gap-3 border px-3.5 py-3.5 transition ${
+                            selected
+                              ? 'border-timber-900 bg-timber-50'
+                              : 'border-timber-200 bg-white hover:border-timber-400'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            className="mt-1 h-4 w-4 border-timber-300 text-timber-900 focus:ring-timber-800"
+                            checked={selected}
+                            onChange={() => setForm({ ...form, paymentMethod: method.value })}
+                          />
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium text-timber-800">
+                              {method.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-timber-500">
+                              {method.hint}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {form.paymentMethod === 'InstaPay' && (
+                    <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
+                      {INSTAPAY_HANDLE ? (
+                        <>
+                          Send to InstaPay:{' '}
+                          <span className="font-medium text-timber-800">{INSTAPAY_HANDLE}</span>.
+                          Include your order phone in the note.
+                        </>
+                      ) : (
+                        'After you place the order, we’ll share our InstaPay details by phone.'
+                      )}
+                    </p>
+                  )}
+                  {form.paymentMethod === 'Vodafone Cash' && (
+                    <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
+                      {VODAFONE_CASH_NUMBER ? (
+                        <>
+                          Send to Vodafone Cash:{' '}
+                          <span className="font-medium text-timber-800">{VODAFONE_CASH_NUMBER}</span>.
+                          Include your name in the transfer note.
+                        </>
+                      ) : (
+                        'After you place the order, we’ll share our Vodafone Cash number by phone.'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Promo code</label>
+                  <input
+                    className="input"
+                    value={form.couponCode}
+                    onChange={set('couponCode')}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div className="flex flex-wrap justify-between gap-3 pt-2">
+                  <button type="button" className="btn-outline min-h-12 px-6" onClick={goBack}>
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-wheat min-h-12 px-8 lg:hidden"
+                    disabled={loading}
+                  >
+                    {loading ? 'Placing…' : 'Place order'}
+                  </button>
+                </div>
+              </section>
             )}
           </div>
 
@@ -342,13 +478,23 @@ export default function CheckoutPage() {
                 </p>
               </div>
 
-              <button
-                type="submit"
-                className="btn-wheat w-full py-3.5 text-[11px] uppercase tracking-[0.22em]"
-                disabled={loading}
-              >
-                {loading ? 'Placing…' : 'Place order'}
-              </button>
+              {step === 3 ? (
+                <button
+                  type="submit"
+                  className="btn-wheat hidden w-full py-3.5 text-[11px] uppercase tracking-[0.22em] lg:block"
+                  disabled={loading}
+                >
+                  {loading ? 'Placing…' : 'Place order'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-wheat hidden w-full py-3.5 text-[11px] uppercase tracking-[0.22em] lg:block"
+                  onClick={goNext}
+                >
+                  Continue
+                </button>
+              )}
             </div>
           </div>
         </form>

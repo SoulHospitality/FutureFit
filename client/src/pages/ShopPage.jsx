@@ -250,6 +250,7 @@ export default function ShopPage() {
   const [visibleCount, setVisibleCount] = useState(24);
 
   const audience = params.get('audience') || '';
+  const searchQuery = (params.get('q') || '').trim();
   const selectedCategory = params.get('category') || '';
   const selectedColors = useMemo(
     () => (params.get('colors') ? params.get('colors').split(',').filter(Boolean) : []),
@@ -276,12 +277,13 @@ export default function ShopPage() {
     const query = new URLSearchParams();
     if (audience) query.set('audience', audience);
     if (selectedCategory) query.set('category', selectedCategory);
+    if (searchQuery) query.set('q', searchQuery);
     api
       .get(`/products?${query.toString()}`)
       .then((r) => setAllProducts(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAllProducts([]))
       .finally(() => setLoading(false));
-  }, [audience, selectedCategory]);
+  }, [audience, selectedCategory, searchQuery]);
 
   const audienceCategories = useMemo(
     () => (audience ? categories.filter((c) => c.audience === audience) : categories),
@@ -325,6 +327,7 @@ export default function ShopPage() {
     setMaxInput('');
     const next = new URLSearchParams();
     if (audience) next.set('audience', audience);
+    if (searchQuery) next.set('q', searchQuery);
     setParams(next, { replace: true });
   };
 
@@ -342,6 +345,21 @@ export default function ShopPage() {
 
   const products = useMemo(() => {
     let list = [...allProducts];
+    if (searchQuery) {
+      const needle = searchQuery.toLowerCase();
+      list = list.filter(
+        (p) =>
+          String(p.name || '')
+            .toLowerCase()
+            .includes(needle) ||
+          String(p.description || '')
+            .toLowerCase()
+            .includes(needle) ||
+          String(p.type || '')
+            .toLowerCase()
+            .includes(needle)
+      );
+    }
     if (selectedColors.length) {
       list = list.filter((p) => (p.colors || []).some((c) => selectedColors.includes(c)));
     }
@@ -371,7 +389,7 @@ export default function ShopPage() {
       });
     }
     return list;
-  }, [allProducts, selectedColors, selectedSizes, minPrice, maxPrice, sort]);
+  }, [allProducts, searchQuery, selectedColors, selectedSizes, minPrice, maxPrice, sort]);
 
   const filterProps = {
     categories: audienceCategories,
@@ -394,10 +412,21 @@ export default function ShopPage() {
     onClear: clearFilters,
   };
 
-  const heading = audience ? audienceLabel(audience) : 'The collection';
+  const heading = searchQuery
+    ? `Results for “${searchQuery}”`
+    : audience
+      ? audienceLabel(audience)
+      : 'The collection';
 
   const activeFilters = useMemo(() => {
     const chips = [];
+    if (searchQuery) {
+      chips.push({
+        key: 'q',
+        label: `Search: ${searchQuery}`,
+        clear: () => patchParams({ q: null }),
+      });
+    }
     if (selectedCategory) {
       const cat = categories.find((c) => c.slug === selectedCategory);
       chips.push({ key: 'category', label: cat?.name || selectedCategory, clear: () => patchParams({ category: null }) });
@@ -415,7 +444,7 @@ export default function ShopPage() {
       chips.push({ key: 'max', label: `Max ${maxPrice}`, clear: () => patchParams({ maxPrice: null }) });
     }
     return chips;
-  }, [selectedCategory, selectedColors, selectedSizes, minPrice, maxPrice, categories]);
+  }, [searchQuery, selectedCategory, selectedColors, selectedSizes, minPrice, maxPrice, categories]);
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white">

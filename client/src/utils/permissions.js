@@ -3,6 +3,7 @@ const ADMIN_PAGES = [
   'products',
   'categories',
   'reviews',
+  'newsletter',
   'orders',
   'deliveries',
   'problems',

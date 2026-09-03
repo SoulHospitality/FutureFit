@@ -1,23 +1,27 @@
-import { useMemo, useState, useEffect } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
-import { ArrowRight, ChevronDown, Menu, ShoppingBag, User, X, Heart } from 'lucide-react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, ChevronDown, Menu, Search, ShoppingBag, User, X, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCategories } from '../../context/CategoriesContext';
 import { isStaff } from '../../utils/permissions';
-import { AUDIENCES } from '../../utils/helpers';
+import { AUDIENCES, FREE_SHIPPING_MIN, formatMoney } from '../../utils/helpers';
 import BrandLogo from '../BrandLogo';
 
 export default function StoreHeader() {
   const { user, logout } = useAuth();
-  const { count } = useCart();
+  const { count, openDrawer } = useCart();
   const { count: wishCount } = useWishlist();
   const { pathname, search } = useLocation();
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileDept, setMobileDept] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   const { categories } = useCategories();
 
   const overHero = pathname === '/';
@@ -64,7 +68,23 @@ export default function StoreHeader() {
     setMobileOpen(false);
     setOpenMenu(null);
     setMobileDept(null);
+    setSearchOpen(false);
   }, [pathname, search]);
+
+  useEffect(() => {
+    if (!searchOpen) return undefined;
+    const t = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(t);
+  }, [searchOpen]);
+
+  const submitSearch = (e) => {
+    e?.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearchOpen(false);
+    setSearchQuery('');
+    navigate(`/shop?q=${encodeURIComponent(q)}`);
+  };
 
   const linkCls = solid
     ? 'text-timber-600 hover:text-timber-900'
@@ -87,7 +107,7 @@ export default function StoreHeader() {
         onMouseLeave={() => setOpenMenu(null)}
       >
         <div className="bg-timber-900 px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.32em] text-white/90">
-          Free shipping over EGP 2,000 · COD · InstaPay · Vodafone Cash
+          Free shipping over {formatMoney(FREE_SHIPPING_MIN)} · COD · InstaPay · Vodafone Cash
         </div>
         <div className="relative mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-5 sm:h-[84px] sm:px-8">
           <div className="relative z-10 shrink-0">
@@ -141,6 +161,15 @@ export default function StoreHeader() {
           </nav>
 
           <div className="relative z-10 flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              aria-label="Search"
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen((v) => !v)}
+              className={`grid h-11 w-11 place-items-center transition-colors ${iconBtn}`}
+            >
+              <Search className="h-5 w-5" strokeWidth={1.5} />
+            </button>
             <Link
               to="/wishlist"
               aria-label="Wishlist"
@@ -153,9 +182,10 @@ export default function StoreHeader() {
                 </span>
               )}
             </Link>
-            <Link
-              to="/cart"
+            <button
+              type="button"
               aria-label="Cart"
+              onClick={openDrawer}
               className={`relative grid h-11 w-11 place-items-center transition-colors ${iconBtn}`}
             >
               <ShoppingBag className="h-5 w-5" strokeWidth={1.5} />
@@ -164,7 +194,7 @@ export default function StoreHeader() {
                   {count}
                 </span>
               )}
-            </Link>
+            </button>
 
             {user ? (
               <div className="hidden items-center gap-2 sm:flex">
@@ -214,6 +244,43 @@ export default function StoreHeader() {
             </button>
           </div>
         </div>
+
+        {searchOpen && (
+          <div className="border-t border-timber-100 bg-white px-5 py-4 sm:px-8">
+            <form
+              onSubmit={submitSearch}
+              className="mx-auto flex max-w-7xl items-center gap-3"
+            >
+              <Search className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
+              <input
+                ref={searchInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search the collection"
+                className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-timber-900 outline-none placeholder:text-timber-400"
+                aria-label="Search products"
+              />
+              <button
+                type="submit"
+                className="text-[10px] font-semibold uppercase tracking-[0.2em] text-timber-700 hover:text-timber-900"
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchOpen(false);
+                  setSearchQuery('');
+                }}
+                className="grid h-9 w-9 place-items-center text-timber-500 hover:bg-timber-50"
+                aria-label="Close search"
+              >
+                <X className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            </form>
+          </div>
+        )}
 
         {openMenu && (
           <div className="mega-dropdown hidden border-t border-timber-100 bg-white lg:block">

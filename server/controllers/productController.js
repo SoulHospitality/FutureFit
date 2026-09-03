@@ -63,6 +63,7 @@ const PRODUCT_SELECT = {
   categoryId: true,
   photos: true,
   colors: true,
+  photoByColor: true,
   sizes: true,
   stock: true,
   isSaleActive: true,
@@ -141,6 +142,22 @@ const resolveAudienceAndCategory = async (body) => {
   return { audience, categoryId: category?.id || null, type };
 };
 
+const normalizePhotoByColor = (raw, colors = []) => {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = {};
+  const colorSet = new Set((colors || []).map((c) => String(c).trim()).filter(Boolean));
+  for (const [key, value] of Object.entries(raw)) {
+    const color = String(key || '').trim();
+    if (!color) continue;
+    if (colorSet.size && !colorSet.has(color)) continue;
+    const urls = (Array.isArray(value) ? value : [value])
+      .map((u) => String(u || '').trim())
+      .filter(Boolean);
+    if (urls.length) out[color] = urls.length === 1 ? urls[0] : urls;
+  }
+  return Object.keys(out).length ? out : null;
+};
+
 const buildProductCreateData = async (body) => {
   const { name, description, price, photos, colors, isSaleActive, salePrice } = body;
   if (!name || !description || price == null) {
@@ -162,6 +179,8 @@ const buildProductCreateData = async (body) => {
     photoLinks.push(body.driveFolder.trim());
   }
   const resolvedPhotos = await resolvePhotoLinks(photoLinks);
+  const colorList = colors || [];
+  const photoByColor = normalizePhotoByColor(body.photoByColor, colorList);
 
   return {
     name: String(name).trim(),
@@ -171,7 +190,8 @@ const buildProductCreateData = async (body) => {
     audience,
     categoryId,
     photos: resolvedPhotos,
-    colors: colors || [],
+    colors: colorList,
+    photoByColor,
     sizes: sizeRows.map((r) => r.size),
     stock: sizeRows.reduce((n, r) => n + r.stock, 0),
     isSaleActive: Boolean(isSaleActive),
@@ -321,6 +341,7 @@ const ALLOWED_UPDATE = [
   'type',
   'photos',
   'colors',
+  'photoByColor',
   'isSaleActive',
   'salePrice',
 ];
@@ -333,6 +354,21 @@ const updateProduct = async (req, res) => {
     }
     if (data.photos) {
       data.photos = await resolvePhotoLinks(data.photos);
+    }
+    if (req.body.photoByColor !== undefined || req.body.colors !== undefined) {
+      let colorList = data.colors;
+      let map = req.body.photoByColor;
+      if (colorList === undefined || map === undefined) {
+        const existing = await prisma.product.findUnique({
+          where: { id: req.params.id },
+          select: { colors: true, photoByColor: true },
+        });
+        if (colorList === undefined) colorList = existing?.colors || [];
+        if (map === undefined) map = existing?.photoByColor;
+      }
+      data.photoByColor = normalizePhotoByColor(map, colorList);
+    } else {
+      delete data.photoByColor;
     }
     if (
       req.body.audience !== undefined ||

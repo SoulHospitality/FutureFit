@@ -23,6 +23,7 @@ const empty = {
   photos: '',
   driveFolder: '',
   colors: '',
+  photoByColor: {},
   sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
   isSaleActive: false,
   salePrice: '',
@@ -158,6 +159,12 @@ export default function StaffProducts() {
   };
 
   const openEdit = (p) => {
+    const map = {};
+    if (p.photoByColor && typeof p.photoByColor === 'object') {
+      Object.entries(p.photoByColor).forEach(([color, value]) => {
+        map[color] = Array.isArray(value) ? value[0] || '' : value || '';
+      });
+    }
     setEditing(p);
     setForm({
       name: p.name,
@@ -169,6 +176,7 @@ export default function StaffProducts() {
       photos: (p.photos || []).join('\n'),
       driveFolder: '',
       colors: (p.colors || []).join(', '),
+      photoByColor: map,
       sizeRows: sizeRowsFromProduct(p),
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
@@ -230,6 +238,12 @@ export default function StaffProducts() {
       ...form.photos.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
       ...(form.driveFolder.trim() ? [form.driveFolder.trim()] : []),
     ];
+    const colors = form.colors.split(',').map((s) => s.trim()).filter(Boolean);
+    const photoByColor = {};
+    colors.forEach((c) => {
+      const url = String(form.photoByColor?.[c] || '').trim();
+      if (url) photoByColor[c] = url;
+    });
     const payload = {
       name: form.name,
       description: form.description,
@@ -238,7 +252,8 @@ export default function StaffProducts() {
       audience: form.audience,
       categoryId: form.categoryId || null,
       photos: links,
-      colors: form.colors.split(',').map((s) => s.trim()).filter(Boolean),
+      colors,
+      photoByColor,
       sizeStocks,
       isSaleActive: Boolean(form.isSaleActive),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
@@ -568,6 +583,55 @@ export default function StaffProducts() {
                 </div>
               )}
             </div>
+
+            {form.colors
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean).length > 0 &&
+              previewPhotos.length > 0 && (
+                <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
+                  <div>
+                    <label className="label !mb-0">Colour hero photos</label>
+                    <p className="mt-1 text-xs text-timber-400">
+                      Map each colour to a photo from the gallery. Shoppers see that image when they
+                      pick the colour.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {form.colors
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((colorName) => (
+                        <div
+                          key={colorName}
+                          className="grid grid-cols-[7rem_1fr] items-center gap-3 sm:grid-cols-[9rem_1fr]"
+                        >
+                          <span className="truncate text-sm font-medium text-timber-800">
+                            {colorName}
+                          </span>
+                          <select
+                            className="input"
+                            value={form.photoByColor?.[colorName] || ''}
+                            onChange={(e) =>
+                              setForm((f) => ({
+                                ...f,
+                                photoByColor: { ...f.photoByColor, [colorName]: e.target.value },
+                              }))
+                            }
+                          >
+                            <option value="">Default gallery order</option>
+                            {previewPhotos.map((url, i) => (
+                              <option key={`${url}-${i}`} value={url}>
+                                Photo {i + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
 
             <div className="flex items-center gap-2">
               <input

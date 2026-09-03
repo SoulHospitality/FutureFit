@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { MessageCircle, Phone, Truck } from 'lucide-react';
+import { FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
 
 const WHATSAPP = import.meta.env.VITE_WHATSAPP_NUMBER || '';
 const PHONE = import.meta.env.VITE_CONTACT_PHONE || '';
@@ -78,7 +79,8 @@ export default function ContactPage() {
               Delivery
             </h2>
             <p className="mt-2 text-sm text-timber-500">
-              Orders ship in 2–3 business days after confirmation. Free shipping over EGP 2,000.
+              Orders ship in 2–3 business days after confirmation. Free shipping over{' '}
+              {formatMoney(FREE_SHIPPING_MIN)}.
             </p>
           </div>
           <div className="border border-timber-100 bg-timber-50/80 p-5">

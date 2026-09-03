@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getSizeStock } from '../utils/helpers';
 
 const CartContext = createContext(null);
@@ -14,10 +14,14 @@ export function CartProvider({ children }) {
       return [];
     }
   });
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('cartItems', JSON.stringify(items));
   }, [items]);
+
+  const openDrawer = useCallback(() => setDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const addItem = (product, qty = 1, color = null, size = null) => {
     setItems((prev) => {
@@ -130,8 +134,20 @@ export function CartProvider({ children }) {
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
 
   const value = useMemo(
-    () => ({ items, addItem, updateQty, updateItem, removeItem, clear, count, subtotal }),
-    [items, count, subtotal]
+    () => ({
+      items,
+      addItem,
+      updateQty,
+      updateItem,
+      removeItem,
+      clear,
+      count,
+      subtotal,
+      drawerOpen,
+      openDrawer,
+      closeDrawer,
+    }),
+    [items, count, subtotal, drawerOpen, openDrawer, closeDrawer]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

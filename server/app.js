@@ -15,6 +15,7 @@ const problemRoutes = require('./routes/problemRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const newsletterRoutes = require('./routes/newsletterRoutes');
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use('/api/problems', problemRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/newsletter', newsletterRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
