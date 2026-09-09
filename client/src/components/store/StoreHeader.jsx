@@ -107,7 +107,7 @@ export default function StoreHeader() {
         onMouseLeave={() => setOpenMenu(null)}
       >
         <div className="bg-timber-900 px-4 py-2.5 text-center text-[10px] font-semibold uppercase tracking-[0.32em] text-white/90">
-          Free shipping over {formatMoney(FREE_SHIPPING_MIN)} · COD · InstaPay · Vodafone Cash
+          Free shipping over {formatMoney(FREE_SHIPPING_MIN)} · COD · InstaPay · Card
         </div>
         <div className="relative mx-auto flex h-[72px] max-w-7xl items-center justify-between gap-4 px-5 sm:h-[84px] sm:px-8">
           <div className="relative z-10 shrink-0">

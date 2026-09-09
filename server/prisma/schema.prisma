@@ -171,6 +171,14 @@ model Order {
   isPaid          Boolean     @default(false)
   paidAt          DateTime?
   deliveredAt     DateTime?
+  /// Paymob Intention / transaction refs (card & wallet checkout)
+  paymobIntentionId   String?
+  paymobTransactionId String?  @unique
+  /// Bosta shipment refs
+  bostaDeliveryId     String?
+  bostaTrackingNumber String?
+  shippingCarrier     String?
+  shippingStatus      String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -178,6 +186,9 @@ model Order {
   coupon   Coupon?       @relation(fields: [couponId], references: [id])
   items    OrderItem[]
   problems ProblemRequest[]
+
+  @@index([bostaTrackingNumber])
+  @@index([paymobIntentionId])
 }
 
 model OrderItem {

@@ -12,7 +12,6 @@ import {
   FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
   INSTAPAY_HANDLE,
-  VODAFONE_CASH_NUMBER,
 } from '../utils/helpers';
 
 const ADDRESS_FIELDS = [
@@ -185,8 +184,15 @@ export default function CheckoutPage() {
 
       orderPlacedRef.current = true;
       sessionStorage.removeItem(FORM_KEY);
-      navigate('/order-success', { state: { order: data }, replace: true });
       clear();
+
+      if (data?.paymobCheckoutUrl) {
+        toast.success('Redirecting to secure payment…');
+        window.location.href = data.paymobCheckoutUrl;
+        return;
+      }
+
+      navigate('/order-success', { state: { order: data }, replace: true });
       toast.success('Order placed');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Checkout failed');
@@ -353,6 +359,12 @@ export default function CheckoutPage() {
                       );
                     })}
                   </div>
+                  {form.paymentMethod === 'Paymob' && (
+                    <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
+                      You’ll be redirected to Paymob’s secure checkout to finish card or wallet
+                      payment.
+                    </p>
+                  )}
                   {form.paymentMethod === 'InstaPay' && (
                     <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
                       {INSTAPAY_HANDLE ? (
@@ -363,19 +375,6 @@ export default function CheckoutPage() {
                         </>
                       ) : (
                         'After you place the order, we’ll share our InstaPay details by phone.'
-                      )}
-                    </p>
-                  )}
-                  {form.paymentMethod === 'Vodafone Cash' && (
-                    <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
-                      {VODAFONE_CASH_NUMBER ? (
-                        <>
-                          Send to Vodafone Cash:{' '}
-                          <span className="font-medium text-timber-800">{VODAFONE_CASH_NUMBER}</span>.
-                          Include your name in the transfer note.
-                        </>
-                      ) : (
-                        'After you place the order, we’ll share our Vodafone Cash number by phone.'
                       )}
                     </p>
                   )}

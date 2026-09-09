@@ -1,6 +1,8 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { stockForSize } = require('../utils/sizeStock');
+const paymob = require('../utils/paymob');
+const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 
 const FREE_SHIPPING_MIN = 2000;
 const SHIPPING_FEE = 75;
@@ -199,7 +201,11 @@ const createOrder = async (req, res) => {
       savedCouponCode,
     });
 
-    res.status(201).json(serializeOrder(order));
+    const payload = await attachPaymobIfNeeded(order, paymentMethod);
+    res.status(201).json({
+      ...payload.order,
+      ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
+    });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     if (error.message?.startsWith('Insufficient stock')) {
@@ -259,7 +265,11 @@ const createGuestOrder = async (req, res) => {
       savedCouponCode,
     });
 
-    res.status(201).json(serializeOrder(order));
+    const payload = await attachPaymobIfNeeded(order, paymentMethod);
+    res.status(201).json({
+      ...payload.order,
+      ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
+    });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     if (error.message?.startsWith('Insufficient stock')) {
@@ -280,6 +290,24 @@ const serializeOrder = (order) => ({
   customerPhone: order.user?.phone || order.guestPhone || null,
   customerEmail: order.user?.email || order.guestEmail || null,
 });
+
+const attachPaymobIfNeeded = async (order, paymentMethod) => {
+  if (paymentMethod !== PAYMOB_METHOD && paymentMethod !== 'Card / Wallet (Paymob)') {
+    return { order: serializeOrder(order) };
+  }
+  if (!paymob.isConfigured()) {
+    const err = new Error(
+      'Online card payment is not available yet. Choose Cash on Delivery or another method.'
+    );
+    err.status = 503;
+    throw err;
+  }
+  const intention = await startPaymobForOrder(order);
+  return {
+    order: serializeOrder({ ...order, paymobIntentionId: intention.intentionId }),
+    paymobCheckoutUrl: intention.checkoutUrl,
+  };
+};
 
 const myOrders = async (req, res) => {
   try {
@@ -311,6 +339,23 @@ const getOrder = async (req, res) => {
     if (!isOwner && !isStaff) {
       return res.status(403).json({ message: 'Not authorized' });
     }
+    res.json(serializeOrder(order));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/** Public receipt for Paymob return URL (uuid is unguessable enough for this use). */
+const getOrderReceipt = async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+      },
+    });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
     res.json(serializeOrder(order));
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -535,6 +580,7 @@ module.exports = {
   createGuestOrder,
   myOrders,
   getOrder,
+  getOrderReceipt,
   listOrders,
   updateOrderStatus,
   markOrderPaid,

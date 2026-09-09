@@ -1,9 +1,10 @@
-import { Link, useLocation, Navigate } from 'react-router-dom';
+import { Link, useLocation, Navigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import {
   formatMoney,
   INSTAPAY_HANDLE,
-  VODAFONE_CASH_NUMBER,
 } from '../utils/helpers';
+import api from '../api/axios';
 
 function SuccessMark() {
   return (
@@ -54,15 +55,46 @@ function SuccessMark() {
 
 export default function OrderSuccessPage() {
   const { state } = useLocation();
-  const order = state?.order;
+  const [params] = useSearchParams();
+  const orderId = params.get('orderId');
+  const [order, setOrder] = useState(state?.order || null);
+  const [loading, setLoading] = useState(Boolean(orderId && !state?.order));
+
+  useEffect(() => {
+    if (!orderId || state?.order) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    api
+      .get(`/orders/${orderId}/receipt`)
+      .then((r) => {
+        if (!cancelled) setOrder(r.data);
+      })
+      .catch(() => {
+        if (!cancelled) setOrder(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, state?.order]);
+
+  if (loading) {
+    return (
+      <div className="grid min-h-[50vh] place-items-center text-sm text-timber-500">
+        Confirming your order…
+      </div>
+    );
+  }
 
   if (!order) return <Navigate to="/" replace />;
 
   const name = order.customerName || order.guestName;
   const method = order.paymentMethod;
   const isInstaPay = method === 'InstaPay';
-  const isVodafone = method === 'Vodafone Cash';
-  const isWallet = isInstaPay || isVodafone;
+  const isPaymob = method === 'Paymob' || method === 'Card / Wallet (Paymob)';
+  const isWallet = isInstaPay;
 
   return (
     <div className="relative min-h-[70vh] overflow-hidden bg-white">
@@ -87,8 +119,16 @@ export default function OrderSuccessPage() {
           Thank you{name ? `, ${name.split(' ')[0]}` : ''}
         </h1>
         <p className="success-fade success-fade--delay2 mx-auto mt-4 max-w-md text-base leading-relaxed text-timber-600 sm:text-lg">
-          Your order is in. We’ll contact you within{' '}
-          <span className="font-semibold text-timber-800">12 hours</span> to confirm it.
+          {isPaymob && order.isPaid
+            ? 'Payment received. We’ll prepare your order and contact you within 12 hours.'
+            : isPaymob && !order.isPaid
+              ? 'If you completed payment, it may take a moment to confirm. We’ll email or call you shortly.'
+              : (
+                <>
+                  Your order is in. We’ll contact you within{' '}
+                  <span className="font-semibold text-timber-800">12 hours</span> to confirm it.
+                </>
+              )}
         </p>
 
         <div className="success-fade success-fade--delay2 card mt-8 space-y-3 text-left text-sm">
@@ -124,24 +164,8 @@ export default function OrderSuccessPage() {
           </div>
         )}
 
-        {isVodafone && (
-          <div className="card mt-4 space-y-2 text-left text-sm">
-            <p className="font-semibold text-timber-800">Vodafone Cash transfer</p>
-            {VODAFONE_CASH_NUMBER ? (
-              <p className="text-timber-600">
-                Send <span className="font-semibold">{formatMoney(order.totalPrice)}</span> to{' '}
-                <span className="font-semibold text-timber-900">{VODAFONE_CASH_NUMBER}</span>.
-              </p>
-            ) : (
-              <p className="text-timber-600">
-                We’ll share our Vodafone Cash number when we call. Use your name as the note.
-              </p>
-            )}
-          </div>
-        )}
-
         <p className="mt-6 text-sm text-timber-500">
-          {isWallet
+          {isWallet || isPaymob
             ? 'Delivery usually takes 2–3 business days after payment is confirmed.'
             : 'Delivery usually takes 2–3 business days · Cash on delivery.'}
         </p>

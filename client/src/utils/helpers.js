@@ -122,19 +122,18 @@ export const PAYMENT_METHODS = [
     hint: 'Pay cash when your order arrives.',
   },
   {
+    value: 'Paymob',
+    label: 'Card / Wallet',
+    hint: 'Pay securely online with card or mobile wallet via Paymob.',
+  },
+  {
     value: 'InstaPay',
     label: 'InstaPay',
     hint: 'Transfer via InstaPay after placing your order. We’ll confirm once received.',
   },
-  {
-    value: 'Vodafone Cash',
-    label: 'Vodafone Cash',
-    hint: 'Transfer via Vodafone Cash after placing your order. We’ll confirm once received.',
-  },
 ];
 
 export const INSTAPAY_HANDLE = import.meta.env.VITE_INSTAPAY_HANDLE || '';
-export const VODAFONE_CASH_NUMBER = import.meta.env.VITE_VODAFONE_CASH_NUMBER || '';
 
 export const calcShipping = (subtotal) =>
   Number(subtotal) >= FREE_SHIPPING_MIN || Number(subtotal) === 0 ? 0 : SHIPPING_FEE;

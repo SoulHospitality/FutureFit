@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Truck } from 'lucide-react';
 import api from '../../api/axios';
 import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../../utils/helpers';
 
@@ -18,6 +18,7 @@ export default function StaffDeliveries() {
   const [filter, setFilter] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [markingId, setMarkingId] = useState(null);
+  const [shippingId, setShippingId] = useState(null);
 
   const load = () =>
     api
@@ -48,6 +49,34 @@ export default function StaffDeliveries() {
       toast.error(err.response?.data?.message || 'Could not mark paid');
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const shipWithBosta = async (order) => {
+    setShippingId(order.id);
+    try {
+      const { data } = await api.post(`/bosta/orders/${order.id}/ship`);
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === order.id
+            ? {
+                ...o,
+                ...data,
+                bostaTrackingNumber: data.bostaTrackingNumber || o.bostaTrackingNumber,
+                shippingCarrier: data.shippingCarrier || 'bosta',
+              }
+            : o
+        )
+      );
+      toast.success(
+        data.bostaTrackingNumber
+          ? `Bosta shipment created · ${data.bostaTrackingNumber}`
+          : 'Bosta shipment created'
+      );
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bosta shipment failed');
+    } finally {
+      setShippingId(null);
     }
   };
 
@@ -97,6 +126,7 @@ export default function StaffDeliveries() {
               <th>Total</th>
               <th>Payment</th>
               <th>Paid</th>
+              <th>Bosta</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -117,6 +147,13 @@ export default function StaffDeliveries() {
                     {o.isPaid ? 'Paid' : 'Unpaid'}
                   </span>
                 </td>
+                <td className="text-xs">
+                  {o.bostaTrackingNumber ? (
+                    <span className="font-mono text-timber-800">{o.bostaTrackingNumber}</span>
+                  ) : (
+                    <span className="text-timber-400">—</span>
+                  )}
+                </td>
                 <td>
                   <span className={orderStatusBadge[o.status]}>{orderStatusLabel[o.status]}</span>
                 </td>
@@ -132,6 +169,20 @@ export default function StaffDeliveries() {
                         Mark paid
                       </button>
                     )}
+                    {!o.bostaTrackingNumber &&
+                      o.status !== 'canceled' &&
+                      o.status !== 'delivered' && (
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm inline-flex items-center gap-1"
+                          disabled={shippingId === o.id}
+                          onClick={() => shipWithBosta(o)}
+                          title="Create Bosta shipment"
+                        >
+                          <Truck className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          {shippingId === o.id ? 'Shipping…' : 'Bosta'}
+                        </button>
+                      )}
                     {(NEXT[o.status] || []).map((s) => (
                       <button
                         key={s}
@@ -157,7 +208,7 @@ export default function StaffDeliveries() {
             ))}
             {orders.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-8 text-center text-sm text-timber-400">
+                <td colSpan={10} className="py-8 text-center text-sm text-timber-400">
                   No deliveries to show
                 </td>
               </tr>

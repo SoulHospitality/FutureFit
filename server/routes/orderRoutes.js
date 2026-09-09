@@ -4,6 +4,7 @@ const {
   createGuestOrder,
   myOrders,
   getOrder,
+  getOrderReceipt,
   listOrders,
   updateOrderStatus,
   markOrderPaid,
@@ -19,6 +20,7 @@ router.post('/', protect, createOrder);
 router.get('/mine', protect, myOrders);
 router.get('/finance', protect, adminOnly, financeSummary);
 router.get('/', protect, opsOrAdmin, listOrders);
+router.get('/:id/receipt', getOrderReceipt);
 router.get('/:id', protect, getOrder);
 router.patch('/:id/status', protect, opsOrAdmin, updateOrderStatus);
 router.patch('/:id/paid', protect, opsOrAdmin, markOrderPaid);

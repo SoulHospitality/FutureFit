@@ -16,6 +16,8 @@ const expenseRoutes = require('./routes/expenseRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const newsletterRoutes = require('./routes/newsletterRoutes');
+const paymobRoutes = require('./routes/paymobRoutes');
+const bostaRoutes = require('./routes/bostaRoutes');
 
 const app = express();
 
@@ -38,6 +40,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/paymob', paymobRoutes);
+app.use('/api/bosta', bostaRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });
