@@ -27,3 +27,5 @@ server/prisma/*.db
 server/.wwebjs_auth/
 server/.wwebjs_cache/
 server/uploads/
+server/data/*.csv
+

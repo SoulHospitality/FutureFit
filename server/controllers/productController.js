@@ -203,7 +203,7 @@ const buildProductCreateData = async (body) => {
 const listProducts = async (req, res) => {
   try {
     const { type, q, limit, audience, category } = req.query;
-    const take = Math.min(Number(limit) || 100, 100);
+    const take = Math.min(Number(limit) || 500, 2000);
     const useCache = !req.headers.authorization;
     const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${take}`;
 
