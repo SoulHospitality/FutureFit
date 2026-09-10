@@ -1,50 +1,78 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Package,
-  ShoppingBag,
-  AlertTriangle,
-  Truck,
-  Images,
-  Tag,
-  Wallet,
-  Boxes,
-} from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, CreditCard, Package, Truck } from 'lucide-react';
 import api from '../../api/axios';
-import StatCard from '../../components/ui/StatCard';
+import Sparkline from '../../components/staff/Sparkline';
 import { useAuth } from '../../context/AuthContext';
-import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../../utils/helpers';
+import {
+  asArray,
+  formatMoney,
+  formatStaffDate,
+  isBostaSynced,
+  paymentStatusMeta,
+  sparkSeriesFromOrders,
+} from '../../utils/helpers';
 
-const QUICK_LINKS_ADMIN = [
-  { to: '/staff/products', label: 'Products', icon: Package },
-  { to: '/staff/orders', label: 'Orders', icon: Boxes },
-  { to: '/staff/deliveries', label: 'Deliveries', icon: Truck },
-  { to: '/staff/slides', label: 'Slideshow', icon: Images },
-  { to: '/staff/promotions', label: 'Promotions', icon: Tag },
-  { to: '/staff/finance', label: 'Finance', icon: Wallet },
-];
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
 
-const QUICK_LINKS_OPS = [
-  { to: '/staff/deliveries', label: 'Deliveries', icon: Truck },
-  { to: '/staff/problems', label: 'Problems', icon: AlertTriangle },
-];
+function pctChange(series) {
+  if (!series?.length || series.length < 2) return null;
+  const half = Math.floor(series.length / 2);
+  const a = series.slice(0, half).reduce((s, n) => s + n, 0) / Math.max(half, 1);
+  const b = series.slice(half).reduce((s, n) => s + n, 0) / Math.max(series.length - half, 1);
+  if (a === 0 && b === 0) return 0;
+  if (a === 0) return 100;
+  return Math.round(((b - a) / a) * 100);
+}
+
+function Metric({ label, value, series, hint }) {
+  const change = pctChange(series);
+  const up = change != null && change >= 0;
+  return (
+    <div className="sp-metric min-w-[140px] flex-1">
+      <p className="text-xs font-medium text-zinc-500">{label}</p>
+      <div className="mt-1 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-xl font-semibold tracking-tight text-zinc-900 tabular-nums">{value}</p>
+          {change != null && (
+            <p className={`mt-0.5 text-xs font-medium ${up ? 'text-emerald-600' : 'text-zinc-400'}`}>
+              {up ? '+' : ''}
+              {change}%
+            </p>
+          )}
+          {hint ? <p className="mt-0.5 text-[11px] text-zinc-400">{hint}</p> : null}
+        </div>
+        <Sparkline values={series} className="mb-1 h-7 w-[72px]" />
+      </div>
+    </div>
+  );
+}
 
 export default function StaffDashboard() {
   const { user } = useAuth();
   const [finance, setFinance] = useState(null);
-  const [orders, setOrders] = useState([]);
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [integrations, setIntegrations] = useState(null);
+  const [activity, setActivity] = useState([]);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     const tasks = [
       api.get('/orders').then((r) => {
-        if (!alive) return;
-        const list = Array.isArray(r.data) ? r.data : [];
-        setAllOrders(list);
-        setOrders(list.slice(0, 8));
+        if (alive) setAllOrders(asArray(r.data));
+      }),
+      api.get('/paymob/config').then((r) => {
+        if (alive) setIntegrations(r.data);
+      }),
+      api.get('/analytics/activity').then((r) => {
+        if (alive) setActivity(asArray(r.data?.events));
       }),
     ];
     if (user.role === 'admin') {
@@ -58,172 +86,194 @@ export default function StaffDashboard() {
     };
   }, [user.role]);
 
-  const opsStats = useMemo(() => {
+  const stats = useMemo(() => {
     const active = allOrders.filter((o) =>
-      ['confirmed', 'out_for_delivery'].includes(o.status)
+      ['confirmed', 'out_for_delivery', 'pending'].includes(o.status)
+    );
+    const needFulfill = active.filter(
+      (o) => o.status !== 'canceled' && o.status !== 'delivered' && !isBostaSynced(o)
     ).length;
-    const problems = allOrders.filter((o) => o.status === 'problem').length;
-    const pending = allOrders.filter((o) => o.status === 'pending').length;
-    return { active, problems, pending };
+    const needCapture = allOrders.filter(
+      (o) => !o.isPaid && o.status !== 'canceled' && o.status !== 'delivered'
+    ).length;
+    const orderSeries = sparkSeriesFromOrders(allOrders, 14, 'count');
+    const salesSeries = sparkSeriesFromOrders(allOrders, 14, 'revenue');
+    const aov =
+      allOrders.filter((o) => o.status !== 'canceled').length > 0
+        ? allOrders
+            .filter((o) => o.status !== 'canceled')
+            .reduce((s, o) => s + Number(o.totalPrice), 0) /
+          allOrders.filter((o) => o.status !== 'canceled').length
+        : 0;
+    return { needFulfill, needCapture, orderSeries, salesSeries, aov };
   }, [allOrders]);
 
-  const statusEntries = Object.entries(finance?.byStatus || {}).sort((a, b) => b[1] - a[1]);
-  const statusTotal = statusEntries.reduce((sum, [, n]) => sum + n, 0) || 1;
-  const quickLinks = user.role === 'admin' ? QUICK_LINKS_ADMIN : QUICK_LINKS_OPS;
+  const recent = allOrders.slice(0, 8);
+  const firstName = (user.name || 'there').split(' ')[0];
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
-            Overview
-          </p>
-          <h1 className="mt-1 page-title">Dashboard</h1>
-          <p className="page-subtitle">Welcome back, {(user.name || 'there').split(' ')[0]}</p>
-        </div>
-        <Link to="/" className="btn-outline btn-sm text-[10px] uppercase tracking-[0.18em]">
-          View storefront
-        </Link>
-      </div>
-
+      {/* Shopify-style metric strip */}
       {user.role === 'admin' && (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {loading && !finance
-            ? [1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-28 animate-pulse border border-timber-100 bg-white" />
-              ))
-            : finance && (
-                <>
-                  <StatCard
-                    title="Revenue"
-                    value={formatMoney(finance.revenue)}
-                    icon={ShoppingBag}
-                    tone="wheat"
-                    hint={`${finance.orderCount} orders`}
-                  />
-                  <StatCard
-                    title="Collected"
-                    value={formatMoney(finance.paid)}
-                    icon={Wallet}
-                    tone="green"
-                    hint={`Outstanding ${formatMoney(finance.outstanding ?? Math.max(0, Number(finance.revenue) - Number(finance.paid)))}`}
-                  />
-                  <StatCard
-                    title="Net cash"
-                    value={formatMoney(
-                      finance.netCash ??
-                        Number(finance.paid) - Number(finance.expensesTotal || 0)
-                    )}
-                    icon={Truck}
-                    tone="muted"
-                    hint={`Expenses ${formatMoney(finance.expensesTotal || 0)}`}
-                  />
-                  <StatCard
-                    title="Low stock"
-                    value={finance.lowStock?.length || 0}
-                    icon={AlertTriangle}
-                    tone="red"
-                    hint={`${finance.byStatus?.out_for_delivery || 0} out for delivery`}
-                  />
-                </>
-              )}
+        <div className="mb-6 flex flex-wrap gap-3">
+          {loading && !finance ? (
+            [1, 2, 3, 4].map((i) => (
+              <div key={i} className="sp-metric h-[88px] min-w-[140px] flex-1 animate-pulse bg-zinc-100" />
+            ))
+          ) : (
+            <>
+              <Metric
+                label="Orders"
+                value={finance?.orderCount ?? allOrders.length}
+                series={stats.orderSeries}
+              />
+              <Metric
+                label="Gross sales"
+                value={formatMoney(finance?.revenue ?? 0)}
+                series={stats.salesSeries}
+              />
+              <Metric
+                label="Collected"
+                value={formatMoney(finance?.paid ?? 0)}
+                series={stats.salesSeries}
+                hint={`Outstanding ${formatMoney(finance?.outstanding ?? 0)}`}
+              />
+              <Metric
+                label="Avg. order"
+                value={formatMoney(stats.aov)}
+                series={stats.orderSeries}
+                hint={`${finance?.lowStock?.length || 0} low stock SKUs`}
+              />
+            </>
+          )}
         </div>
       )}
 
       {user.role === 'ops' && (
-        <div className="mb-8 grid gap-4 sm:grid-cols-3">
-          {loading
-            ? [1, 2, 3].map((i) => (
-                <div key={i} className="h-28 animate-pulse border border-timber-100 bg-white" />
-              ))
-            : (
-                <>
-                  <StatCard title="Pending" value={opsStats.pending} icon={Package} tone="muted" />
-                  <StatCard
-                    title="Active deliveries"
-                    value={opsStats.active}
-                    icon={Truck}
-                    tone="wheat"
-                  />
-                  <StatCard
-                    title="Problems"
-                    value={opsStats.problems}
-                    icon={AlertTriangle}
-                    tone="red"
-                  />
-                </>
-              )}
+        <div className="mb-6 flex flex-wrap gap-3">
+          <Metric label="Open orders" value={stats.needFulfill + stats.needCapture} series={stats.orderSeries} />
+          <Metric label="Need Bosta sync" value={stats.needFulfill} series={stats.orderSeries} />
+          <Metric label="Capture payments" value={stats.needCapture} series={stats.salesSeries} />
         </div>
       )}
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {quickLinks.map((link) => (
+      {/* Home hero: greeting + action chips */}
+      <div className="sp-card mb-6 px-6 py-8 sm:px-8">
+        <p className="text-sm text-zinc-500">{greeting()}!</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+          Let&apos;s continue growing your business, {firstName}.
+        </h1>
+        <div className="mt-6 flex flex-wrap gap-2">
           <Link
-            key={link.to}
-            to={link.to}
-            className="flex items-center gap-3 border border-timber-200 bg-white px-4 py-3 transition hover:border-timber-900 hover:bg-timber-50"
+            to="/staff/orders?tab=unfulfilled"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
           >
-            <link.icon className="h-4 w-4 text-timber-700" strokeWidth={1.5} />
-            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-timber-800">
-              {link.label}
-            </span>
+            <Package className="h-4 w-4 text-zinc-500" strokeWidth={1.75} />
+            Fulfill orders
+            {stats.needFulfill > 0 && (
+              <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                {stats.needFulfill}
+              </span>
+            )}
           </Link>
-        ))}
+          <Link
+            to="/staff/orders?tab=unpaid"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+          >
+            <CreditCard className="h-4 w-4 text-zinc-500" strokeWidth={1.75} />
+            Capture payments
+            {stats.needCapture > 0 && (
+              <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-[11px] font-semibold text-white">
+                {stats.needCapture > 50 ? '50+' : stats.needCapture}
+              </span>
+            )}
+          </Link>
+          <Link
+            to="/staff/live"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+          >
+            <Truck className="h-4 w-4 text-zinc-500" strokeWidth={1.75} />
+            Live View
+          </Link>
+          <Link
+            to="/staff/analytics"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+          >
+            Analytics
+          </Link>
+          <Link
+            to="/staff/abandoned"
+            className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-zinc-50"
+          >
+            Abandoned
+          </Link>
+        </div>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <div className="card xl:col-span-2 !p-0 overflow-hidden">
-          <div className="flex items-center justify-between border-b border-timber-100 px-5 py-4">
+        <div className="sp-card overflow-hidden xl:col-span-2">
+          <div className="flex items-center justify-between border-b border-zinc-100 px-5 py-4">
             <div>
-              <h2 className="text-sm font-semibold text-timber-900">Recent orders</h2>
-              <p className="text-xs text-timber-400">Latest essentials across the store</p>
+              <h2 className="text-sm font-semibold text-zinc-900">Recent orders</h2>
+              <p className="text-xs text-zinc-400">Auto-synced to Bosta when confirmed</p>
             </div>
             <Link
-              to="/staff/deliveries"
-              className="btn-outline btn-sm text-[10px] uppercase tracking-[0.16em]"
+              to="/staff/orders"
+              className="inline-flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-zinc-900"
             >
-              Deliveries
+              View all <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          <div className="table-wrapper !border-0 !rounded-none">
+          <div className="overflow-x-auto">
             <table className="table">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th>Order</th>
+                  <th>Date</th>
                   <th>Customer</th>
                   <th>Total</th>
-                  <th>Paid</th>
-                  <th>Status</th>
+                  <th>Payment</th>
+                  <th>Tags</th>
                 </tr>
               </thead>
               <tbody>
-                {loading && orders.length === 0 && (
+                {loading && recent.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-sm text-timber-400">
+                    <td colSpan={6} className="py-10 text-center text-sm text-zinc-400">
                       Loading orders…
                     </td>
                   </tr>
                 )}
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td className="font-mono text-xs">{o.id.slice(0, 8)}</td>
-                    <td>{o.customerName || o.user?.name || o.guestName || 'Guest'}</td>
-                    <td className="tabular-nums">{formatMoney(o.totalPrice)}</td>
-                    <td>
-                      <span className={o.isPaid ? 'badge-green' : 'badge-yellow'}>
-                        {o.isPaid ? 'Paid' : 'Unpaid'}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={orderStatusBadge[o.status]}>
-                        {orderStatusLabel[o.status]}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && orders.length === 0 && (
+                {recent.map((o) => {
+                  const pay = paymentStatusMeta(o);
+                  return (
+                    <tr key={o.id} className={o.status === 'canceled' ? 'opacity-50' : ''}>
+                      <td className="font-medium text-zinc-900">
+                        <Link to={`/staff/orders/${o.id}`} className="hover:underline">
+                          #{o.id.slice(0, 8)}
+                        </Link>
+                      </td>
+                      <td className="text-zinc-500">{formatStaffDate(o.createdAt)}</td>
+                      <td>{o.customerName || o.user?.name || o.guestName || 'Guest'}</td>
+                      <td className="tabular-nums">{formatMoney(o.totalPrice)}</td>
+                      <td>
+                        <span className={pay.className}>{pay.label}</span>
+                      </td>
+                      <td>
+                        {isBostaSynced(o) ? (
+                          <span className="sp-tag">bosta_synced</span>
+                        ) : o.status === 'canceled' ? (
+                          <span className="sp-tag">voided</span>
+                        ) : (
+                          <span className="text-xs text-zinc-400">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!loading && recent.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-sm text-timber-400">
+                    <td colSpan={6} className="py-10 text-center text-sm text-zinc-400">
                       No orders yet
                     </td>
                   </tr>
@@ -233,82 +283,93 @@ export default function StaffDashboard() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          {user.role === 'admin' && (
-            <div className="card">
-              <h2 className="text-sm font-semibold text-timber-900">Orders by status</h2>
-              <p className="mt-1 text-xs text-timber-400">Current pipeline snapshot</p>
-              <ul className="mt-5 space-y-3">
-                {statusEntries.length === 0 && (
-                  <li className="text-sm text-timber-400">No order data yet</li>
-                )}
-                {statusEntries.map(([status, count]) => (
-                  <li key={status}>
-                    <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                      <span className={orderStatusBadge[status]}>
-                        {orderStatusLabel[status] || status}
-                      </span>
-                      <span className="font-medium tabular-nums text-timber-800">{count}</span>
-                    </div>
-                    <div className="h-1 overflow-hidden bg-timber-100">
-                      <div
-                        className="h-full bg-timber-900 transition-all"
-                        style={{ width: `${(count / statusTotal) * 100}%` }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
+        <div className="space-y-4">
           {asArray(finance?.lowStock).length > 0 && (
-            <div className="card">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-timber-900">Low stock</h2>
-                <Link
-                  to="/staff/products"
-                  className="text-[10px] font-medium uppercase tracking-[0.16em] text-timber-500 hover:text-timber-900"
-                >
-                  Manage
-                </Link>
+            <div className="sp-card p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" strokeWidth={1.75} />
+                <h2 className="text-sm font-semibold text-zinc-900">Low stock</h2>
               </div>
-              <ul className="space-y-3">
-                {asArray(finance.lowStock).map((p) => (
-                  <li
-                    key={`${p.id}-${p.size || 'all'}`}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <span className="truncate text-timber-700">
-                      {p.name}
-                      {p.size ? ` · ${p.size}` : ''}
-                    </span>
-                    <span className="shrink-0 font-medium tabular-nums text-timber-900">
-                      {p.stock} left
-                    </span>
-                  </li>
-                ))}
+              <ul className="space-y-2.5">
+                {asArray(finance.lowStock)
+                  .slice(0, 6)
+                  .map((p) => (
+                    <li
+                      key={`${p.id}-${p.size || 'all'}`}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="truncate text-zinc-600">
+                        {p.name}
+                        {p.size ? ` · ${p.size}` : ''}
+                      </span>
+                      <span className="shrink-0 font-medium tabular-nums text-zinc-900">
+                        {p.stock}
+                      </span>
+                    </li>
+                  ))}
               </ul>
+              <Link
+                to="/staff/inventory"
+                className="mt-4 inline-block text-xs font-medium text-zinc-600 hover:text-zinc-900"
+              >
+                Open inventory →
+              </Link>
             </div>
           )}
 
-          {user.role === 'ops' && (
-            <div className="card">
-              <h2 className="text-sm font-semibold text-timber-900">Ops focus</h2>
-              <p className="mt-2 text-sm leading-relaxed text-timber-500">
-                Confirm new orders, update delivery status, and close problem tickets from the
-                fulfillment pages.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link to="/staff/deliveries" className="btn-wheat btn-sm">
-                  Open deliveries
-                </Link>
-                <Link to="/staff/problems" className="btn-outline btn-sm">
-                  Problems
-                </Link>
-              </div>
-            </div>
-          )}
+          <div className="sp-card p-5">
+            <h2 className="text-sm font-semibold text-zinc-900">Activity</h2>
+            <ul className="mt-3 max-h-72 space-y-3 overflow-y-auto">
+              {activity.slice(0, 10).map((ev) => (
+                <li key={ev.id}>
+                  <Link to={ev.href || '/staff/orders'} className="block group">
+                    <p className="text-sm font-medium text-zinc-800 group-hover:underline">
+                      {ev.title}
+                    </p>
+                    <p className="text-xs text-zinc-500">{ev.body}</p>
+                    <p className="mt-0.5 text-[11px] text-zinc-400">
+                      {ev.at ? formatStaffDate(ev.at) : ''}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+              {!activity.length && (
+                <li className="text-sm text-zinc-400">No recent activity</li>
+              )}
+            </ul>
+          </div>
+
+          <div className="sp-card p-5">
+            <h2 className="text-sm font-semibold text-zinc-900">Integrations</h2>
+            <ul className="mt-3 space-y-2 text-sm">
+              <li className="flex items-center justify-between gap-3">
+                <span className="text-zinc-600">Paymob</span>
+                <span
+                  className={
+                    integrations?.paymobEnabled ? 'sp-pill sp-pill-paid' : 'sp-pill sp-pill-void'
+                  }
+                >
+                  {integrations?.paymobEnabled ? 'Connected' : 'Not configured'}
+                </span>
+              </li>
+              <li className="flex items-center justify-between gap-3">
+                <span className="text-zinc-600">Bosta</span>
+                <span
+                  className={
+                    integrations?.bostaEnabled ? 'sp-pill sp-pill-paid' : 'sp-pill sp-pill-void'
+                  }
+                >
+                  {integrations?.bostaEnabled ? 'Connected' : 'Not configured'}
+                </span>
+              </li>
+            </ul>
+            <Link
+              to="/staff/settings"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-zinc-700 hover:text-zinc-900"
+            >
+              Settings & webhooks →
+            </Link>
+          </div>
         </div>
       </div>
     </>

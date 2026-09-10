@@ -98,6 +98,57 @@
   .badge-gray   { @apply badge bg-gray-100 text-gray-600; }
   .badge-wheat  { @apply badge bg-timber-100 text-timber-700; }
 
+  /* Shopify-inspired staff pills */
+  .sp-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .sp-pill::before {
+    content: '';
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70;
+  }
+  .sp-pill-paid { @apply bg-emerald-50 text-emerald-800; }
+  .sp-pill-pending { @apply bg-orange-50 text-orange-800; }
+  .sp-pill-warn { @apply bg-amber-50 text-amber-900; }
+  .sp-pill-info { @apply bg-sky-50 text-sky-800; }
+  .sp-pill-ok { @apply bg-zinc-100 text-zinc-700; }
+  .sp-pill-void { @apply bg-zinc-100 text-zinc-500; }
+  .sp-pill-danger { @apply bg-red-50 text-red-700; }
+  .sp-tag {
+    @apply inline-flex items-center rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-600;
+  }
+  .sp-card {
+    @apply rounded-xl border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)];
+  }
+  .sp-metric {
+    @apply rounded-xl border border-zinc-200/80 bg-white px-4 py-3 shadow-[0_1px_0_rgba(0,0,0,0.04)];
+  }
+  .staff-shell .table-wrapper {
+    @apply overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)];
+  }
+  .staff-shell .table thead tr { @apply border-b border-zinc-100 bg-zinc-50/80; }
+  .staff-shell .table th {
+    @apply whitespace-nowrap px-4 py-3 text-left text-xs font-medium normal-case tracking-normal text-zinc-500;
+  }
+  .staff-shell .table tbody tr { @apply border-b border-zinc-100 hover:bg-zinc-50/80; }
+  .staff-shell .page-title {
+    @apply font-sans text-2xl font-semibold tracking-tight text-zinc-900 sm:text-[1.65rem];
+  }
+  .staff-shell .page-subtitle { @apply mt-1 text-sm text-zinc-500; }
+
+  @media print {
+    .staff-shell header,
+    .staff-shell aside,
+    .print\\:hidden {
+      display: none !important;
+    }
+    .staff-shell {
+      background: white !important;
+    }
+    .staff-shell .lg\\:ml-64 {
+      margin-left: 0 !important;
+    }
+  }
+
   .page-title {
     @apply font-display text-3xl font-medium tracking-tight text-timber-900 sm:text-4xl;
   }

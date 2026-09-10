@@ -13,6 +13,7 @@ import {
   PAYMENT_METHODS,
   INSTAPAY_HANDLE,
 } from '../utils/helpers';
+import { getStoreSessionKey } from '../utils/sessionKey';
 
 const ADDRESS_FIELDS = [
   { key: 'street', label: 'Street address', span: true },
@@ -76,6 +77,52 @@ export default function CheckoutPage() {
   useEffect(() => {
     sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  // Sync abandoned checkout draft (debounced)
+  useEffect(() => {
+    if (orderPlacedRef.current) return undefined;
+    const stepName = step === 3 ? 'payment' : step === 2 ? 'shipping' : 'contact';
+    const t = setTimeout(() => {
+      const payload = {
+        sessionKey: getStoreSessionKey(),
+        guestName: form.name || undefined,
+        guestPhone: form.phone || undefined,
+        guestEmail: form.email || undefined,
+        shippingAddress: {
+          street: form.street,
+          city: form.city,
+          state: form.state,
+          zip: form.zip,
+          country: form.country,
+        },
+        cartItems: items.map((i) => ({
+          productId: i.productId,
+          name: i.name,
+          qty: i.qty,
+          price: i.price,
+          image: i.image,
+          color: i.color,
+          size: i.size,
+        })),
+        subtotal,
+        lastStep: stepName,
+      };
+      api.post('/analytics/abandoned', payload).catch(() => {});
+      // Enrich Live View with checkout city when known
+      if (form.city) {
+        api
+          .post('/analytics/presence', {
+            sessionKey: getStoreSessionKey(),
+            path: pathname,
+            city: form.city,
+            state: form.state,
+            country: form.country || 'Egypt',
+          })
+          .catch(() => {});
+      }
+    }, 900);
+    return () => clearTimeout(t);
+  }, [form, items, subtotal, step, pathname]);
 
   useEffect(() => {
     if (!items.length && !orderPlacedRef.current && !loading) {
@@ -185,6 +232,12 @@ export default function CheckoutPage() {
       orderPlacedRef.current = true;
       sessionStorage.removeItem(FORM_KEY);
       clear();
+      api
+        .post('/analytics/abandoned/complete', {
+          sessionKey: getStoreSessionKey(),
+          orderId: data?.id,
+        })
+        .catch(() => {});
 
       if (data?.paymobCheckoutUrl) {
         toast.success('Redirecting to secure payment…');

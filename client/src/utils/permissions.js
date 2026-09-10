@@ -1,19 +1,35 @@
 const ADMIN_PAGES = [
   'dashboard',
+  'live',
+  'analytics',
+  'reports',
   'products',
   'categories',
   'reviews',
   'newsletter',
   'orders',
+  'abandoned',
+  'customers',
   'deliveries',
   'problems',
+  'inventory',
+  'settings',
   'users',
   'slides',
   'promotions',
   'finance',
 ];
 
-const OPS_PAGES = ['dashboard', 'deliveries', 'problems'];
+const OPS_PAGES = [
+  'dashboard',
+  'live',
+  'orders',
+  'abandoned',
+  'customers',
+  'deliveries',
+  'problems',
+  'settings',
+];
 
 export const canAccess = (user, page) => {
   if (!user) return false;

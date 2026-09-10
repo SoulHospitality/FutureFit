@@ -252,3 +252,41 @@ model NewsletterSubscriber {
   source    String?
   createdAt DateTime @default(now())
 }
+
+/** Incomplete checkouts for staff recovery (Shopify-style abandoned checkouts). */
+model AbandonedCheckout {
+  id               String   @id @default(uuid())
+  sessionKey       String   @unique
+  userId           String?
+  guestName        String?
+  guestPhone       String?
+  guestEmail       String?
+  shippingAddress  Json?
+  cartItems        Json
+  subtotal         Decimal  @db.Decimal(10, 2) @default(0)
+  lastStep         String   @default("contact")
+  recoveryStatus   String   @default("not_recovered") // not_recovered | recovered | completed
+  completedOrderId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  completedAt      DateTime?
+
+  @@index([recoveryStatus])
+  @@index([updatedAt])
+}
+
+/** Lightweight storefront presence for Live View (last 5 minutes = "right now"). */
+model StorePresence {
+  id         String   @id @default(uuid())
+  sessionKey String
+  path       String?
+  city       String?
+  country    String?  @default("Egypt")
+  lat        Float?
+  lng        Float?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([sessionKey])
+  @@index([lastSeenAt])
+}

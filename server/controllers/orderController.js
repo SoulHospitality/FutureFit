@@ -3,6 +3,10 @@ const cache = require('../lib/cache');
 const { stockForSize } = require('../utils/sizeStock');
 const paymob = require('../utils/paymob');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
+const { fulfillOrderWithBosta } = require('./bostaController');
+
+const isPaymobMethod = (method) =>
+  method === PAYMOB_METHOD || method === 'Card / Wallet (Paymob)';
 
 const FREE_SHIPPING_MIN = 2000;
 const SHIPPING_FEE = 75;
@@ -188,7 +192,7 @@ const createOrder = async (req, res) => {
     const shippingPrice = itemsPrice >= FREE_SHIPPING_MIN ? 0 : SHIPPING_FEE;
     const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
 
-    const order = await persistOrder({
+    let order = await persistOrder({
       userId: req.user.id,
       paymentMethod,
       shippingAddress,
@@ -201,11 +205,17 @@ const createOrder = async (req, res) => {
       savedCouponCode,
     });
 
-    const payload = await attachPaymobIfNeeded(order, paymentMethod);
-    res.status(201).json({
-      ...payload.order,
-      ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
-    });
+    if (isPaymobMethod(paymentMethod)) {
+      const payload = await attachPaymobIfNeeded(order, paymentMethod);
+      return res.status(201).json({
+        ...payload.order,
+        ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
+      });
+    }
+
+    // COD / InstaPay / other: confirm + auto-sync to Bosta
+    const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+    res.status(201).json(serializeOrder(fulfilled.order));
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     if (error.message?.startsWith('Insufficient stock')) {
@@ -249,7 +259,7 @@ const createGuestOrder = async (req, res) => {
     const shippingPrice = itemsPrice >= FREE_SHIPPING_MIN ? 0 : SHIPPING_FEE;
     const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
 
-    const order = await persistOrder({
+    let order = await persistOrder({
       userId: null,
       guestName: name,
       guestPhone: phone,
@@ -265,11 +275,16 @@ const createGuestOrder = async (req, res) => {
       savedCouponCode,
     });
 
-    const payload = await attachPaymobIfNeeded(order, paymentMethod);
-    res.status(201).json({
-      ...payload.order,
-      ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
-    });
+    if (isPaymobMethod(paymentMethod)) {
+      const payload = await attachPaymobIfNeeded(order, paymentMethod);
+      return res.status(201).json({
+        ...payload.order,
+        ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
+      });
+    }
+
+    const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+    res.status(201).json(serializeOrder(fulfilled.order));
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     if (error.message?.startsWith('Insufficient stock')) {
@@ -409,6 +424,12 @@ const updateOrderStatus = async (req, res) => {
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
+
+    if (status === 'confirmed' || status === 'out_for_delivery') {
+      const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+      return res.json(serializeOrder(fulfilled.order));
+    }
+
     res.json(serializeOrder(order));
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -460,7 +481,8 @@ const markOrderPaid = async (req, res) => {
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
-    res.json(serializeOrder(order));
+    const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+    res.json(serializeOrder(fulfilled.order));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

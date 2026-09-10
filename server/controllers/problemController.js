@@ -41,7 +41,8 @@ const createProblem = async (req, res) => {
       return tx.problemRequest.create({
         data: {
           orderId,
-          customerId: order.userId,
+          // Guest checkouts have no user — attribute to staff creator for the relation
+          customerId: order.userId || req.user.id,
           createdById: req.user.id,
           subject,
           details,

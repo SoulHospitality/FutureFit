@@ -170,3 +170,82 @@ export const orderStatusBadge = {
   canceled: 'badge-gray',
   problem: 'badge-red',
 };
+
+/** Shopify-style relative date: "Monday at 10:20 pm" / "Sep 1 at 4:27 pm" */
+export const formatStaffDate = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  const now = new Date();
+  const sameYear = d.getFullYear() === now.getFullYear();
+  const diffDays = Math.floor((now - d) / 86400000);
+  const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).toLowerCase();
+  if (diffDays < 7 && sameYear) {
+    const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${weekday} at ${time}`;
+  }
+  const day = d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+  return `${day} at ${time}`;
+};
+
+export const isBostaSynced = (order) =>
+  Boolean(order?.bostaTrackingNumber || order?.bostaDeliveryId);
+
+export const paymentStatusMeta = (order) => {
+  if (order?.status === 'canceled') {
+    return { label: 'Voided', className: 'sp-pill sp-pill-void' };
+  }
+  if (order?.isPaid) {
+    return { label: 'Paid', className: 'sp-pill sp-pill-paid' };
+  }
+  return { label: 'Payment pending', className: 'sp-pill sp-pill-pending' };
+};
+
+export const fulfillmentStatusMeta = (order) => {
+  if (order?.status === 'canceled') {
+    return { label: 'Canceled', className: 'sp-pill sp-pill-void' };
+  }
+  if (order?.status === 'delivered' || isBostaSynced(order)) {
+    return { label: 'Fulfilled', className: 'sp-pill sp-pill-ok' };
+  }
+  if (order?.status === 'problem') {
+    return { label: 'Problem', className: 'sp-pill sp-pill-danger' };
+  }
+  return { label: 'Unfulfilled', className: 'sp-pill sp-pill-warn' };
+};
+
+export const deliveryStatusMeta = (order) => {
+  if (order?.status === 'delivered') {
+    return { label: 'Delivered', className: 'sp-pill sp-pill-ok' };
+  }
+  if (order?.status === 'out_for_delivery') {
+    return { label: 'Out for delivery', className: 'sp-pill sp-pill-info' };
+  }
+  if (order?.status === 'canceled') {
+    return { label: 'Canceled', className: 'sp-pill sp-pill-void' };
+  }
+  if (isBostaSynced(order)) {
+    return { label: order?.shippingStatus || 'Synced', className: 'sp-pill sp-pill-info' };
+  }
+  return { label: 'Not shipped', className: 'sp-pill sp-pill-void' };
+};
+
+/** Last N days of totals from orders (for tiny sparklines). */
+export const sparkSeriesFromOrders = (orders, days = 7, field = 'count') => {
+  const buckets = Array.from({ length: days }, () => 0);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+  for (const o of asArray(orders)) {
+    if (o.status === 'canceled') continue;
+    const d = new Date(o.createdAt);
+    if (Number.isNaN(d.getTime()) || d < start) continue;
+    const idx = Math.floor((d - start) / 86400000);
+    if (idx < 0 || idx >= days) continue;
+    buckets[idx] += field === 'revenue' ? Number(o.totalPrice) || 0 : 1;
+  }
+  return buckets;
+};

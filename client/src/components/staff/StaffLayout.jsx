@@ -6,9 +6,16 @@ import { useAuth } from '../../context/AuthContext';
 import { canAccess, defaultStaffPage, isStaff } from '../../utils/permissions';
 
 const PAGE_TITLES = {
-  '/staff/dashboard': 'Dashboard',
+  '/staff/dashboard': 'Home',
+  '/staff/live': 'Live View',
+  '/staff/analytics': 'Analytics',
+  '/staff/reports': 'Reports',
   '/staff/products': 'Products',
   '/staff/orders': 'Orders',
+  '/staff/abandoned': 'Abandoned checkouts',
+  '/staff/customers': 'Customers',
+  '/staff/inventory': 'Inventory',
+  '/staff/settings': 'Settings',
   '/staff/deliveries': 'Deliveries',
   '/staff/problems': 'Problems',
   '/staff/users': 'Users',
@@ -33,38 +40,36 @@ export default function StaffLayout({ children, page }) {
     Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] || 'Staff';
 
   return (
-    <div className="min-h-screen bg-timber-50">
+    <div className="staff-shell min-h-screen bg-[#f1f1f1]">
       <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       <div className="lg:ml-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-timber-200 bg-white/95 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-200/80 bg-[#f1f1f1]/95 px-4 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="grid h-10 w-10 place-items-center border border-timber-200 text-timber-700 hover:bg-timber-50 lg:hidden"
+              className="grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" strokeWidth={1.5} />
             </button>
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-timber-400">
-                FutureFit staff
-              </p>
-              <h1 className="text-sm font-semibold text-timber-900 lg:hidden">{title}</h1>
+              <p className="text-[11px] font-medium text-zinc-500">FutureFit admin</p>
+              <h1 className="text-sm font-semibold text-zinc-900 lg:hidden">{title}</h1>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 border border-timber-200 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-timber-700 transition hover:border-timber-900 hover:bg-timber-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50"
             >
               <Store className="h-3.5 w-3.5" strokeWidth={1.5} />
               <span className="hidden sm:inline">View store</span>
             </Link>
             <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-timber-800">{user.name}</p>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-timber-400">{user.role}</p>
+              <p className="text-sm font-medium text-zinc-800">{user.name}</p>
+              <p className="text-[11px] capitalize text-zinc-400">{user.role}</p>
             </div>
           </div>
         </header>

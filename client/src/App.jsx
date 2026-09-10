@@ -9,6 +9,7 @@ import { CategoriesProvider } from './context/CategoriesContext';
 import StoreHeader from './components/store/StoreHeader';
 import StoreFooter from './components/store/StoreFooter';
 import MiniCartDrawer from './components/store/MiniCartDrawer';
+import PresenceBeacon from './components/store/PresenceBeacon';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
 import { defaultStaffPage, isStaff } from './utils/permissions';
@@ -52,6 +53,14 @@ const StaffFinance = lazy(() => import('./pages/staff/Finance'));
 const StaffCategories = lazy(() => import('./pages/staff/Categories'));
 const StaffReviews = lazy(() => import('./pages/staff/Reviews'));
 const StaffNewsletter = lazy(() => import('./pages/staff/Newsletter'));
+const StaffAnalytics = lazy(() => import('./pages/staff/Analytics'));
+const StaffReports = lazy(() => import('./pages/staff/Reports'));
+const StaffLiveView = lazy(() => import('./pages/staff/LiveView'));
+const StaffAbandoned = lazy(() => import('./pages/staff/Abandoned'));
+const StaffOrderDetail = lazy(() => import('./pages/staff/OrderDetail'));
+const StaffCustomers = lazy(() => import('./pages/staff/Customers'));
+const StaffSettings = lazy(() => import('./pages/staff/Settings'));
+const StaffInventory = lazy(() => import('./pages/staff/Inventory'));
 
 const STAFF_PREFETCH = [
   () => import('./pages/staff/Products'),
@@ -65,6 +74,14 @@ const STAFF_PREFETCH = [
   () => import('./pages/staff/Categories'),
   () => import('./pages/staff/Reviews'),
   () => import('./pages/staff/Newsletter'),
+  () => import('./pages/staff/Analytics'),
+  () => import('./pages/staff/Reports'),
+  () => import('./pages/staff/LiveView'),
+  () => import('./pages/staff/Abandoned'),
+  () => import('./pages/staff/OrderDetail'),
+  () => import('./pages/staff/Customers'),
+  () => import('./pages/staff/Settings'),
+  () => import('./pages/staff/Inventory'),
 ];
 
 function PageLoader() {
@@ -137,6 +154,7 @@ function StoreShell({ children }) {
       </div>
       {!hideChrome && <StoreFooter />}
       {!hideChrome && <MiniCartDrawer />}
+      {!hideChrome && <PresenceBeacon />}
     </div>
   );
 }
@@ -169,11 +187,19 @@ function AppRoutes() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/staff" element={<StaffHome />} />
             <Route path="/staff/dashboard" element={<StaffRoute page="dashboard"><StaffDashboard /></StaffRoute>} />
+            <Route path="/staff/live" element={<StaffRoute page="live"><StaffLiveView /></StaffRoute>} />
+            <Route path="/staff/analytics" element={<StaffRoute page="analytics"><StaffAnalytics /></StaffRoute>} />
+            <Route path="/staff/reports" element={<StaffRoute page="reports"><StaffReports /></StaffRoute>} />
             <Route path="/staff/products" element={<StaffRoute page="products"><StaffProducts /></StaffRoute>} />
             <Route path="/staff/categories" element={<StaffRoute page="categories"><StaffCategories /></StaffRoute>} />
             <Route path="/staff/reviews" element={<StaffRoute page="reviews"><StaffReviews /></StaffRoute>} />
             <Route path="/staff/newsletter" element={<StaffRoute page="newsletter"><StaffNewsletter /></StaffRoute>} />
             <Route path="/staff/orders" element={<StaffRoute page="orders"><StaffOrders /></StaffRoute>} />
+            <Route path="/staff/orders/:id" element={<StaffRoute page="orders"><StaffOrderDetail /></StaffRoute>} />
+            <Route path="/staff/abandoned" element={<StaffRoute page="abandoned"><StaffAbandoned /></StaffRoute>} />
+            <Route path="/staff/customers" element={<StaffRoute page="customers"><StaffCustomers /></StaffRoute>} />
+            <Route path="/staff/inventory" element={<StaffRoute page="inventory"><StaffInventory /></StaffRoute>} />
+            <Route path="/staff/settings" element={<StaffRoute page="settings"><StaffSettings /></StaffRoute>} />
             <Route path="/staff/deliveries" element={<StaffRoute page="deliveries"><StaffDeliveries /></StaffRoute>} />
             <Route path="/staff/problems" element={<StaffRoute page="problems"><StaffProblems /></StaffRoute>} />
             <Route path="/staff/users" element={<StaffRoute page="users"><StaffUsers /></StaffRoute>} />
@@ -206,11 +232,19 @@ function AppRoutes() {
 
             <Route path="/staff" element={<StaffHome />} />
             <Route path="/staff/dashboard" element={<StaffRoute page="dashboard"><StaffDashboard /></StaffRoute>} />
+            <Route path="/staff/live" element={<StaffRoute page="live"><StaffLiveView /></StaffRoute>} />
+            <Route path="/staff/analytics" element={<StaffRoute page="analytics"><StaffAnalytics /></StaffRoute>} />
+            <Route path="/staff/reports" element={<StaffRoute page="reports"><StaffReports /></StaffRoute>} />
             <Route path="/staff/products" element={<StaffRoute page="products"><StaffProducts /></StaffRoute>} />
             <Route path="/staff/categories" element={<StaffRoute page="categories"><StaffCategories /></StaffRoute>} />
             <Route path="/staff/reviews" element={<StaffRoute page="reviews"><StaffReviews /></StaffRoute>} />
             <Route path="/staff/newsletter" element={<StaffRoute page="newsletter"><StaffNewsletter /></StaffRoute>} />
             <Route path="/staff/orders" element={<StaffRoute page="orders"><StaffOrders /></StaffRoute>} />
+            <Route path="/staff/orders/:id" element={<StaffRoute page="orders"><StaffOrderDetail /></StaffRoute>} />
+            <Route path="/staff/abandoned" element={<StaffRoute page="abandoned"><StaffAbandoned /></StaffRoute>} />
+            <Route path="/staff/customers" element={<StaffRoute page="customers"><StaffCustomers /></StaffRoute>} />
+            <Route path="/staff/inventory" element={<StaffRoute page="inventory"><StaffInventory /></StaffRoute>} />
+            <Route path="/staff/settings" element={<StaffRoute page="settings"><StaffSettings /></StaffRoute>} />
             <Route path="/staff/deliveries" element={<StaffRoute page="deliveries"><StaffDeliveries /></StaffRoute>} />
             <Route path="/staff/problems" element={<StaffRoute page="problems"><StaffProblems /></StaffRoute>} />
             <Route path="/staff/users" element={<StaffRoute page="users"><StaffUsers /></StaffRoute>} />
