@@ -22,7 +22,8 @@ import {
   FREE_SHIPPING_MIN,
   audienceLabel,
   categoryLabel,
-  colorSwatch,
+  colorSwatchStyle,
+  photosForColor,
   asArray,
 } from '../utils/helpers';
 import StarRating from '../components/store/StarRating';
@@ -167,18 +168,7 @@ export default function ProductPage() {
 
   const selectColor = (c) => {
     setColor(c);
-    if (!product?.photos?.length) return;
-    const mapped = product.photoByColor?.[c];
-    const mappedUrl = Array.isArray(mapped) ? mapped[0] : mapped;
-    if (mappedUrl) {
-      const mappedIndex = product.photos.indexOf(mappedUrl);
-      if (mappedIndex >= 0) {
-        setActivePhoto(mappedIndex);
-        return;
-      }
-    }
-    const i = product.colors?.indexOf(c);
-    if (i >= 0 && product.photos[i]) setActivePhoto(i);
+    setActivePhoto(0);
   };
 
   useEffect(() => {
@@ -190,17 +180,7 @@ export default function ProductPage() {
       const firstInStock =
         (r.data.sizes || []).find((s) => getSizeStock(r.data, s) > 0) || r.data.sizes?.[0] || '';
       setSize(firstInStock);
-      let photoIdx = 0;
-      const mapped = firstColor ? r.data.photoByColor?.[firstColor] : null;
-      const mappedUrl = Array.isArray(mapped) ? mapped[0] : mapped;
-      if (mappedUrl && r.data.photos?.length) {
-        const mi = r.data.photos.indexOf(mappedUrl);
-        if (mi >= 0) photoIdx = mi;
-      } else if (firstColor && r.data.photos?.[0]) {
-        const ci = r.data.colors?.indexOf(firstColor);
-        if (ci >= 0 && r.data.photos[ci]) photoIdx = ci;
-      }
-      setActivePhoto(photoIdx);
+      setActivePhoto(0);
       setQty(1);
     });
   }, [id]);
@@ -260,7 +240,11 @@ export default function ProductPage() {
 
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
-  const photos = product.photos?.length ? product.photos : [''];
+  const photos = useMemo(() => {
+    const list = photosForColor(product, color);
+    return list.length ? list : [''];
+  }, [product, color]);
+  const photoIdx = Math.min(activePhoto, Math.max(0, photos.length - 1));
   const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
@@ -339,7 +323,7 @@ export default function ProductPage() {
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
           <div className="space-y-3 lg:col-span-7">
             <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
-              {photos[activePhoto] ? (
+              {photos[photoIdx] ? (
                 <button
                   type="button"
                   className="block h-full w-full cursor-zoom-in"
@@ -347,7 +331,7 @@ export default function ProductPage() {
                   aria-label="View larger image"
                 >
                   <img
-                    src={getImageUrl(photos[activePhoto], { width: 900 })}
+                    src={getImageUrl(photos[photoIdx], { width: 900 })}
                     alt={product.name}
                     width={900}
                     height={1125}
@@ -388,7 +372,7 @@ export default function ProductPage() {
                     type="button"
                     onClick={() => setActivePhoto(i)}
                     className={`h-20 w-16 shrink-0 overflow-hidden border transition sm:w-20 ${
-                      i === activePhoto
+                      i === photoIdx
                         ? 'border-timber-900'
                         : 'border-transparent opacity-70 hover:opacity-100'
                     }`}
@@ -459,7 +443,7 @@ export default function ProductPage() {
                       >
                         <span
                           className="h-7 w-7 rounded-full border border-black/10"
-                          style={{ backgroundColor: colorSwatch(c) }}
+                          style={colorSwatchStyle(c)}
                         />
                         <span className="sr-only">{c}</span>
                       </button>
@@ -775,7 +759,7 @@ export default function ProductPage() {
       <ProductLightbox
         open={lightboxOpen}
         photos={photos.filter(Boolean)}
-        index={Math.min(activePhoto, Math.max(0, photos.filter(Boolean).length - 1))}
+        index={photoIdx}
         alt={product.name}
         onClose={() => setLightboxOpen(false)}
         onIndexChange={setActivePhoto}

@@ -5,10 +5,11 @@ import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useCart } from '../../context/CartContext';
 import {
-  colorSwatch,
+  colorSwatchStyle,
   formatMoney,
   getImageUrl,
   getSizeStock,
+  photosForColor,
   totalStock,
 } from '../../utils/helpers';
 
@@ -60,6 +61,8 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
     ? getSizeStock(product, size)
     : totalStock(product);
   const canAdd = available >= 1 && (!product?.sizes?.length || size) && (!product?.colors?.length || color);
+  const gallery = photosForColor(product || seed, color);
+  const photo = gallery[0] || product?.photos?.[0] || seed.photos?.[0] || seed.image || '';
 
   const confirm = () => {
     if (!product) return;
@@ -81,8 +84,6 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
     onClose?.();
     openDrawer();
   };
-
-  const photo = product?.photos?.[0] || seed.photos?.[0] || seed.image || '';
 
   return (
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Choose options">
@@ -158,7 +159,7 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
                         >
                           <span
                             className="h-7 w-7 rounded-full border border-black/10"
-                            style={{ backgroundColor: colorSwatch(c) }}
+                            style={colorSwatchStyle(c)}
                           />
                           <span className="sr-only">{c}</span>
                         </button>

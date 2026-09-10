@@ -66,20 +66,103 @@ export const categoryLabel = (product) =>
 const COLOR_SWATCH = {
   black: '#111111',
   white: '#f4f4f5',
+  'off white': '#f5f5f4',
+  'off-white': '#f5f5f4',
   navy: '#1e3a5f',
   grey: '#737373',
   gray: '#737373',
+  'light grey': '#d4d4d8',
+  'dark grey': '#52525b',
+  'light gray': '#d4d4d8',
+  'dark gray': '#52525b',
   charcoal: '#36454f',
   ash: '#9ca3af',
   brown: '#6b4423',
   wheat: '#c4a574',
+  beige: '#d8c3a5',
+  biege: '#d8c3a5',
+  cream: '#f5f0e6',
+  ivory: '#fffff0',
+  nude: '#e8d5c4',
+  skin: '#e8d5c4',
+  sand: '#c2b280',
+  camel: '#c19a6b',
+  tan: '#d2b48c',
+  red: '#b91c1c',
+  'dark red': '#7f1d1d',
+  rose: '#e11d48',
+  pink: '#ec4899',
+  coral: '#f97066',
+  maroon: '#7f1d1d',
+  burgundy: '#6b1c23',
+  wine: '#722f37',
+  blue: '#2563eb',
+  'sky blue': '#38bdf8',
+  'light blue': '#93c5fd',
+  'dark blue': '#1e3a8a',
+  indigo: '#4338ca',
+  teal: '#0d9488',
+  green: '#16a34a',
+  mint: '#6ee7b7',
+  olive: '#556b2f',
+  khaki: '#c3b091',
+  yellow: '#eab308',
+  mustard: '#ca8a04',
+  gold: '#d4a017',
+  orange: '#ea580c',
+  rust: '#b7410e',
+  purple: '#7e22ce',
+  lavender: '#c4b5fd',
+  silver: '#c0c0c0',
+  natural: '#e7e5e4',
+  multicolor: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)',
 };
 
 export const colorSwatch = (name) => {
-  const key = String(name || '')
+  const raw = String(name || '')
     .toLowerCase()
-    .split(/[\s/]+/)[0];
-  return COLOR_SWATCH[key] || '#a1a1aa';
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  if (COLOR_SWATCH[raw]) return COLOR_SWATCH[raw];
+  const parts = raw.split(/[\s/]+/).filter(Boolean);
+  // Prefer multi-word matches first (dark red, sky blue)
+  for (let n = Math.min(parts.length, 3); n >= 1; n--) {
+    const phrase = parts.slice(0, n).join(' ');
+    if (COLOR_SWATCH[phrase]) return COLOR_SWATCH[phrase];
+  }
+  for (const p of parts) {
+    if (COLOR_SWATCH[p]) return COLOR_SWATCH[p];
+  }
+  return '#a1a1aa';
+};
+
+/** Inline style for a colour chip (supports solid + CSS gradients). */
+export const colorSwatchStyle = (name) => {
+  const value = colorSwatch(name);
+  return String(value).includes('gradient')
+    ? { background: value }
+    : { backgroundColor: value };
+};
+
+/** Gallery images for a selected colour (falls back to all product photos). */
+export const photosForColor = (product, color) => {
+  if (!product) return [];
+  const map = product.photoByColor;
+  if (color && map && typeof map === 'object') {
+    let mapped = map[color];
+    if (mapped == null) {
+      const key = Object.keys(map).find(
+        (k) => k.toLowerCase() === String(color).toLowerCase()
+      );
+      if (key) mapped = map[key];
+    }
+    if (mapped != null) {
+      const list = (Array.isArray(mapped) ? mapped : [mapped]).filter(Boolean);
+      if (list.length) return list;
+    }
+  }
+  return Array.isArray(product.photos) && product.photos.length ? product.photos : [];
 };
 
 export const formatMoney = (n) =>

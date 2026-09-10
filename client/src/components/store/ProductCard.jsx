@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight, Heart, ShoppingBag } from 'lucide-react';
-import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatch, getSizeStock } from '../../utils/helpers';
+import { getImageUrl, formatMoney, categoryLabel, totalStock, colorSwatchStyle, getSizeStock, photosForColor } from '../../utils/helpers';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
@@ -11,11 +11,15 @@ import QuickAddSheet from './QuickAddSheet';
 /** Lookbook-style product tile — image-led, minimal chrome. */
 function ProductCard({ product, priority = false }) {
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [previewColor, setPreviewColor] = useState(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const { isSaved, toggle } = useWishlist();
   const { addItem, openDrawer } = useCart();
   const liked = isSaved(product.id);
-  const photos = (product.photos || []).filter(Boolean);
+  const photos = (
+    previewColor ? photosForColor(product, previewColor) : product.photos || []
+  ).filter(Boolean);
+  const safeIndex = photos.length ? photoIndex % photos.length : 0;
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
   const typeLabel = categoryLabel(product);
@@ -62,7 +66,7 @@ function ProductCard({ product, priority = false }) {
         <div className="relative aspect-[3/4] overflow-hidden bg-timber-100">
           {photos.length ? (
             <img
-              src={getImageUrl(photos[photoIndex], { width: 600 })}
+              src={getImageUrl(photos[safeIndex], { width: 600 })}
               alt={product.name}
               width={600}
               height={800}
@@ -158,11 +162,27 @@ function ProductCard({ product, priority = false }) {
           {product.colors?.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {product.colors.slice(0, 5).map((c) => (
-                <span
+                <button
                   key={c}
+                  type="button"
                   title={c}
+                  aria-label={`Preview ${c}`}
                   className="h-3 w-3 rounded-full border border-timber-200"
-                  style={{ backgroundColor: colorSwatch(c) }}
+                  style={colorSwatchStyle(c)}
+                  onMouseEnter={() => {
+                    setPreviewColor(c);
+                    setPhotoIndex(0);
+                  }}
+                  onMouseLeave={() => {
+                    setPreviewColor(null);
+                    setPhotoIndex(0);
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setPreviewColor(c);
+                    setPhotoIndex(0);
+                  }}
                 />
               ))}
             </div>

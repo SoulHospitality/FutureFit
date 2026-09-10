@@ -4,7 +4,7 @@ import { SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories } from '../context/CategoriesContext';
-import { AUDIENCES, audienceLabel, colorSwatch } from '../utils/helpers';
+import { AUDIENCES, audienceLabel, colorSwatchStyle } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
@@ -150,7 +150,7 @@ function FiltersPanel({
                   >
                     <span
                       className="h-5 w-5 rounded-full border border-black/10"
-                      style={{ backgroundColor: colorSwatch(c) }}
+                      style={colorSwatchStyle(c)}
                     />
                     <span className="sr-only">{c}</span>
                   </button>
