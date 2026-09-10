@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import api from '../api/axios';
-import { getStoreSessionKey } from '../utils/sessionKey';
+import api from '../../api/axios';
+import { getStoreSessionKey } from '../../utils/sessionKey';
 
 /**
  * Lightweight storefront presence ping for Live View.
