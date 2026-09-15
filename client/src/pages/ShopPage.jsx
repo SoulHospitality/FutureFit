@@ -8,8 +8,6 @@ import {
   AUDIENCES,
   audienceLabel,
   colorSwatchStyle,
-  DEPT_IMAGES,
-  getImageUrl,
 } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
@@ -522,11 +520,6 @@ export default function ShopPage() {
     DEPT_COPY[audience] ||
     DEPT_COPY.all;
 
-  const heroPhoto =
-    activeDept?.imageUrl ||
-    (audience ? DEPT_IMAGES[audience] : null) ||
-    null;
-
   const submitHeroSearch = (e) => {
     e?.preventDefault();
     const q = heroQuery.trim();
@@ -568,25 +561,6 @@ export default function ShopPage() {
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(9,9,11,0.06),_transparent_55%),linear-gradient(135deg,#f4f4f5_0%,#ffffff_45%,#fafafa_100%)]"
           aria-hidden
         />
-        {heroPhoto ? (
-          <>
-            <img
-              key={audience || 'all'}
-              src={getImageUrl(heroPhoto, { width: 1400 })}
-              alt=""
-              className="pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[55%] object-cover object-center opacity-90 transition-opacity duration-700 lg:block"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-timber-100 via-timber-50/95 to-transparent lg:block"
-              aria-hidden
-            />
-            <div
-              className="pointer-events-none absolute inset-y-0 right-0 hidden w-[55%] bg-gradient-to-t from-timber-900/20 via-transparent to-transparent lg:block"
-              aria-hidden
-            />
-          </>
-        ) : null}
         <div
           className="pointer-events-none absolute -right-8 top-6 select-none font-display text-[clamp(5rem,18vw,12rem)] font-medium leading-none tracking-tight text-timber-900/[0.04] lg:right-[8%] lg:text-timber-900/[0.06]"
           aria-hidden
