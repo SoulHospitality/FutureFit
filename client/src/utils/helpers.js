@@ -33,6 +33,21 @@ export const getImageUrl = (path, { width } = {}) => {
   return url;
 };
 
+const preloadedUrls = new Set();
+
+/** Warm the browser cache so gallery switches feel instant. */
+export const preloadImage = (url) => {
+  if (!url || preloadedUrls.has(url)) return;
+  preloadedUrls.add(url);
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+};
+
+export const preloadImages = (urls = []) => {
+  for (const url of urls) preloadImage(url);
+};
+
 export const PRODUCT_TYPES = [
   { value: 'boxers', label: 'Boxers' },
   { value: 'briefs', label: 'Briefs' },

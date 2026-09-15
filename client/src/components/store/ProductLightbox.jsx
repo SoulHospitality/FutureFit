@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { getImageUrl } from '../../utils/helpers';
+import { getImageUrl, preloadImages } from '../../utils/helpers';
 
 export default function ProductLightbox({
   open,
@@ -10,17 +10,23 @@ export default function ProductLightbox({
   onClose,
   onIndexChange,
 }) {
+  const urls = useMemo(
+    () => (photos || []).filter(Boolean).map((src) => getImageUrl(src, { width: 1600 })),
+    [photos]
+  );
+  const safeIndex = urls.length ? Math.min(Math.max(index, 0), urls.length - 1) : 0;
+
   useEffect(() => {
     if (!open) return undefined;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft' && photos.length > 1) {
-        onIndexChange((index - 1 + photos.length) % photos.length);
+      if (e.key === 'ArrowLeft' && urls.length > 1) {
+        onIndexChange((safeIndex - 1 + urls.length) % urls.length);
       }
-      if (e.key === 'ArrowRight' && photos.length > 1) {
-        onIndexChange((index + 1) % photos.length);
+      if (e.key === 'ArrowRight' && urls.length > 1) {
+        onIndexChange((safeIndex + 1) % urls.length);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -28,11 +34,14 @@ export default function ProductLightbox({
       document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
     };
-  }, [open, photos.length, index, onClose, onIndexChange]);
+  }, [open, urls.length, safeIndex, onClose, onIndexChange]);
 
-  if (!open || !photos?.length) return null;
+  useEffect(() => {
+    if (!open || !urls.length) return;
+    preloadImages(urls);
+  }, [open, urls]);
 
-  const src = photos[index];
+  if (!open || !urls.length) return null;
 
   return (
     <div
@@ -43,7 +52,7 @@ export default function ProductLightbox({
     >
       <div className="flex items-center justify-between px-4 py-3 sm:px-6">
         <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/70">
-          {index + 1} / {photos.length}
+          {safeIndex + 1} / {urls.length}
         </p>
         <button
           type="button"
@@ -62,7 +71,7 @@ export default function ProductLightbox({
           aria-label="Close"
           onClick={onClose}
         />
-        {photos.length > 1 && (
+        {urls.length > 1 && (
           <>
             <button
               type="button"
@@ -70,7 +79,7 @@ export default function ProductLightbox({
               aria-label="Previous photo"
               onClick={(e) => {
                 e.stopPropagation();
-                onIndexChange((index - 1 + photos.length) % photos.length);
+                onIndexChange((safeIndex - 1 + urls.length) % urls.length);
               }}
             >
               <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
@@ -81,36 +90,41 @@ export default function ProductLightbox({
               aria-label="Next photo"
               onClick={(e) => {
                 e.stopPropagation();
-                onIndexChange((index + 1) % photos.length);
+                onIndexChange((safeIndex + 1) % urls.length);
               }}
             >
               <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
             </button>
           </>
         )}
-        {src ? (
-          <img
-            src={getImageUrl(src, { width: 1600 })}
-            alt={alt || ''}
-            className="relative z-[1] max-h-full max-w-full object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : null}
+        <div className="relative z-[1] flex h-full w-full items-center justify-center">
+          {urls.map((src, i) => (
+            <img
+              key={`${src}-${i}`}
+              src={src}
+              alt={i === safeIndex ? alt || '' : ''}
+              className={`absolute max-h-full max-w-full object-contain transition-opacity duration-150 ${
+                i === safeIndex ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ))}
+        </div>
       </div>
 
-      {photos.length > 1 && (
+      {urls.length > 1 && (
         <div className="flex justify-center gap-2 overflow-x-auto px-4 pb-5">
-          {photos.map((p, i) => (
+          {urls.map((src, i) => (
             <button
-              key={`${p}-${i}`}
+              key={`thumb-${src}-${i}`}
               type="button"
               onClick={() => onIndexChange(i)}
               className={`h-14 w-11 shrink-0 overflow-hidden border transition sm:h-16 sm:w-12 ${
-                i === index ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
+                i === safeIndex ? 'border-white' : 'border-transparent opacity-60 hover:opacity-100'
               }`}
             >
               <img
-                src={getImageUrl(p, { width: 100 })}
+                src={getImageUrl(photos[i], { width: 100 })}
                 alt=""
                 className="h-full w-full object-cover"
               />

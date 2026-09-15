@@ -24,6 +24,7 @@ import {
   categoryLabel,
   colorSwatchStyle,
   photosForColor,
+  preloadImages,
   asArray,
 } from '../utils/helpers';
 import StarRating from '../components/store/StarRating';
@@ -221,6 +222,23 @@ export default function ProductPage() {
     return list.length ? list : [''];
   }, [product, color]);
 
+  const galleryUrls = useMemo(
+    () => photos.filter(Boolean).map((src) => getImageUrl(src, { width: 900 })),
+    [photos]
+  );
+
+  useEffect(() => {
+    if (!galleryUrls.length) return;
+    preloadImages(galleryUrls);
+    // Warm lightbox sizes for nearby shots after idle
+    const t = window.setTimeout(() => {
+      preloadImages(
+        photos.filter(Boolean).map((src) => getImageUrl(src, { width: 1600 }))
+      );
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [galleryUrls, photos]);
+
   if (!product) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
@@ -324,23 +342,28 @@ export default function ProductPage() {
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
           <div className="space-y-3 lg:col-span-7">
             <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
-              {photos[photoIdx] ? (
+              {galleryUrls.length ? (
                 <button
                   type="button"
-                  className="block h-full w-full cursor-zoom-in"
+                  className="relative block h-full w-full cursor-zoom-in"
                   onClick={() => setLightboxOpen(true)}
                   aria-label="View larger image"
                 >
-                  <img
-                    src={getImageUrl(photos[photoIdx], { width: 900 })}
-                    alt={product.name}
-                    width={900}
-                    height={1125}
-                    loading="eager"
-                    fetchPriority="high"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
+                  {galleryUrls.map((src, i) => (
+                    <img
+                      key={`${src}-${i}`}
+                      src={src}
+                      alt={i === photoIdx ? product.name : ''}
+                      width={900}
+                      height={1125}
+                      loading={i === 0 ? 'eager' : 'lazy'}
+                      fetchPriority={i === 0 ? 'high' : 'auto'}
+                      decoding="async"
+                      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
+                        i === photoIdx ? 'opacity-100' : 'pointer-events-none opacity-0'
+                      }`}
+                    />
+                  ))}
                 </button>
               ) : (
                 <div className="grid h-full place-items-center text-timber-400">No photo</div>
