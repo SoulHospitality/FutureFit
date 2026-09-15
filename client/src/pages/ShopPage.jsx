@@ -366,6 +366,16 @@ export default function ShopPage() {
     [audience, treeByAudience]
   );
 
+  const heroTypeCategories = useMemo(() => {
+    const counts = new Map();
+    allProducts.forEach((p) => {
+      const slug = p.category?.slug;
+      if (!slug) return;
+      counts.set(slug, (counts.get(slug) || 0) + 1);
+    });
+    return audienceCategories.filter((c) => (counts.get(c.slug) || 0) > 0);
+  }, [audienceCategories, allProducts]);
+
   const patchParams = (patch) => {
     const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([k, v]) => {
@@ -679,7 +689,7 @@ export default function ShopPage() {
             </p>
           </div>
 
-          {audience && audienceCategories.length > 0 ? (
+          {audience && heroTypeCategories.length > 0 ? (
             <div className="mt-10 border-t border-timber-900/10 pt-6">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
@@ -695,11 +705,11 @@ export default function ShopPage() {
                   </button>
                 ) : null}
               </div>
-              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => patchParams({ category: null })}
-                  className={`shrink-0 border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
+                  className={`border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
                     !selectedCategory
                       ? 'border-timber-900 bg-timber-900 text-white'
                       : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
@@ -707,7 +717,7 @@ export default function ShopPage() {
                 >
                   All types
                 </button>
-                {audienceCategories.map((c) => (
+                {heroTypeCategories.map((c) => (
                   <button
                     key={c.id}
                     type="button"
@@ -716,7 +726,7 @@ export default function ShopPage() {
                         category: selectedCategory === c.slug ? null : c.slug,
                       })
                     }
-                    className={`shrink-0 border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
+                    className={`border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
                       selectedCategory === c.slug
                         ? 'border-timber-900 bg-timber-900 text-white'
                         : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
