@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { FolderOpen, Loader2, Minus, Plus, Pencil, Trash2, Upload } from 'lucide-react';
+import { FolderOpen, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
@@ -48,6 +48,7 @@ const queueKey = (id, size) => `${id}::${size || ''}`;
 
 export default function StaffProducts() {
   const [products, setProducts] = useState([]);
+  const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(empty);
@@ -62,6 +63,18 @@ export default function StaffProducts() {
     load();
     api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
   }, []);
+
+  const filtered = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!query) return products;
+    return products.filter((p) =>
+      [p.name, p.description, p.type, audienceLabel(p.audience), categoryLabel(p), ...(p.colors || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [products, q]);
 
   const flushStock = async (id, size) => {
     const key = queueKey(id, size);
@@ -307,6 +320,22 @@ export default function StaffProducts() {
       </div>
 
       <div className="table-wrapper">
+        <div className="flex flex-wrap items-center gap-2 border-b border-timber-100 px-3 py-2.5">
+          <div className="relative min-w-[180px] flex-1 sm:max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-timber-400" />
+            <input
+              className="w-full rounded-lg border border-timber-200 bg-white py-2 pl-9 pr-3 text-sm"
+              placeholder="Search products"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              aria-label="Search products"
+            />
+          </div>
+          <p className="ml-auto text-xs text-timber-400 tabular-nums">
+            {filtered.length}
+            {q.trim() ? ` of ${products.length}` : ''} product{filtered.length === 1 ? '' : 's'}
+          </p>
+        </div>
         <table className="table">
           <thead>
             <tr>
@@ -319,7 +348,14 @@ export default function StaffProducts() {
             </tr>
           </thead>
           <tbody>
-            {products.map((p) => {
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-sm text-timber-500">
+                  {q.trim() ? 'No products match your search.' : 'No products yet.'}
+                </td>
+              </tr>
+            )}
+            {filtered.map((p) => {
               const rows = p.sizeStocks?.length
                 ? p.sizeStocks
                 : [{ size: '', stock: p.stock }];
