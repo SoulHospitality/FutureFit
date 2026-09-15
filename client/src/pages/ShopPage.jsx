@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories, subcategoriesForAudience } from '../context/CategoriesContext';
 import {
+  AUDIENCES,
   audienceLabel,
   colorSwatchStyle,
 } from '../utils/helpers';
@@ -319,7 +320,6 @@ export default function ShopPage() {
 
   const audience = params.get('audience') || '';
   const searchQuery = (params.get('q') || '').trim();
-  const [heroQuery, setHeroQuery] = useState(searchQuery);
   const selectedCategory = params.get('category') || '';
   const selectedColors = useMemo(
     () => (params.get('colors') ? params.get('colors').split(',').filter(Boolean) : []),
@@ -339,10 +339,6 @@ export default function ShopPage() {
     setMinInput(params.get('minPrice') || '');
     setMaxInput(params.get('maxPrice') || '');
   }, [params]);
-
-  useEffect(() => {
-    setHeroQuery(searchQuery);
-  }, [searchQuery]);
 
   useEffect(() => {
     setLoading(true);
@@ -509,12 +505,6 @@ export default function ShopPage() {
     DEPT_COPY[audience] ||
     DEPT_COPY.all;
 
-  const submitHeroSearch = (e) => {
-    e?.preventDefault();
-    const q = heroQuery.trim();
-    patchParams({ q: q || null });
-  };
-
   const activeFilters = useMemo(() => {
     const chips = [];
     if (searchQuery) {
@@ -573,39 +563,41 @@ export default function ShopPage() {
               {heroStatement}
             </p>
 
-            <form
-              onSubmit={submitHeroSearch}
-              className="mt-8 flex max-w-md items-center gap-2 border border-timber-900/15 bg-white/80 px-3 py-2.5 shadow-[0_12px_40px_-28px_rgba(9,9,11,0.45)] backdrop-blur-sm transition focus-within:border-timber-900/40"
+            <div
+              className="mt-8 inline-flex flex-wrap gap-1 border border-timber-900/10 bg-white/70 p-1 backdrop-blur-sm"
+              role="tablist"
+              aria-label="Department"
             >
-              <Search className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
-              <input
-                type="search"
-                value={heroQuery}
-                onChange={(e) => setHeroQuery(e.target.value)}
-                placeholder="Search the collection"
-                aria-label="Search products"
-                className="min-w-0 flex-1 bg-transparent text-sm text-timber-900 outline-none placeholder:text-timber-400"
-              />
-              {heroQuery ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHeroQuery('');
-                    patchParams({ q: null });
-                  }}
-                  className="grid h-7 w-7 place-items-center text-timber-400 hover:text-timber-900"
-                  aria-label="Clear search"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
-                </button>
-              ) : null}
               <button
-                type="submit"
-                className="shrink-0 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-timber-800 hover:text-timber-950"
+                type="button"
+                role="tab"
+                aria-selected={!audience}
+                onClick={() => patchParams({ audience: null, category: null })}
+                className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
+                  !audience
+                    ? 'bg-timber-900 text-white'
+                    : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
+                }`}
               >
-                Search
+                All
               </button>
-            </form>
+              {AUDIENCES.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={audience === a.value}
+                  onClick={() => patchParams({ audience: a.value, category: null })}
+                  className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
+                    audience === a.value
+                      ? 'bg-timber-900 text-white'
+                      : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
+                  }`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
 
             <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.2em] text-timber-400">
               {loading
