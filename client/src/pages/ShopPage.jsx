@@ -34,6 +34,78 @@ const DEPT_COPY = {
   all: 'Classic cuts and refined staples — browse by department, colour, and size.',
 };
 
+const LETTER_SIZE_RANK = {
+  XXS: 0,
+  XS: 1,
+  S: 2,
+  SMALL: 2,
+  M: 3,
+  MEDIUM: 3,
+  L: 4,
+  LARGE: 4,
+  XL: 5,
+  XLARGE: 5,
+  '2XL': 6,
+  XXL: 6,
+  XXLARGE: 6,
+  '3XL': 7,
+  XXXL: 7,
+  XXXLARGE: 7,
+  '4XL': 8,
+  XXXXL: 8,
+};
+
+function sizeSortKey(raw) {
+  const s = String(raw || '').trim();
+  const compact = s.toUpperCase().replace(/\s+/g, '');
+  const age = s.match(/(\d+)\s*[-–]\s*(\d+)/);
+  if (age || /month|mo\b|year|yr\b/i.test(s)) {
+    return [0, Number(age?.[1] || 0), Number(age?.[2] || 0), s];
+  }
+  if (/^\d+(\.\d+)?$/.test(compact)) {
+    return [1, Number(compact), 0, s];
+  }
+  if (LETTER_SIZE_RANK[compact] != null) {
+    return [2, LETTER_SIZE_RANK[compact], 0, s];
+  }
+  if (/one.?size|^os$/i.test(s)) return [3, 0, 0, s];
+  return [4, 0, 0, s];
+}
+
+function sortSizes(sizes) {
+  return [...sizes].sort((a, b) => {
+    const ka = sizeSortKey(a);
+    const kb = sizeSortKey(b);
+    for (let i = 0; i < 3; i++) {
+      if (ka[i] !== kb[i]) return ka[i] - kb[i];
+    }
+    return String(ka[3]).localeCompare(String(kb[3]), undefined, { numeric: true });
+  });
+}
+
+function formatSizeLabel(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return s;
+  s = s.replace(/\s*MONTHS?\b/gi, ' mo');
+  s = s.replace(/\s*YEARS?\b/gi, ' yr');
+  s = s.replace(/^MEDIUM$/i, 'M');
+  s = s.replace(/^LARGE$/i, 'L');
+  s = s.replace(/^SMALL$/i, 'S');
+  s = s.replace(/^X-?LARGE$/i, 'XL');
+  s = s.replace(/^XX-?LARGE$/i, 'XXL');
+  s = s.replace(/^XXX-?LARGE$/i, '3XL');
+  s = s.replace(/^ONE\s*SIZE$/i, 'OS');
+  return s;
+}
+
+function chipClass(active) {
+  return `inline-flex min-h-9 items-center justify-center border px-2.5 py-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
+    active
+      ? 'border-timber-900 bg-timber-900 text-white'
+      : 'border-timber-200 bg-white text-timber-600 hover:border-timber-900 hover:text-timber-900'
+  }`;
+}
+
 function parseBound(raw) {
   const trimmed = String(raw ?? '').trim();
   if (trimmed === '') return null;
@@ -50,7 +122,7 @@ function matchPricePreset(minPrice, maxPrice) {
 
 function FilterSection({ title, children }) {
   return (
-    <div className="border-b border-timber-100 py-4 last:border-b-0">
+    <div className="border-b border-timber-100 py-5 last:border-b-0">
       <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-timber-800">
         {title}
       </p>
@@ -93,7 +165,7 @@ function FiltersPanel({
     <div
       className={`flex flex-col ${embedded ? 'h-full' : 'max-h-[calc(100vh-7rem)]'}`}
     >
-      <div className="mb-4 shrink-0 flex items-center justify-between gap-3">
+      <div className="mb-2 shrink-0 flex items-center justify-between gap-3">
         <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
           Refine
         </p>
@@ -111,18 +183,14 @@ function FiltersPanel({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
         {categories.length > 0 ? (
           <FilterSection title="Subcategory">
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
                 onClick={() => onSelectCategory('')}
-                className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
-                  !selectedCategory
-                    ? 'bg-timber-900 text-white'
-                    : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
-                }`}
+                className={chipClass(!selectedCategory)}
               >
                 All
               </button>
@@ -131,11 +199,7 @@ function FiltersPanel({
                   key={c.id}
                   type="button"
                   onClick={() => onSelectCategory(c.slug)}
-                  className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
-                    selectedCategory === c.slug
-                      ? 'bg-timber-900 text-white'
-                      : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
-                  }`}
+                  className={chipClass(selectedCategory === c.slug)}
                 >
                   {c.name}
                 </button>
@@ -146,7 +210,7 @@ function FiltersPanel({
 
         {availableColors.length > 0 ? (
           <FilterSection title="Colour">
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-5 gap-x-2 gap-y-2.5">
               {availableColors.map((c) => {
                 const active = selectedColors.includes(c);
                 return (
@@ -155,14 +219,14 @@ function FiltersPanel({
                     type="button"
                     title={c}
                     onClick={() => onToggleColor(c)}
-                    className={`group relative grid h-8 w-8 place-items-center rounded-full border transition ${
+                    className={`mx-auto grid h-8 w-8 place-items-center rounded-full transition ${
                       active
-                        ? 'border-timber-900 ring-2 ring-timber-900 ring-offset-2'
-                        : 'border-timber-200 hover:border-timber-500'
+                        ? 'outline outline-2 outline-offset-2 outline-timber-900'
+                        : 'outline outline-1 outline-offset-1 outline-timber-200 hover:outline-timber-500'
                     }`}
                   >
                     <span
-                      className="h-5 w-5 rounded-full border border-black/10"
+                      className="h-full w-full rounded-full border border-black/10"
                       style={colorSwatchStyle(c)}
                     />
                     <span className="sr-only">{c}</span>
@@ -175,21 +239,19 @@ function FiltersPanel({
 
         {availableSizes.length > 0 ? (
           <FilterSection title="Size">
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               {availableSizes.map((s) => {
                 const active = selectedSizes.includes(s);
+                const label = formatSizeLabel(s);
                 return (
                   <button
                     key={s}
                     type="button"
+                    title={s}
                     onClick={() => onToggleSize(s)}
-                    className={`py-2 text-[11px] font-medium uppercase tracking-[0.08em] transition ${
-                      active
-                        ? 'bg-timber-900 text-white'
-                        : 'bg-timber-50 text-timber-700 hover:bg-timber-100'
-                    }`}
+                    className={`${chipClass(active)} max-w-full shrink-0`}
                   >
-                    {s}
+                    <span className="truncate">{label}</span>
                   </button>
                 );
               })}
@@ -198,17 +260,13 @@ function FiltersPanel({
         ) : null}
 
         <FilterSection title="Price">
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5">
             {PRICE_PRESETS.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => onApplyPricePreset(p.min, p.max)}
-                className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
-                  activePreset === p.id
-                    ? 'bg-timber-900 text-white'
-                    : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
-                }`}
+                className={`${chipClass(activePreset === p.id)} w-full`}
               >
                 {p.label}
               </button>
@@ -357,8 +415,11 @@ export default function ShopPage() {
 
   const availableSizes = useMemo(() => {
     const set = new Set();
-    allProducts.forEach((p) => (p.sizes || []).forEach((s) => set.add(s)));
-    return [...set].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+    allProducts.forEach((p) => (p.sizes || []).forEach((s) => {
+      const label = String(s || '').trim();
+      if (label) set.add(label);
+    }));
+    return sortSizes([...set]);
   }, [allProducts]);
 
   const products = useMemo(() => {
@@ -671,10 +732,10 @@ export default function ShopPage() {
       </section>
 
       <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
-        <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
             <div className="sticky top-28 border border-timber-200 bg-white p-1 shadow-[0_12px_32px_-24px_rgba(9,9,11,0.35)]">
-              <div className="border border-timber-100 bg-timber-50/80 px-4 py-1">
+              <div className="border border-timber-100 bg-timber-50/80 px-3.5 py-1">
                 <FiltersPanel {...filterProps} />
               </div>
             </div>
