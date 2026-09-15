@@ -5,7 +5,6 @@ import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories, subcategoriesForAudience } from '../context/CategoriesContext';
 import {
-  AUDIENCES,
   audienceLabel,
   colorSwatchStyle,
 } from '../utils/helpers';
@@ -364,16 +363,6 @@ export default function ShopPage() {
     [audience, treeByAudience]
   );
 
-  const heroTypeCategories = useMemo(() => {
-    const counts = new Map();
-    allProducts.forEach((p) => {
-      const slug = p.category?.slug;
-      if (!slug) return;
-      counts.set(slug, (counts.get(slug) || 0) + 1);
-    });
-    return audienceCategories.filter((c) => (counts.get(c.slug) || 0) > 0);
-  }, [audienceCategories, allProducts]);
-
   const patchParams = (patch) => {
     const next = new URLSearchParams(params);
     Object.entries(patch).forEach(([k, v]) => {
@@ -584,45 +573,9 @@ export default function ShopPage() {
               {heroStatement}
             </p>
 
-            <div
-              className="mt-8 inline-flex flex-wrap gap-1 border border-timber-900/10 bg-white/70 p-1 backdrop-blur-sm"
-              role="tablist"
-              aria-label="Department"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!audience}
-                onClick={() => patchParams({ audience: null, category: null })}
-                className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                  !audience
-                    ? 'bg-timber-900 text-white'
-                    : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
-                }`}
-              >
-                All
-              </button>
-              {AUDIENCES.map((a) => (
-                <button
-                  key={a.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={audience === a.value}
-                  onClick={() => patchParams({ audience: a.value, category: null })}
-                  className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                    audience === a.value
-                      ? 'bg-timber-900 text-white'
-                      : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
-                  }`}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
-
             <form
               onSubmit={submitHeroSearch}
-              className="mt-6 flex max-w-md items-center gap-2 border border-timber-900/15 bg-white/80 px-3 py-2.5 shadow-[0_12px_40px_-28px_rgba(9,9,11,0.45)] backdrop-blur-sm transition focus-within:border-timber-900/40"
+              className="mt-8 flex max-w-md items-center gap-2 border border-timber-900/15 bg-white/80 px-3 py-2.5 shadow-[0_12px_40px_-28px_rgba(9,9,11,0.45)] backdrop-blur-sm transition focus-within:border-timber-900/40"
             >
               <Search className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
               <input
@@ -662,56 +615,6 @@ export default function ShopPage() {
                   }`}
             </p>
           </div>
-
-          {audience && heroTypeCategories.length > 0 ? (
-            <div className="mt-10 border-t border-timber-900/10 pt-6">
-              <div className="mb-3 flex items-end justify-between gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
-                  Shop by type
-                </p>
-                {selectedCategory ? (
-                  <button
-                    type="button"
-                    onClick={() => patchParams({ category: null })}
-                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
-                  >
-                    Clear type
-                  </button>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => patchParams({ category: null })}
-                  className={`border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
-                    !selectedCategory
-                      ? 'border-timber-900 bg-timber-900 text-white'
-                      : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
-                  }`}
-                >
-                  All types
-                </button>
-                {heroTypeCategories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() =>
-                      patchParams({
-                        category: selectedCategory === c.slug ? null : c.slug,
-                      })
-                    }
-                    className={`border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
-                      selectedCategory === c.slug
-                        ? 'border-timber-900 bg-timber-900 text-white'
-                        : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
-                    }`}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       </section>
 
