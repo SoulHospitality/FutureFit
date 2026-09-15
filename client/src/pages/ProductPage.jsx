@@ -216,6 +216,11 @@ export default function ProductPage() {
       .filter(Boolean);
   }, [product]);
 
+  const photos = useMemo(() => {
+    const list = photosForColor(product, color);
+    return list.length ? list : [''];
+  }, [product, color]);
+
   if (!product) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
@@ -240,10 +245,6 @@ export default function ProductPage() {
 
   const price =
     product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
-  const photos = useMemo(() => {
-    const list = photosForColor(product, color);
-    return list.length ? list : [''];
-  }, [product, color]);
   const photoIdx = Math.min(activePhoto, Math.max(0, photos.length - 1));
   const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
