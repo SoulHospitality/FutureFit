@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { ensureDefaultCategories, TYPE_TO_SLUG } = require('../utils/catalog');
+const { mapAudience, mapType, mapCategorySlug } = require('../utils/shopifyMap');
 
 const prisma = new PrismaClient();
 
@@ -79,90 +80,6 @@ function colorFromTitle(title) {
   const color = m[1].trim();
   if (!color || color.length > 40) return null;
   return color;
-}
-
-function mapAudience(tags, title, type, productCategory) {
-  const hay = `${tags} ${title} ${type} ${productCategory}`.toLowerCase();
-  if (
-    /\bbaby\b/.test(hay) ||
-    /\btoddler\b/.test(hay) ||
-    /\bkids?\b/.test(hay) ||
-    /\bgirls?\b/.test(hay) ||
-    /\bboy'?s?\b/.test(hay) ||
-    /unisex kid/.test(hay)
-  ) {
-    return 'kids';
-  }
-  if (
-    /\bwomen\b/.test(hay) ||
-    /\bwoman\b/.test(hay) ||
-    /\bpanty\b/.test(hay) ||
-    /women'?s undershirt/.test(hay) ||
-    /lingerie/.test(hay) ||
-    /\bdress/.test(hay) ||
-    /legging/.test(hay)
-  ) {
-    return 'women';
-  }
-  if (/men'?s under|men'?s underwear|undershort/.test(hay)) return 'men';
-  return 'men';
-}
-
-function mapType(shopifyType, title, tags, productCategory) {
-  const t = String(shopifyType || '').toLowerCase();
-  const hay = `${t} ${title} ${tags} ${productCategory}`.toLowerCase();
-
-  if (/sock/.test(hay)) return 'socks';
-  if (/bundle|bunldle|pack of|offer|underwear set/.test(hay)) return 'bundle';
-  if (/legging/.test(hay)) return 'briefs';
-  if (/dress/.test(hay)) return 'briefs';
-  if (/undershort|trunk/.test(hay)) return 'trunks';
-  if (/boxer/.test(hay)) return 'boxers';
-  if (/brief|panty|underpant/.test(hay)) return 'briefs';
-  if (/undershirt|t-?shirt|hoodie|thermal|sweat|sleep|pajama|pyjama|top|spaghetti/.test(hay)) {
-    return 'undershirt';
-  }
-  if (/pant|short|denim/.test(hay)) return 'boxers';
-  return 'boxers';
-}
-
-/** Map Shopify type/category → our subcategory slug under Men/Women/Kids. */
-function mapCategorySlug(productCategory, shopifyType, title, tags, audience) {
-  const hay = `${productCategory} ${shopifyType} ${title} ${tags}`.toLowerCase();
-
-  if (/denim short/.test(hay) || (/shorts/.test(hay) && /denim/.test(hay))) {
-    return 'denim-shorts';
-  }
-  if (/legging/.test(hay)) return 'leggings';
-  if (/\bdresses?\b/.test(hay)) return 'dresses';
-  if (/women'?s undershirt|lingerie/.test(hay)) return 'womens-undershirts';
-  if (/pajama|pyjama/.test(hay)) return 'pajamas';
-  if (/hoodie/.test(hay)) return 'hoodies';
-  if (/t-?shirt/.test(hay)) return 't-shirts';
-  if (/sweatpant|\bpants\b/.test(hay) && !/under/.test(hay)) return 'pants';
-  if (/sock/.test(hay)) return 'socks';
-  if (/boxer/.test(hay)) return 'boxers';
-  if (/undershort|men'?s underwear|trunk/.test(hay)) return 'undershorts';
-  if (/sleepwear|loungewear|sleep ?wear|baby sleep/.test(hay)) {
-    return 'sleepwear-loungewear';
-  }
-  if (/undershirt|thermal underwear/.test(hay)) {
-    return audience === 'women' ? 'womens-undershirts' : 't-shirts';
-  }
-  if (/brief|panty|underpant|girl'?s under|baby underwear/.test(hay)) {
-    if (audience === 'women') return 'womens-undershirts';
-    if (audience === 'kids') return 'undershorts';
-    return 'undershorts';
-  }
-  if (/bundle|bunldle|underwear set|pack of/.test(hay)) {
-    if (audience === 'women') return 'womens-undershirts';
-    if (audience === 'kids') return 'undershorts';
-    return 'boxers';
-  }
-
-  if (audience === 'women') return 'womens-undershirts';
-  if (audience === 'kids') return 'undershorts';
-  return 'boxers';
 }
 
 async function wipeCatalog() {
