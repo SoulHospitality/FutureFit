@@ -4,7 +4,7 @@ import { asArray } from '../utils/helpers';
 
 const CategoriesContext = createContext(null);
 
-/** Build parent → children trees from a flat category list. */
+/** Build parent → children trees. Roots are Men / Women / Kids. */
 export function buildCategoryTree(categories = []) {
   const list = asArray(categories);
   const childrenByParent = new Map();
@@ -16,13 +16,36 @@ export function buildCategoryTree(categories = []) {
   for (const kids of childrenByParent.values()) {
     kids.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
   }
-  return list
-    .filter((c) => !c.parentId)
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-    .map((c) => ({
-      ...c,
-      children: childrenByParent.get(c.id) || [],
-    }));
+
+  const roots = list
+    .filter((c) => !c.parentId && ['men', 'women', 'kids'].includes(c.slug))
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+  // Fallback if roots not seeded yet: treat audience groups as flat lists
+  if (!roots.length) {
+    return list
+      .filter((c) => !c.parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+      .map((c) => ({ ...c, children: childrenByParent.get(c.id) || [] }));
+  }
+
+  return roots.map((c) => ({
+    ...c,
+    children: childrenByParent.get(c.id) || [],
+  }));
+}
+
+/** Subcategories for a department (Men / Women / Kids). */
+export function subcategoriesForAudience(treeByAudience, audience) {
+  if (!audience) {
+    return Object.values(treeByAudience || {}).flatMap((roots) =>
+      (roots || []).flatMap((r) => r.children || [])
+    );
+  }
+  const roots = treeByAudience?.[audience] || [];
+  const root = roots.find((r) => r.slug === audience) || roots[0];
+  if (root?.children?.length) return root.children;
+  return roots.filter((r) => r.slug !== audience);
 }
 
 export function CategoriesProvider({ children }) {

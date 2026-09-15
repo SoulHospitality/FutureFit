@@ -3,23 +3,16 @@ import { toast } from 'react-toastify';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { AUDIENCES, asArray, audienceLabel } from '../../utils/helpers';
+import { asArray } from '../../utils/helpers';
 
-const empty = {
-  name: '',
-  slug: '',
-  audience: 'men',
-  parentId: '',
-  sortOrder: 0,
-  kind: 'category',
-};
+const emptySub = { name: '', slug: '', parentId: '', sortOrder: 0 };
 
 export default function StaffCategories() {
   const [categories, setCategories] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(empty);
-  const [tab, setTab] = useState('men');
+  const [form, setForm] = useState(emptySub);
+  const [mode, setMode] = useState('subcategory'); // subcategory | category
 
   const load = () => api.get('/categories').then((r) => setCategories(asArray(r.data)));
   useEffect(() => {
@@ -29,9 +22,9 @@ export default function StaffCategories() {
   const roots = useMemo(
     () =>
       categories
-        .filter((c) => c.audience === tab && !c.parentId)
-        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
-    [categories, tab]
+        .filter((c) => !c.parentId && ['men', 'women', 'kids'].includes(c.slug))
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [categories]
   );
 
   const childrenOf = (parentId) =>
@@ -39,26 +32,33 @@ export default function StaffCategories() {
       .filter((c) => c.parentId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
-  const openCreate = (kind, parentId = '') => {
+  const openCreateSub = (parentId = '') => {
+    setMode('subcategory');
     setEditing(null);
-    setForm({
-      ...empty,
-      kind,
-      audience: tab,
-      parentId: kind === 'subcategory' ? parentId : '',
-    });
+    setForm({ ...emptySub, parentId: parentId || roots[0]?.id || '' });
     setOpen(true);
   };
 
-  const openEdit = (c) => {
+  const openEditSub = (c) => {
+    setMode('subcategory');
     setEditing(c);
     setForm({
       name: c.name,
       slug: c.slug,
-      audience: c.audience,
       parentId: c.parentId || '',
       sortOrder: c.sortOrder,
-      kind: c.parentId ? 'subcategory' : 'category',
+    });
+    setOpen(true);
+  };
+
+  const openEditCategory = (c) => {
+    setMode('category');
+    setEditing(c);
+    setForm({
+      name: c.name,
+      slug: c.slug,
+      parentId: '',
+      sortOrder: c.sortOrder,
     });
     setOpen(true);
   };
@@ -66,30 +66,27 @@ export default function StaffCategories() {
   const save = async (e) => {
     e.preventDefault();
     try {
-      const isSub = form.kind === 'subcategory' || Boolean(form.parentId);
-      const payload = {
-        name: form.name,
-        slug: form.slug || undefined,
-        audience: form.audience,
-        parentId: isSub ? form.parentId || null : null,
-        sortOrder: Number(form.sortOrder) || 0,
-      };
-      if (!isSub) payload.parentId = null;
-      if (isSub && !payload.parentId) {
-        toast.error('Choose a parent category');
-        return;
+      if (mode === 'category') {
+        await api.put(`/categories/${editing.id}`, {
+          name: form.name,
+          sortOrder: Number(form.sortOrder) || 0,
+        });
+        toast.success('Category updated');
+      } else {
+        if (!form.parentId) {
+          toast.error('Choose Men, Women, or Kids');
+          return;
+        }
+        const payload = {
+          name: form.name,
+          slug: form.slug || undefined,
+          parentId: form.parentId,
+          sortOrder: Number(form.sortOrder) || 0,
+        };
+        if (editing) await api.put(`/categories/${editing.id}`, payload);
+        else await api.post('/categories', payload);
+        toast.success(editing ? 'Subcategory updated' : 'Subcategory added');
       }
-      if (editing) await api.put(`/categories/${editing.id}`, payload);
-      else await api.post('/categories', payload);
-      toast.success(
-        editing
-          ? isSub
-            ? 'Subcategory updated'
-            : 'Category updated'
-          : isSub
-            ? 'Subcategory added'
-            : 'Category added'
-      );
       setOpen(false);
       load();
     } catch (err) {
@@ -98,8 +95,7 @@ export default function StaffCategories() {
   };
 
   const remove = async (c) => {
-    const label = c.parentId ? 'subcategory' : 'category';
-    if (!window.confirm(`Delete ${label} “${c.name}”?`)) return;
+    if (!window.confirm(`Delete subcategory “${c.name}”?`)) return;
     try {
       await api.delete(`/categories/${c.id}`);
       toast.success('Deleted');
@@ -109,59 +105,37 @@ export default function StaffCategories() {
     }
   };
 
-  const parentOptions = roots;
-
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Categories</h1>
           <p className="page-subtitle">
-            Categories and subcategories under Men, Women, and Kids
+            Categories are Men, Women, and Kids. Subcategories are Boxers, Trunks, Underwear, and
+            so on.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-ghost" onClick={() => openCreate('subcategory')}>
-            <Plus className="h-4 w-4" />
-            Add subcategory
-          </button>
-          <button type="button" className="btn-wheat" onClick={() => openCreate('category')}>
-            <Plus className="h-4 w-4" />
-            Add category
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-6 flex gap-4 border-b border-timber-100">
-        {AUDIENCES.map((a) => (
-          <button
-            key={a.value}
-            type="button"
-            onClick={() => setTab(a.value)}
-            className={`pb-3 text-[11px] font-medium uppercase tracking-[0.2em] ${
-              tab === a.value
-                ? 'border-b-2 border-timber-900 text-timber-900'
-                : 'text-timber-400'
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
+        <button type="button" className="btn-wheat" onClick={() => openCreateSub()}>
+          <Plus className="h-4 w-4" />
+          Add subcategory
+        </button>
       </div>
 
       <div className="space-y-4">
         {roots.map((parent) => {
           const kids = childrenOf(parent.id);
           return (
-            <div key={parent.id} className="overflow-hidden rounded-xl border border-timber-100 bg-white">
+            <div
+              key={parent.id}
+              className="overflow-hidden rounded-xl border border-timber-100 bg-white"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-timber-50 bg-timber-50/60 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="font-medium text-timber-900">{parent.name}</p>
-                  <p className="mt-0.5 font-mono text-[11px] text-timber-400">
-                    {parent.slug}
-                    <span className="mx-2 text-timber-200">·</span>
-                    {parent.productCount ?? 0} products
-                    <span className="mx-2 text-timber-200">·</span>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-timber-400">
+                    Category
+                  </p>
+                  <p className="mt-0.5 text-lg font-medium text-timber-900">{parent.name}</p>
+                  <p className="mt-0.5 text-xs text-timber-400">
                     {kids.length} subcategor{kids.length === 1 ? 'y' : 'ies'}
                   </p>
                 </div>
@@ -169,20 +143,18 @@ export default function StaffCategories() {
                   <button
                     type="button"
                     className="btn-ghost btn-sm"
-                    onClick={() => openCreate('subcategory', parent.id)}
+                    onClick={() => openCreateSub(parent.id)}
                   >
                     <Plus className="h-4 w-4" />
                     Subcategory
                   </button>
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => openEdit(parent)}>
-                    <Pencil className="h-4 w-4" />
-                  </button>
                   <button
                     type="button"
-                    className="btn-ghost btn-sm text-red-600"
-                    onClick={() => remove(parent)}
+                    className="btn-ghost btn-sm"
+                    onClick={() => openEditCategory(parent)}
+                    title="Rename category"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Pencil className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -210,7 +182,7 @@ export default function StaffCategories() {
                             <button
                               type="button"
                               className="btn-ghost btn-sm"
-                              onClick={() => openEdit(c)}
+                              onClick={() => openEditSub(c)}
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -229,8 +201,7 @@ export default function StaffCategories() {
                 </table>
               ) : (
                 <p className="px-4 py-3 text-sm text-timber-400">
-                  No subcategories yet — products can use this category directly, or add
-                  subcategories below it.
+                  No subcategories yet — add Boxers, Trunks, Underwear, etc.
                 </p>
               )}
             </div>
@@ -239,7 +210,7 @@ export default function StaffCategories() {
 
         {roots.length === 0 && (
           <div className="rounded-xl border border-dashed border-timber-200 px-4 py-10 text-center text-sm text-timber-500">
-            No categories yet for {audienceLabel(tab)}. Add a category to get started.
+            Categories will appear after the server seeds Men, Women, and Kids. Refresh in a moment.
           </div>
         )}
       </div>
@@ -248,55 +219,17 @@ export default function StaffCategories() {
         open={open}
         onClose={() => setOpen(false)}
         title={
-          editing
-            ? form.kind === 'subcategory'
+          mode === 'category'
+            ? 'Edit category'
+            : editing
               ? 'Edit subcategory'
-              : 'Edit category'
-            : form.kind === 'subcategory'
-              ? 'New subcategory'
-              : 'New category'
+              : 'New subcategory'
         }
       >
         <form onSubmit={save} className="space-y-4">
-          {!editing && (
+          {mode === 'subcategory' && (
             <div>
-              <label className="label">Type</label>
-              <select
-                className="input"
-                value={form.kind}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    kind: e.target.value,
-                    parentId: e.target.value === 'category' ? '' : form.parentId,
-                  })
-                }
-              >
-                <option value="category">Category</option>
-                <option value="subcategory">Subcategory</option>
-              </select>
-            </div>
-          )}
-
-          {form.kind === 'category' ? (
-            <div>
-              <label className="label">Department</label>
-              <select
-                className="input"
-                value={form.audience}
-                onChange={(e) => setForm({ ...form, audience: e.target.value })}
-                disabled={Boolean(editing?.parentId)}
-              >
-                {AUDIENCES.map((a) => (
-                  <option key={a.value} value={a.value}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div>
-              <label className="label">Parent category</label>
+              <label className="label">Category</label>
               <select
                 required
                 className="input"
@@ -304,20 +237,14 @@ export default function StaffCategories() {
                 onChange={(e) => setForm({ ...form, parentId: e.target.value })}
               >
                 <option value="">Select…</option>
-                {parentOptions.map((c) => (
+                {roots.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
-              {parentOptions.length === 0 && (
-                <p className="mt-1 text-xs text-timber-400">
-                  Add a category in {audienceLabel(tab)} first.
-                </p>
-              )}
             </div>
           )}
-
           <div>
             <label className="label">Name</label>
             <input
@@ -325,17 +252,20 @@ export default function StaffCategories() {
               className="input"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder={mode === 'category' ? 'Men' : 'Boxers'}
             />
           </div>
-          <div>
-            <label className="label">Slug (optional)</label>
-            <input
-              className="input font-mono text-sm"
-              value={form.slug}
-              onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              placeholder={form.kind === 'subcategory' ? 'boxers' : 'underwear'}
-            />
-          </div>
+          {mode === 'subcategory' && (
+            <div>
+              <label className="label">Slug (optional)</label>
+              <input
+                className="input font-mono text-sm"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                placeholder="boxers"
+              />
+            </div>
+          )}
           <div>
             <label className="label">Sort order</label>
             <input
