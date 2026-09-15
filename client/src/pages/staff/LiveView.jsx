@@ -1,314 +1,129 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Maximize2, Minus, Plus, Search } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import api from '../../api/axios';
 import Sparkline from '../../components/staff/Sparkline';
 import { formatMoney } from '../../utils/helpers';
 
-/** Simplified Egypt outline [lng, lat] — enough for an admin live map. */
-const EGYPT_RING = [
-  [25.0, 31.65],
-  [26.5, 31.55],
-  [28.0, 31.4],
-  [29.5, 31.2],
-  [30.8, 31.35],
-  [31.5, 31.55],
-  [32.3, 31.25],
-  [32.95, 31.15],
-  [33.9, 31.15],
-  [34.2, 31.25],
-  [34.5, 31.0],
-  [34.35, 29.9],
-  [34.55, 28.5],
-  [34.8, 27.7],
-  [34.4, 26.8],
-  [34.9, 25.5],
-  [35.5, 24.2],
-  [36.9, 23.5],
-  [36.85, 22.0],
-  [33.0, 22.0],
-  [29.5, 22.0],
-  [25.0, 22.0],
-  [24.7, 23.5],
-  [24.7, 25.5],
-  [24.9, 27.5],
-  [24.7, 29.0],
-  [24.9, 30.5],
-  [25.0, 31.65],
-];
-
-/** Nile corridor hint [lng, lat]. */
-const NILE = [
-  [32.9, 22.2],
-  [32.85, 24.0],
-  [32.7, 25.5],
-  [32.5, 26.5],
-  [31.9, 27.5],
-  [31.2, 28.2],
-  [31.0, 29.0],
-  [31.15, 29.8],
-  [31.25, 30.5],
-  [31.23, 31.25],
-];
-
-const MAP = {
-  minLng: 24.2,
-  maxLng: 37.2,
-  minLat: 21.6,
-  maxLat: 32.2,
-  w: 900,
-  h: 640,
-};
-
-function project(lat, lng) {
-  const x = ((lng - MAP.minLng) / (MAP.maxLng - MAP.minLng)) * MAP.w;
-  const y = ((MAP.maxLat - lat) / (MAP.maxLat - MAP.minLat)) * MAP.h;
-  return { x, y };
+function pinPopup(pin) {
+  if (pin.type === 'order') {
+    return `<strong>Order ${pin.orderId || ''}</strong><br/>${pin.label || ''}${
+      pin.total != null ? `<br/>${Number(pin.total).toLocaleString()} EGP` : ''
+    }`;
+  }
+  return `<strong>${pin.label || 'Visitor'}</strong>${
+    pin.path ? `<br/><span style="color:#71717a">${pin.path}</span>` : ''
+  }`;
 }
 
-function ringToPath(ring) {
-  return ring
-    .map(([lng, lat], i) => {
-      const { x, y } = project(lat, lng);
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(' ');
-}
+function LiveWorldMap({ pins, mapApiRef }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const layerRef = useRef(null);
 
-function LiveMap({ pins, zoom, pan, onPanChange }) {
-  const svgRef = useRef(null);
-  const drag = useRef(null);
-  const [hover, setHover] = useState(null);
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return undefined;
 
-  const egyptPath = useMemo(() => `${ringToPath(EGYPT_RING)} Z`, []);
-  const nilePath = useMemo(() => ringToPath(NILE), []);
-
-  const cx = MAP.w / 2;
-  const cy = MAP.h / 2;
-
-  const onPointerDown = (e) => {
-    if (e.target.closest('[data-pin]')) return;
-    const svg = svgRef.current;
-    if (!svg) return;
-    svg.setPointerCapture?.(e.pointerId);
-    drag.current = {
-      x: e.clientX,
-      y: e.clientY,
-      panX: pan.x,
-      panY: pan.y,
-    };
-  };
-
-  const onPointerMove = (e) => {
-    if (!drag.current) return;
-    const dx = e.clientX - drag.current.x;
-    const dy = e.clientY - drag.current.y;
-    onPanChange({
-      x: drag.current.panX + dx,
-      y: drag.current.panY + dy,
+    const map = L.map(containerRef.current, {
+      center: [20, 10],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 12,
+      worldCopyJump: true,
+      zoomControl: false,
     });
-  };
 
-  const endDrag = (e) => {
-    if (!drag.current) return;
-    svgRef.current?.releasePointerCapture?.(e.pointerId);
-    drag.current = null;
-  };
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(map);
 
-  return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${MAP.w} ${MAP.h}`}
-      className="h-full w-full touch-none select-none"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      role="img"
-      aria-label="Live map of Egypt"
-    >
-      <defs>
-        <linearGradient id="live-sea" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#dbeafe" />
-          <stop offset="100%" stopColor="#bfdbfe" />
-        </linearGradient>
-        <filter id="live-pin-glow" x="-80%" y="-80%" width="260%" height="260%">
-          <feGaussianBlur stdDeviation="2.2" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-      </defs>
+    layerRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
 
-      <rect width={MAP.w} height={MAP.h} fill="url(#live-sea)" />
+    if (mapApiRef) {
+      mapApiRef.current = {
+        zoomIn: () => map.zoomIn(),
+        zoomOut: () => map.zoomOut(),
+        reset: () => map.setView([20, 10], 2),
+        invalidate: () => map.invalidateSize(),
+      };
+    }
 
-      <g
-        transform={`translate(${cx + pan.x} ${cy + pan.y}) scale(${zoom}) translate(${-cx} ${-cy})`}
-      >
-        {/* Neighbor suggestion (soft) */}
-        <rect
-          x={0}
-          y={0}
-          width={MAP.w}
-          height={MAP.h}
-          fill="#e8eef4"
-          opacity="0.35"
-        />
+    const onResize = () => map.invalidateSize();
+    window.addEventListener('resize', onResize);
+    const t = window.setTimeout(onResize, 80);
 
-        <path
-          d={egyptPath}
-          fill="#f8fafc"
-          stroke="#94a3b8"
-          strokeWidth={1.6}
-          strokeLinejoin="round"
-        />
-        <path
-          d={nilePath}
-          fill="none"
-          stroke="#93c5fd"
-          strokeWidth={5}
-          strokeLinecap="round"
-          opacity="0.75"
-        />
-        <path
-          d={nilePath}
-          fill="none"
-          stroke="#60a5fa"
-          strokeWidth={2}
-          strokeLinecap="round"
-        />
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('resize', onResize);
+      if (mapApiRef) mapApiRef.current = null;
+      map.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+    };
+  }, [mapApiRef]);
 
-        {/* Grid of faint meridians for landscape read */}
-        {[26, 28, 30, 32, 34, 36].map((lng) => {
-          const a = project(MAP.maxLat, lng);
-          const b = project(MAP.minLat, lng);
-          return (
-            <line
-              key={`v-${lng}`}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="#cbd5e1"
-              strokeWidth="0.8"
-              opacity="0.35"
-            />
-          );
-        })}
-        {[24, 26, 28, 30, 32].map((lat) => {
-          const a = project(lat, MAP.minLng);
-          const b = project(lat, MAP.maxLng);
-          return (
-            <line
-              key={`h-${lat}`}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="#cbd5e1"
-              strokeWidth="0.8"
-              opacity="0.35"
-            />
-          );
-        })}
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    if (!map || !layer) return;
 
-        {pins.map((p) => {
-          const { x, y } = project(Number(p.lat) || 26.8, Number(p.lng) || 30.8);
-          const isOrder = p.type === 'order';
-          const color = isOrder ? '#7c3aed' : '#2563eb';
-          const active = hover?.id === p.id;
-          return (
-            <g
-              key={p.id}
-              data-pin
-              transform={`translate(${x} ${y})`}
-              className="cursor-pointer"
-              onMouseEnter={() => setHover(p)}
-              onMouseLeave={() => setHover(null)}
-              onFocus={() => setHover(p)}
-              onBlur={() => setHover(null)}
-              tabIndex={0}
-            >
-              {!isOrder && (
-                <circle r="14" fill={color} opacity="0.2">
-                  <animate
-                    attributeName="r"
-                    values="8;16;8"
-                    dur="2.4s"
-                    repeatCount="indefinite"
-                  />
-                  <animate
-                    attributeName="opacity"
-                    values="0.35;0.05;0.35"
-                    dur="2.4s"
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              )}
-              <circle
-                r={active ? 6.5 : 5}
-                fill={color}
-                stroke="#fff"
-                strokeWidth="1.5"
-                filter="url(#live-pin-glow)"
-              />
-            </g>
-          );
-        })}
+    layer.clearLayers();
+    const latLngs = [];
 
-        {hover &&
-          (() => {
-            const { x, y } = project(Number(hover.lat) || 26.8, Number(hover.lng) || 30.8);
-            const label =
-              hover.type === 'order'
-                ? `Order ${hover.orderId || ''} · ${hover.label}`
-                : `${hover.label}${hover.path ? ` · ${hover.path}` : ''}`;
-            const tw = Math.min(220, 18 + label.length * 6.2);
-            return (
-              <g transform={`translate(${x} ${y - 18})`} pointerEvents="none">
-                <rect
-                  x={-tw / 2}
-                  y={-28}
-                  width={tw}
-                  height={24}
-                  rx={6}
-                  fill="#18181b"
-                  opacity="0.92"
-                />
-                <text
-                  textAnchor="middle"
-                  y={-12}
-                  fill="#fff"
-                  fontSize="11"
-                  fontFamily="ui-sans-serif, system-ui, sans-serif"
-                >
-                  {label.length > 34 ? `${label.slice(0, 32)}…` : label}
-                </text>
-              </g>
-            );
-          })()}
-      </g>
+    for (const pin of pins) {
+      const lat = Number(pin.lat);
+      const lng = Number(pin.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-      <text
-        x={16}
-        y={MAP.h - 16}
-        fill="#64748b"
-        fontSize="11"
-        fontFamily="ui-sans-serif, system-ui, sans-serif"
-      >
-        Egypt · drag to pan
-      </text>
-    </svg>
-  );
+      const isOrder = pin.type === 'order';
+      const color = isOrder ? '#7c3aed' : '#2563eb';
+      latLngs.push([lat, lng]);
+
+      const marker = L.circleMarker([lat, lng], {
+        radius: isOrder ? 7 : 6,
+        color: '#fff',
+        weight: 1.5,
+        fillColor: color,
+        fillOpacity: 0.95,
+      });
+
+      if (!isOrder) {
+        L.circleMarker([lat, lng], {
+          radius: 14,
+          color,
+          weight: 0,
+          fillColor: color,
+          fillOpacity: 0.18,
+          interactive: false,
+        }).addTo(layer);
+      }
+
+      marker.bindPopup(pinPopup(pin), { closeButton: false, offset: [0, -4] });
+      marker.addTo(layer);
+    }
+
+    if (latLngs.length === 1) {
+      map.setView(latLngs[0], 5, { animate: true });
+    } else if (latLngs.length > 1) {
+      map.fitBounds(L.latLngBounds(latLngs).pad(0.35), { maxZoom: 5, animate: true });
+    }
+  }, [pins]);
+
+  return <div ref={containerRef} className="absolute inset-0 z-0 bg-[#e8eef4]" />;
 }
 
 export default function StaffLiveView() {
   const [data, setData] = useState(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
+  const mapHostRef = useRef(null);
+  const mapApiRef = useRef(null);
 
   const load = () => api.get('/analytics/live').then((r) => setData(r.data));
 
@@ -340,11 +155,6 @@ export default function StaffLiveView() {
   const updated = data?.updatedAt
     ? new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '—';
-
-  const resetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  };
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 xl:flex-row">
@@ -463,9 +273,9 @@ export default function StaffLiveView() {
         </Link>
       </div>
 
-      <div className="sp-card relative min-h-[420px] flex-1 overflow-hidden p-0">
-        <div className="absolute left-3 right-3 top-3 z-10 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[180px] flex-1 sm:max-w-xs">
+      <div ref={mapHostRef} className="sp-card relative min-h-[420px] flex-1 overflow-hidden p-0">
+        <div className="pointer-events-none absolute left-3 right-3 top-3 z-[500] flex flex-wrap items-center gap-2">
+          <div className="pointer-events-auto relative min-w-[180px] flex-1 sm:max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               className="w-full rounded-lg border border-zinc-200 bg-white/95 py-2 pl-9 pr-3 text-sm shadow-sm backdrop-blur"
@@ -476,27 +286,27 @@ export default function StaffLiveView() {
           </div>
           <button
             type="button"
-            className="grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 bg-white shadow-sm"
+            className="pointer-events-auto grid h-9 w-9 place-items-center rounded-lg border border-zinc-200 bg-white shadow-sm"
             title="Fullscreen"
             onClick={() => {
-              const el = document.documentElement;
+              const el = mapHostRef.current;
+              if (!el) return;
               if (!document.fullscreenElement) el.requestFullscreen?.();
               else document.exitFullscreen?.();
+              window.setTimeout(() => mapApiRef.current?.invalidate?.(), 120);
             }}
           >
             <Maximize2 className="h-4 w-4 text-zinc-600" />
           </button>
         </div>
 
-        <div className="absolute inset-0">
-          <LiveMap pins={pins} zoom={zoom} pan={pan} onPanChange={setPan} />
-        </div>
+        <LiveWorldMap pins={pins} mapApiRef={mapApiRef} />
 
-        <div className="absolute bottom-3 right-3 z-10 flex flex-col gap-1">
+        <div className="absolute bottom-3 right-3 z-[500] flex flex-col gap-1">
           <button
             type="button"
             className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white shadow-sm"
-            onClick={() => setZoom((z) => Math.min(2.4, Number((z + 0.2).toFixed(2))))}
+            onClick={() => mapApiRef.current?.zoomIn?.()}
             aria-label="Zoom in"
           >
             <Plus className="h-4 w-4" />
@@ -504,7 +314,7 @@ export default function StaffLiveView() {
           <button
             type="button"
             className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 bg-white shadow-sm"
-            onClick={() => setZoom((z) => Math.max(0.7, Number((z - 0.2).toFixed(2))))}
+            onClick={() => mapApiRef.current?.zoomOut?.()}
             aria-label="Zoom out"
           >
             <Minus className="h-4 w-4" />
@@ -512,13 +322,13 @@ export default function StaffLiveView() {
           <button
             type="button"
             className="rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-[10px] font-medium text-zinc-600 shadow-sm"
-            onClick={resetView}
+            onClick={() => mapApiRef.current?.reset?.()}
           >
             Reset
           </button>
         </div>
 
-        <div className="absolute bottom-3 left-3 z-10 rounded-lg border border-zinc-200 bg-white/95 px-3 py-2 text-xs shadow-sm">
+        <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-zinc-200 bg-white/95 px-3 py-2 text-xs shadow-sm">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-violet-600" /> Orders
           </div>
