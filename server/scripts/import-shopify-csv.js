@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 const csvPath =
   process.argv[2] ||
-  path.join(process.env.USERPROFILE || process.env.HOME || '', 'Downloads', 'products_export_1.csv');
+  path.join(__dirname, '../data/products_export_1.csv');
 
 function parseCSV(text) {
   const rows = [];
@@ -81,10 +81,11 @@ function colorFromTitle(title) {
   return color;
 }
 
-function mapAudience(tags, title, type) {
-  const hay = `${tags} ${title} ${type}`.toLowerCase();
+function mapAudience(tags, title, type, productCategory) {
+  const hay = `${tags} ${title} ${type} ${productCategory}`.toLowerCase();
   if (
     /\bbaby\b/.test(hay) ||
+    /\btoddler\b/.test(hay) ||
     /\bkids?\b/.test(hay) ||
     /\bgirls?\b/.test(hay) ||
     /\bboy'?s?\b/.test(hay) ||
@@ -92,50 +93,76 @@ function mapAudience(tags, title, type) {
   ) {
     return 'kids';
   }
-  if (/\bwomen\b/.test(hay) || /\bwoman\b/.test(hay) || /\bpanty\b/.test(hay)) {
+  if (
+    /\bwomen\b/.test(hay) ||
+    /\bwoman\b/.test(hay) ||
+    /\bpanty\b/.test(hay) ||
+    /women'?s undershirt/.test(hay) ||
+    /lingerie/.test(hay) ||
+    /\bdress/.test(hay) ||
+    /legging/.test(hay)
+  ) {
     return 'women';
   }
+  if (/men'?s under|men'?s underwear|undershort/.test(hay)) return 'men';
   return 'men';
 }
 
-function mapType(shopifyType, title, tags) {
+function mapType(shopifyType, title, tags, productCategory) {
   const t = String(shopifyType || '').toLowerCase();
-  const hay = `${t} ${title} ${tags}`.toLowerCase();
+  const hay = `${t} ${title} ${tags} ${productCategory}`.toLowerCase();
 
   if (/sock/.test(hay)) return 'socks';
-  if (/bundle|bunldle|pack of|offer/.test(hay) && /pack|bundle|set|offer/.test(hay)) {
-    if (/undershirt|t-?shirt|top/.test(hay) && !/pack of/.test(hay)) {
-      /* fall through */
-    } else if (/bundle|bunldle|offers|underwear set|pack of/.test(t) || /pack of/.test(hay)) {
-      return 'bundle';
-    }
-  }
-  if (/bunldle|bundle/.test(t) || /underwear set/.test(t)) return 'bundle';
-  if (/pack of/.test(hay)) return 'bundle';
-  if (/undershirt/.test(hay)) return 'undershirt';
-  if (/trunk/.test(hay)) return 'trunks';
-  if (/brief|panty/.test(hay)) return 'briefs';
+  if (/bundle|bunldle|pack of|offer|underwear set/.test(hay)) return 'bundle';
+  if (/legging/.test(hay)) return 'briefs';
+  if (/dress/.test(hay)) return 'briefs';
+  if (/undershort|trunk/.test(hay)) return 'trunks';
   if (/boxer/.test(hay)) return 'boxers';
-  if (/t-?shirt|hoodie|thermal|sweat|sleep|top|spaghetti/.test(hay)) return 'undershirt';
-  if (/pant|short/.test(hay)) return 'boxers';
-  if (/sock/.test(t)) return 'socks';
+  if (/brief|panty|underpant/.test(hay)) return 'briefs';
+  if (/undershirt|t-?shirt|hoodie|thermal|sweat|sleep|pajama|pyjama|top|spaghetti/.test(hay)) {
+    return 'undershirt';
+  }
+  if (/pant|short|denim/.test(hay)) return 'boxers';
   return 'boxers';
 }
 
-function mapCategorySlug(type, audience) {
-  if (audience === 'men') return TYPE_TO_SLUG[type] || 'boxers';
-  if (audience === 'women') {
-    if (type === 'briefs' || type === 'boxers' || type === 'trunks') return 'underwear';
-    if (type === 'bundle') return 'underwear';
-    if (type === 'socks') return 'bottoms';
-    return 'tops';
+/** Map Shopify type/category → our subcategory slug under Men/Women/Kids. */
+function mapCategorySlug(productCategory, shopifyType, title, tags, audience) {
+  const hay = `${productCategory} ${shopifyType} ${title} ${tags}`.toLowerCase();
+
+  if (/denim short/.test(hay) || (/shorts/.test(hay) && /denim/.test(hay))) {
+    return 'denim-shorts';
   }
-  // kids
-  if (type === 'briefs' || type === 'boxers' || type === 'trunks' || type === 'bundle') {
-    return 'underwear';
+  if (/legging/.test(hay)) return 'leggings';
+  if (/\bdresses?\b/.test(hay)) return 'dresses';
+  if (/women'?s undershirt|lingerie/.test(hay)) return 'womens-undershirts';
+  if (/pajama|pyjama/.test(hay)) return 'pajamas';
+  if (/hoodie/.test(hay)) return 'hoodies';
+  if (/t-?shirt/.test(hay)) return 't-shirts';
+  if (/sweatpant|\bpants\b/.test(hay) && !/under/.test(hay)) return 'pants';
+  if (/sock/.test(hay)) return 'socks';
+  if (/boxer/.test(hay)) return 'boxers';
+  if (/undershort|men'?s underwear|trunk/.test(hay)) return 'undershorts';
+  if (/sleepwear|loungewear|sleep ?wear|baby sleep/.test(hay)) {
+    return 'sleepwear-loungewear';
   }
-  if (type === 'socks') return 'bottoms';
-  return 'tops';
+  if (/undershirt|thermal underwear/.test(hay)) {
+    return audience === 'women' ? 'womens-undershirts' : 't-shirts';
+  }
+  if (/brief|panty|underpant|girl'?s under|baby underwear/.test(hay)) {
+    if (audience === 'women') return 'womens-undershirts';
+    if (audience === 'kids') return 'undershorts';
+    return 'undershorts';
+  }
+  if (/bundle|bunldle|underwear set|pack of/.test(hay)) {
+    if (audience === 'women') return 'womens-undershirts';
+    if (audience === 'kids') return 'undershorts';
+    return 'boxers';
+  }
+
+  if (audience === 'women') return 'womens-undershirts';
+  if (audience === 'kids') return 'undershorts';
+  return 'boxers';
 }
 
 async function wipeCatalog() {
@@ -176,8 +203,9 @@ function buildProductsFromCsv(filePath) {
 
     const tags = get(titleRow, 'Tags');
     const shopifyType = get(titleRow, 'Type');
-    const audience = mapAudience(tags, title, shopifyType);
-    const type = mapType(shopifyType, title, tags);
+    const productCategory = get(titleRow, 'Product Category');
+    const audience = mapAudience(tags, title, shopifyType, productCategory);
+    const type = mapType(shopifyType, title, tags, productCategory);
     const description =
       stripHtml(get(titleRow, 'Body (HTML)')) || `${title} — FutureFit essential.`;
 
@@ -293,7 +321,7 @@ function buildProductsFromCsv(filePath) {
       isSaleActive: isSale,
       salePrice,
       sizeStocks,
-      _categorySlug: mapCategorySlug(type, audience),
+      _categorySlug: mapCategorySlug(productCategory, shopifyType, title, tags, audience),
     });
   }
 
@@ -317,8 +345,15 @@ async function main() {
   await wipeCatalog();
 
   let created = 0;
+  const missingCat = new Map();
   for (const p of products) {
-    const cat = byKey[`${p.audience}:${p._categorySlug}`] || byKey[`men:${TYPE_TO_SLUG[p.type] || 'boxers'}`];
+    const cat =
+      byKey[`${p.audience}:${p._categorySlug}`] ||
+      byKey[`men:${TYPE_TO_SLUG[p.type] || 'boxers'}`];
+    if (!cat) {
+      const key = `${p.audience}:${p._categorySlug}`;
+      missingCat.set(key, (missingCat.get(key) || 0) + 1);
+    }
     const { _categorySlug, sizeStocks, ...data } = p;
     await prisma.product.create({
       data: {
@@ -331,8 +366,25 @@ async function main() {
     if (created % 50 === 0) console.log(`  … ${created}/${products.length}`);
   }
 
+  if (missingCat.size) {
+    console.log('Missing subcategory keys (fell back where possible):');
+    for (const [k, n] of missingCat) console.log(`  ${k}: ${n}`);
+  }
+
+  const byCat = await prisma.category.findMany({
+    where: { parentId: { not: null } },
+    include: { _count: { select: { products: true } } },
+    orderBy: [{ audience: 'asc' }, { sortOrder: 'asc' }],
+  });
+  console.log('\nProducts per subcategory:');
+  for (const c of byCat) {
+    if (c._count.products > 0) {
+      console.log(`  ${c.audience}/${c.slug}: ${c._count.products}`);
+    }
+  }
+
   const count = await prisma.product.count();
-  console.log(`Done. Imported ${created} products. DB product count: ${count}`);
+  console.log(`\nDone. Imported ${created} products. DB product count: ${count}`);
 }
 
 main()
