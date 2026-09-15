@@ -52,8 +52,13 @@ const serializeCategory = (c) => ({
   name: c.name,
   slug: c.slug,
   audience: c.audience,
+  parentId: c.parentId || null,
+  parent: c.parent
+    ? { id: c.parent.id, name: c.parent.name, slug: c.parent.slug }
+    : null,
   sortOrder: c.sortOrder,
-  productCount: c._count?.products ?? c.productCount,
+  productCount: c._count?.products ?? c.productCount ?? 0,
+  childCount: c._count?.children ?? c.childCount ?? 0,
 });
 
 const ratingSummary = (reviews = []) => {

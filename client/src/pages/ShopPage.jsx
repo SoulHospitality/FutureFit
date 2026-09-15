@@ -101,7 +101,7 @@ function FiltersPanel({
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
         {categories.length > 0 ? (
           <FilterSection title="Type">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-3">
               <button
                 type="button"
                 onClick={() => onSelectCategory('')}
@@ -113,19 +113,38 @@ function FiltersPanel({
               >
                 All
               </button>
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => onSelectCategory(c.slug)}
-                  className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
-                    selectedCategory === c.slug
-                      ? 'bg-timber-900 text-white'
-                      : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
-                  }`}
-                >
-                  {c.name}
-                </button>
+              {categories.map((parent) => (
+                <div key={parent.id}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectCategory(parent.slug)}
+                    className={`mb-1.5 px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
+                      selectedCategory === parent.slug
+                        ? 'bg-timber-900 text-white'
+                        : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
+                    }`}
+                  >
+                    {parent.name}
+                  </button>
+                  {parent.children?.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5 pl-1">
+                      {parent.children.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => onSelectCategory(c.slug)}
+                          className={`px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.1em] transition ${
+                            selectedCategory === c.slug
+                              ? 'bg-timber-900 text-white'
+                              : 'bg-timber-50 text-timber-600 hover:bg-timber-100'
+                          }`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
           </FilterSection>
@@ -243,7 +262,7 @@ function FiltersPanel({
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
-  const { categories } = useCategories();
+  const { categories, tree, treeByAudience } = useCategories();
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilters, setMobileFilters] = useState(false);
@@ -286,8 +305,8 @@ export default function ShopPage() {
   }, [audience, selectedCategory, searchQuery]);
 
   const audienceCategories = useMemo(
-    () => (audience ? categories.filter((c) => c.audience === audience) : categories),
-    [categories, audience]
+    () => (audience ? treeByAudience?.[audience] || [] : tree || []),
+    [audience, tree, treeByAudience]
   );
 
   const patchParams = (patch) => {

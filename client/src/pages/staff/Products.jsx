@@ -455,7 +455,7 @@ export default function StaffProducts() {
               </select>
             </div>
             <div>
-              <label className="label">Subcategory</label>
+              <label className="label">Category</label>
               <select
                 className="input"
                 value={form.categoryId}
@@ -463,12 +463,27 @@ export default function StaffProducts() {
               >
                 <option value="">Select…</option>
                 {categories
-                  .filter((c) => c.audience === form.audience)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
+                  .filter((c) => c.audience === form.audience && !c.parentId)
+                  .map((parent) => {
+                    const kids = categories.filter((c) => c.parentId === parent.id);
+                    if (kids.length === 0) {
+                      return (
+                        <option key={parent.id} value={parent.id}>
+                          {parent.name}
+                        </option>
+                      );
+                    }
+                    return (
+                      <optgroup key={parent.id} label={parent.name}>
+                        <option value={parent.id}>{parent.name} (all)</option>
+                        {kids.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
               </select>
             </div>
             <div>

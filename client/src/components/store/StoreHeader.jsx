@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronDown, Menu, Search, ShoppingBag, User, X, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -22,7 +22,7 @@ export default function StoreHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
-  const { categories } = useCategories();
+  const { treeByAudience } = useCategories();
 
   const overHero = pathname === '/';
   const solid = !overHero || scrolled;
@@ -30,13 +30,7 @@ export default function StoreHeader() {
   const params = new URLSearchParams(search);
   const activeAudience = pathname === '/shop' ? params.get('audience') : null;
 
-  const byAudience = useMemo(() => {
-    const map = { men: [], women: [], kids: [] };
-    categories.forEach((c) => {
-      if (map[c.audience]) map[c.audience].push(c);
-    });
-    return map;
-  }, [categories]);
+  const byAudience = treeByAudience || { men: [], women: [], kids: [] };
 
   useEffect(() => {
     if (!overHero) {
@@ -307,27 +301,44 @@ export default function StoreHeader() {
                 <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
                   Categories
                 </p>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-3">
-                  {byAudience[openMenu]?.length ? (
-                    byAudience[openMenu].map((c) => (
-                      <Link
-                        key={c.id}
-                        to={`/shop?audience=${openMenu}&category=${c.slug}`}
-                        className="group flex items-center justify-between border-b border-transparent py-2.5 text-sm text-timber-600 transition hover:border-timber-200 hover:text-timber-900"
-                      >
-                        <span>{c.name}</span>
-                        <ArrowRight
-                          className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
-                          strokeWidth={1.5}
-                        />
-                      </Link>
-                    ))
-                  ) : (
-                    <p className="col-span-full py-2 text-sm text-timber-400">
-                      Browse the full {openDept?.label?.toLowerCase()} collection.
-                    </p>
-                  )}
-                </div>
+                {byAudience[openMenu]?.length ? (
+                  <div className="grid grid-cols-2 gap-x-10 gap-y-8 sm:grid-cols-3">
+                    {byAudience[openMenu].map((parent) => (
+                      <div key={parent.id}>
+                        <Link
+                          to={`/shop?audience=${openMenu}&category=${parent.slug}`}
+                          className="text-[11px] font-semibold uppercase tracking-[0.18em] text-timber-900 hover:underline"
+                        >
+                          {parent.name}
+                        </Link>
+                        {parent.children?.length > 0 ? (
+                          <ul className="mt-2 space-y-1">
+                            {parent.children.map((child) => (
+                              <li key={child.id}>
+                                <Link
+                                  to={`/shop?audience=${openMenu}&category=${child.slug}`}
+                                  className="group flex items-center justify-between py-1.5 text-sm text-timber-600 transition hover:text-timber-900"
+                                >
+                                  <span>{child.name}</span>
+                                  <ArrowRight
+                                    className="h-3.5 w-3.5 -translate-x-1 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
+                                    strokeWidth={1.5}
+                                  />
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="mt-2 text-xs text-timber-400">Shop all</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="py-2 text-sm text-timber-400">
+                    Browse the full {openDept?.label?.toLowerCase()} collection.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -378,15 +389,28 @@ export default function StoreHeader() {
                       >
                         Shop all {dept.label}
                       </Link>
-                      {byAudience[dept.value]?.map((c) => (
-                        <Link
-                          key={c.id}
-                          to={`/shop?audience=${dept.value}&category=${c.slug}`}
-                          onClick={() => setMobileOpen(false)}
-                          className="block px-3 py-2.5 text-sm text-timber-500 hover:bg-timber-50 hover:text-timber-900"
-                        >
-                          {c.name}
-                        </Link>
+                      {byAudience[dept.value]?.map((parent) => (
+                        <div key={parent.id} className="pt-1">
+                          <Link
+                            to={`/shop?audience=${dept.value}&category=${parent.slug}`}
+                            onClick={() => setMobileOpen(false)}
+                            className="block px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-timber-800"
+                          >
+                            {parent.name}
+                          </Link>
+                          {(parent.children?.length ? parent.children : [parent]).map((c) =>
+                            parent.children?.length ? (
+                              <Link
+                                key={c.id}
+                                to={`/shop?audience=${dept.value}&category=${c.slug}`}
+                                onClick={() => setMobileOpen(false)}
+                                className="block px-5 py-2 text-sm text-timber-500 hover:bg-timber-50 hover:text-timber-900"
+                              >
+                                {c.name}
+                              </Link>
+                            ) : null
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}

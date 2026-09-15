@@ -24,6 +24,14 @@ const serializeProduct = (p, { includeReviews = false } = {}) => {
         name: p.category.name,
         slug: p.category.slug,
         audience: p.category.audience,
+        parentId: p.category.parentId || null,
+        parent: p.category.parent
+          ? {
+              id: p.category.parent.id,
+              name: p.category.parent.name,
+              slug: p.category.parent.slug,
+            }
+          : null,
       }
     : null;
   const out = {
@@ -71,7 +79,14 @@ const PRODUCT_SELECT = {
   createdAt: true,
   updatedAt: true,
   category: {
-    select: { id: true, name: true, slug: true, audience: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      audience: true,
+      parentId: true,
+      parent: { select: { id: true, name: true, slug: true } },
+    },
   },
   sizeStocks: {
     select: { size: true, stock: true, sortOrder: true },
@@ -212,7 +227,22 @@ const listProducts = async (req, res) => {
       if (type) where.type = type;
       if (audience && AUDIENCES.includes(audience)) where.audience = audience;
       if (category) {
-        where.category = { slug: category, ...(where.audience ? { audience: where.audience } : {}) };
+        const matched = await prisma.category.findMany({
+          where: {
+            slug: String(category),
+            ...(where.audience ? { audience: where.audience } : {}),
+          },
+          select: { id: true, children: { select: { id: true } } },
+        });
+        if (matched.length) {
+          const ids = matched.flatMap((c) => [c.id, ...c.children.map((ch) => ch.id)]);
+          where.categoryId = { in: [...new Set(ids)] };
+        } else {
+          where.category = {
+            slug: String(category),
+            ...(where.audience ? { audience: where.audience } : {}),
+          };
+        }
       }
       if (q) {
         where.OR = [

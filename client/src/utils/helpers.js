@@ -73,10 +73,14 @@ export const DEPT_IMAGES = {
 export const audienceLabel = (value) =>
   AUDIENCES.find((a) => a.value === value)?.label || value;
 
-export const categoryLabel = (product) =>
-  product?.category?.name ||
-  PRODUCT_TYPES.find((t) => t.value === product?.type)?.label ||
-  '';
+export const categoryLabel = (product) => {
+  const cat = product?.category;
+  if (!cat?.name) {
+    return PRODUCT_TYPES.find((t) => t.value === product?.type)?.label || '';
+  }
+  if (cat.parent?.name) return `${cat.parent.name} · ${cat.name}`;
+  return cat.name;
+};
 
 const COLOR_SWATCH = {
   black: '#111111',
