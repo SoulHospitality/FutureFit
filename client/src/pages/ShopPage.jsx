@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import { useCategories, subcategoriesForAudience } from '../context/CategoriesContext';
-import { AUDIENCES, audienceLabel, colorSwatchStyle } from '../utils/helpers';
+import {
+  AUDIENCES,
+  audienceLabel,
+  colorSwatchStyle,
+  DEPT_IMAGES,
+  getImageUrl,
+} from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 
 const SORT_OPTIONS = [
@@ -20,6 +26,13 @@ const PRICE_PRESETS = [
   { id: '500-1000', label: '500–1k', min: 500, max: 1000 },
   { id: 'over-1000', label: '1k+', min: 1000, max: null },
 ];
+
+const DEPT_COPY = {
+  men: 'Underwear, undershirts, and everyday essentials.',
+  women: 'Pieces cut for ease, presence, and all-day wear.',
+  kids: 'Soft staples sized for growing days.',
+  all: 'Classic cuts and refined staples — browse by department, colour, and size.',
+};
 
 function parseBound(raw) {
   const trimmed = String(raw ?? '').trim();
@@ -243,7 +256,7 @@ function FiltersPanel({
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
-  const { categories, treeByAudience } = useCategories();
+  const { categories, tree, treeByAudience } = useCategories();
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mobileFilters, setMobileFilters] = useState(false);
@@ -251,6 +264,7 @@ export default function ShopPage() {
 
   const audience = params.get('audience') || '';
   const searchQuery = (params.get('q') || '').trim();
+  const [heroQuery, setHeroQuery] = useState(searchQuery);
   const selectedCategory = params.get('category') || '';
   const selectedColors = useMemo(
     () => (params.get('colors') ? params.get('colors').split(',').filter(Boolean) : []),
@@ -270,6 +284,10 @@ export default function ShopPage() {
     setMinInput(params.get('minPrice') || '');
     setMaxInput(params.get('maxPrice') || '');
   }, [params]);
+
+  useEffect(() => {
+    setHeroQuery(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     setLoading(true);
@@ -418,6 +436,32 @@ export default function ShopPage() {
       ? audienceLabel(audience)
       : 'The collection';
 
+  const activeDept = useMemo(() => {
+    if (!audience) return null;
+    return (
+      tree.find((d) => (d.audience || d.slug) === audience) ||
+      tree.find((d) => d.slug === audience) ||
+      null
+    );
+  }, [tree, audience]);
+
+  const heroStatement =
+    (searchQuery && 'Showing matches across the catalog.') ||
+    activeDept?.statement ||
+    DEPT_COPY[audience] ||
+    DEPT_COPY.all;
+
+  const heroPhoto =
+    activeDept?.imageUrl ||
+    (audience ? DEPT_IMAGES[audience] : null) ||
+    null;
+
+  const submitHeroSearch = (e) => {
+    e?.preventDefault();
+    const q = heroQuery.trim();
+    patchParams({ q: q || null });
+  };
+
   const activeFilters = useMemo(() => {
     const chips = [];
     if (searchQuery) {
@@ -448,44 +492,183 @@ export default function ShopPage() {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white">
-      <div className="border-b border-timber-100 bg-timber-50">
-        <div className="mx-auto max-w-[1280px] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-          <p className="brand-eyebrow">FutureFit</p>
-          <h1 className="mt-4 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl lg:text-7xl">
-            {heading}
-          </h1>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-timber-500">
-            Classic cuts and refined staples — browse by department, colour, and size.
-          </p>
-          <div className="mt-10 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => patchParams({ audience: null, category: null })}
-              className={`border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                !audience
-                  ? 'border-timber-900 bg-timber-900 text-white'
-                  : 'border-timber-200 bg-white text-timber-500 hover:border-timber-900 hover:text-timber-900'
-              }`}
+      <section className="relative overflow-hidden border-b border-timber-200">
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(9,9,11,0.06),_transparent_55%),linear-gradient(135deg,#f4f4f5_0%,#ffffff_45%,#fafafa_100%)]"
+          aria-hidden
+        />
+        {heroPhoto ? (
+          <>
+            <img
+              key={audience || 'all'}
+              src={getImageUrl(heroPhoto, { width: 1400 })}
+              alt=""
+              className="pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[55%] object-cover object-center opacity-90 transition-opacity duration-700 lg:block"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-timber-100 via-timber-50/95 to-transparent lg:block"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute inset-y-0 right-0 hidden w-[55%] bg-gradient-to-t from-timber-900/20 via-transparent to-transparent lg:block"
+              aria-hidden
+            />
+          </>
+        ) : null}
+        <div
+          className="pointer-events-none absolute -right-8 top-6 select-none font-display text-[clamp(5rem,18vw,12rem)] font-medium leading-none tracking-tight text-timber-900/[0.04] lg:right-[8%] lg:text-timber-900/[0.06]"
+          aria-hidden
+        >
+          {(audience ? audienceLabel(audience) : 'Shop').slice(0, 8)}
+        </div>
+
+        <div className="relative mx-auto max-w-[1280px] px-4 pb-10 pt-12 sm:px-6 lg:px-8 lg:pb-12 lg:pt-16">
+          <div className="max-w-xl lg:max-w-2xl">
+            <p className="brand-eyebrow">FutureFit · Shop</p>
+            <h1
+              key={heading}
+              className="hero-copy-fade mt-4 font-display text-5xl font-medium tracking-tight text-timber-900 text-balance sm:text-6xl lg:text-7xl"
             >
-              All
-            </button>
-            {AUDIENCES.map((a) => (
+              {heading}
+            </h1>
+            <p
+              key={heroStatement}
+              className="hero-copy-fade mt-4 max-w-md text-sm leading-relaxed text-timber-600 sm:text-base"
+            >
+              {heroStatement}
+            </p>
+
+            <div
+              className="mt-8 inline-flex flex-wrap gap-1 border border-timber-900/10 bg-white/70 p-1 backdrop-blur-sm"
+              role="tablist"
+              aria-label="Department"
+            >
               <button
-                key={a.value}
                 type="button"
-                onClick={() => patchParams({ audience: a.value, category: null })}
-                className={`border px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                  audience === a.value
-                    ? 'border-timber-900 bg-timber-900 text-white'
-                    : 'border-timber-200 bg-white text-timber-500 hover:border-timber-900 hover:text-timber-900'
+                role="tab"
+                aria-selected={!audience}
+                onClick={() => patchParams({ audience: null, category: null })}
+                className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
+                  !audience
+                    ? 'bg-timber-900 text-white'
+                    : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
                 }`}
               >
-                {a.label}
+                All
               </button>
-            ))}
+              {AUDIENCES.map((a) => (
+                <button
+                  key={a.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={audience === a.value}
+                  onClick={() => patchParams({ audience: a.value, category: null })}
+                  className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
+                    audience === a.value
+                      ? 'bg-timber-900 text-white'
+                      : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
+                  }`}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+
+            <form
+              onSubmit={submitHeroSearch}
+              className="mt-6 flex max-w-md items-center gap-2 border border-timber-900/15 bg-white/80 px-3 py-2.5 shadow-[0_12px_40px_-28px_rgba(9,9,11,0.45)] backdrop-blur-sm transition focus-within:border-timber-900/40"
+            >
+              <Search className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
+              <input
+                type="search"
+                value={heroQuery}
+                onChange={(e) => setHeroQuery(e.target.value)}
+                placeholder="Search the collection"
+                aria-label="Search products"
+                className="min-w-0 flex-1 bg-transparent text-sm text-timber-900 outline-none placeholder:text-timber-400"
+              />
+              {heroQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHeroQuery('');
+                    patchParams({ q: null });
+                  }}
+                  className="grid h-7 w-7 place-items-center text-timber-400 hover:text-timber-900"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+                </button>
+              ) : null}
+              <button
+                type="submit"
+                className="shrink-0 px-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-timber-800 hover:text-timber-950"
+              >
+                Search
+              </button>
+            </form>
+
+            <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.2em] text-timber-400">
+              {loading
+                ? 'Loading catalog…'
+                : `${products.length} piece${products.length === 1 ? '' : 's'}${
+                    audience ? ` · ${audienceLabel(audience)}` : ''
+                  }`}
+            </p>
           </div>
+
+          {audience && audienceCategories.length > 0 ? (
+            <div className="mt-10 border-t border-timber-900/10 pt-6">
+              <div className="mb-3 flex items-end justify-between gap-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
+                  Shop by type
+                </p>
+                {selectedCategory ? (
+                  <button
+                    type="button"
+                    onClick={() => patchParams({ category: null })}
+                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+                  >
+                    Clear type
+                  </button>
+                ) : null}
+              </div>
+              <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+                <button
+                  type="button"
+                  onClick={() => patchParams({ category: null })}
+                  className={`shrink-0 border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
+                    !selectedCategory
+                      ? 'border-timber-900 bg-timber-900 text-white'
+                      : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
+                  }`}
+                >
+                  All types
+                </button>
+                {audienceCategories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() =>
+                      patchParams({
+                        category: selectedCategory === c.slug ? null : c.slug,
+                      })
+                    }
+                    className={`shrink-0 border px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
+                      selectedCategory === c.slug
+                        ? 'border-timber-900 bg-timber-900 text-white'
+                        : 'border-timber-200 bg-white/70 text-timber-600 hover:border-timber-900 hover:text-timber-900'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
-      </div>
+      </section>
 
       <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[220px_minmax(0,1fr)]">
