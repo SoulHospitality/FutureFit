@@ -5,23 +5,45 @@ import { toast } from 'react-toastify';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
 import StarRating from '../components/store/StarRating';
-import { getImageUrl, AUDIENCES, DEPT_IMAGES, asArray, FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
+import { useCategories } from '../context/CategoriesContext';
+import {
+  getImageUrl,
+  AUDIENCES,
+  DEPT_IMAGES,
+  asArray,
+  FREE_SHIPPING_MIN,
+  formatMoney,
+} from '../utils/helpers';
 
-const DEPT_COPY = {
+const FALLBACK_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
   women: 'Pieces cut for ease, presence, and all-day wear.',
   kids: 'Soft staples sized for growing days.',
 };
 
 export default function HomePage() {
+  const { tree } = useCategories();
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const [deptPhotos, setDeptPhotos] = useState({});
+  const [fallbackPhotos, setFallbackPhotos] = useState({});
   const [index, setIndex] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [email, setEmail] = useState('');
+
+  const departments = (tree?.length
+    ? tree
+    : AUDIENCES.map((a) => ({
+        id: a.value,
+        slug: a.value,
+        audience: a.value,
+        name: a.label,
+        statement: FALLBACK_COPY[a.value],
+        imageUrl: null,
+        sortOrder: 0,
+      }))
+  ).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   useEffect(() => {
     Promise.all([
@@ -58,7 +80,7 @@ export default function HomePage() {
           productPhotoByAudience[a.value] ||
           null;
       });
-      setDeptPhotos(photos);
+      setFallbackPhotos(photos);
       setLoadingProducts(false);
     });
   }, []);
@@ -181,18 +203,27 @@ export default function HomePage() {
           </Link>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
-          {AUDIENCES.map((a) => {
-            const photo = deptPhotos[a.value];
+          {departments.map((dept) => {
+            const photo =
+              dept.imageUrl ||
+              fallbackPhotos[dept.audience || dept.slug] ||
+              DEPT_IMAGES[dept.audience || dept.slug] ||
+              null;
+            const statement =
+              dept.statement ||
+              FALLBACK_COPY[dept.audience || dept.slug] ||
+              '';
+            const href = `/shop?audience=${dept.audience || dept.slug}`;
             return (
               <Link
-                key={a.value}
-                to={`/shop?audience=${a.value}`}
+                key={dept.id}
+                to={href}
                 className="group relative min-h-[280px] overflow-hidden bg-timber-900 sm:min-h-[320px]"
               >
                 {photo ? (
                   <img
                     src={getImageUrl(photo, { width: 800 })}
-                    alt={`${a.label} collection`}
+                    alt={`${dept.name} collection`}
                     width={800}
                     height={1000}
                     loading="lazy"
@@ -205,13 +236,15 @@ export default function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15" />
                 <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 text-white sm:min-h-[320px]">
                   <h3 className="font-display text-3xl font-medium text-white drop-shadow-sm sm:text-4xl">
-                    {a.label}
+                    {dept.name}
                   </h3>
-                  <p className="mt-2 max-w-xs text-sm text-white/95 drop-shadow-sm">
-                    {DEPT_COPY[a.value]}
-                  </p>
+                  {statement ? (
+                    <p className="mt-2 max-w-xs text-sm text-white/95 drop-shadow-sm">
+                      {statement}
+                    </p>
+                  ) : null}
                   <span className="mt-6 text-[10px] font-medium uppercase tracking-[0.24em] text-white underline underline-offset-8">
-                    Shop {a.label}
+                    Shop {dept.name}
                   </span>
                 </div>
               </Link>

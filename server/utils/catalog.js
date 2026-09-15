@@ -1,9 +1,27 @@
 const AUDIENCES = ['men', 'women', 'kids'];
 
 const ROOT_CATEGORIES = [
-  { audience: 'men', name: 'Men', slug: 'men', sortOrder: 0 },
-  { audience: 'women', name: 'Women', slug: 'women', sortOrder: 1 },
-  { audience: 'kids', name: 'Kids', slug: 'kids', sortOrder: 2 },
+  {
+    audience: 'men',
+    name: 'Men',
+    slug: 'men',
+    sortOrder: 0,
+    statement: 'Underwear, undershirts, and everyday essentials.',
+  },
+  {
+    audience: 'women',
+    name: 'Women',
+    slug: 'women',
+    sortOrder: 1,
+    statement: 'Pieces cut for ease, presence, and all-day wear.',
+  },
+  {
+    audience: 'kids',
+    name: 'Kids',
+    slug: 'kids',
+    sortOrder: 2,
+    statement: 'Soft staples sized for growing days.',
+  },
 ];
 
 const slugify = (value) =>
@@ -19,34 +37,66 @@ const TYPE_FROM_SLUG = {
   trunks: 'trunks',
   undershirts: 'undershirt',
   undershirt: 'undershirt',
+  'womens-undershirts': 'undershirt',
   socks: 'socks',
   bundles: 'bundle',
   bundle: 'bundle',
+  't-shirts': 'undershirt',
+  hoodies: 'undershirt',
+  pants: 'boxers',
+  leggings: 'briefs',
+  dresses: 'briefs',
+  pajamas: 'boxers',
+  'sleepwear-loungewear': 'boxers',
+  'denim-shorts': 'trunks',
+  undershorts: 'trunks',
 };
 
 const TYPE_TO_SLUG = {
   boxers: 'boxers',
   briefs: 'briefs',
-  trunks: 'trunks',
-  undershirt: 'undershirts',
+  trunks: 'undershorts',
+  undershirt: 't-shirts',
   socks: 'socks',
-  bundle: 'bundles',
+  bundle: 'boxers',
 };
 
-/** Subcategories seeded under Men / Women / Kids. */
+/**
+ * Subcategories from the catalog, matched to Men / Women / Kids.
+ * Shared styles are listed under each relevant category.
+ */
 const DEFAULT_SUBCATEGORIES = [
+  // Men
   { audience: 'men', name: 'Boxers', slug: 'boxers', sortOrder: 0 },
-  { audience: 'men', name: 'Briefs', slug: 'briefs', sortOrder: 1 },
-  { audience: 'men', name: 'Trunks', slug: 'trunks', sortOrder: 2 },
-  { audience: 'men', name: 'Undershirts', slug: 'undershirts', sortOrder: 3 },
-  { audience: 'men', name: 'Socks', slug: 'socks', sortOrder: 4 },
-  { audience: 'men', name: 'Bundles', slug: 'bundles', sortOrder: 5 },
-  { audience: 'women', name: 'Tops', slug: 'tops', sortOrder: 0 },
-  { audience: 'women', name: 'Bottoms', slug: 'bottoms', sortOrder: 1 },
-  { audience: 'women', name: 'Underwear', slug: 'underwear', sortOrder: 2 },
-  { audience: 'kids', name: 'Tops', slug: 'tops', sortOrder: 0 },
-  { audience: 'kids', name: 'Bottoms', slug: 'bottoms', sortOrder: 1 },
-  { audience: 'kids', name: 'Underwear', slug: 'underwear', sortOrder: 2 },
+  { audience: 'men', name: 'Undershorts', slug: 'undershorts', sortOrder: 1 },
+  { audience: 'men', name: 'Socks', slug: 'socks', sortOrder: 2 },
+  { audience: 'men', name: 'T-Shirts', slug: 't-shirts', sortOrder: 3 },
+  { audience: 'men', name: 'Hoodies', slug: 'hoodies', sortOrder: 4 },
+  { audience: 'men', name: 'Pants', slug: 'pants', sortOrder: 5 },
+  { audience: 'men', name: 'Denim Shorts', slug: 'denim-shorts', sortOrder: 6 },
+  { audience: 'men', name: 'Pajamas', slug: 'pajamas', sortOrder: 7 },
+  { audience: 'men', name: 'Sleepwear & Loungewear', slug: 'sleepwear-loungewear', sortOrder: 8 },
+  // Women
+  { audience: 'women', name: "Women's Undershirts", slug: 'womens-undershirts', sortOrder: 0 },
+  { audience: 'women', name: 'Dresses', slug: 'dresses', sortOrder: 1 },
+  { audience: 'women', name: 'Leggings', slug: 'leggings', sortOrder: 2 },
+  { audience: 'women', name: 'Socks', slug: 'socks', sortOrder: 3 },
+  { audience: 'women', name: 'T-Shirts', slug: 't-shirts', sortOrder: 4 },
+  { audience: 'women', name: 'Hoodies', slug: 'hoodies', sortOrder: 5 },
+  { audience: 'women', name: 'Pants', slug: 'pants', sortOrder: 6 },
+  { audience: 'women', name: 'Denim Shorts', slug: 'denim-shorts', sortOrder: 7 },
+  { audience: 'women', name: 'Pajamas', slug: 'pajamas', sortOrder: 8 },
+  { audience: 'women', name: 'Sleepwear & Loungewear', slug: 'sleepwear-loungewear', sortOrder: 9 },
+  // Kids
+  { audience: 'kids', name: 'Undershorts', slug: 'undershorts', sortOrder: 0 },
+  { audience: 'kids', name: 'Socks', slug: 'socks', sortOrder: 1 },
+  { audience: 'kids', name: 'T-Shirts', slug: 't-shirts', sortOrder: 2 },
+  { audience: 'kids', name: 'Hoodies', slug: 'hoodies', sortOrder: 3 },
+  { audience: 'kids', name: 'Pants', slug: 'pants', sortOrder: 4 },
+  { audience: 'kids', name: 'Denim Shorts', slug: 'denim-shorts', sortOrder: 5 },
+  { audience: 'kids', name: 'Leggings', slug: 'leggings', sortOrder: 6 },
+  { audience: 'kids', name: 'Pajamas', slug: 'pajamas', sortOrder: 7 },
+  { audience: 'kids', name: 'Sleepwear & Loungewear', slug: 'sleepwear-loungewear', sortOrder: 8 },
 ];
 
 const typeFromCategory = (category, fallback = 'boxers') => {
@@ -66,6 +116,8 @@ const serializeCategory = (c) => {
     parent: c.parent
       ? { id: c.parent.id, name: c.parent.name, slug: c.parent.slug }
       : null,
+    imageUrl: c.imageUrl || null,
+    statement: c.statement || null,
     sortOrder: c.sortOrder,
     productCount: c._count?.products ?? c.productCount ?? 0,
     childCount: c._count?.children ?? c.childCount ?? 0,
@@ -85,14 +137,30 @@ const ratingSummary = (reviews = []) => {
 
 /**
  * Categories = Men / Women / Kids (roots).
- * Subcategories = Boxers, Trunks, etc. nested under a root.
+ * Subcategories = catalog types nested under a root.
  */
 const ensureDefaultCategories = async (prisma) => {
   for (const root of ROOT_CATEGORIES) {
     await prisma.category.upsert({
       where: { audience_slug: { audience: root.audience, slug: root.slug } },
-      create: { ...root, parentId: null },
+      create: {
+        name: root.name,
+        slug: root.slug,
+        audience: root.audience,
+        sortOrder: root.sortOrder,
+        statement: root.statement,
+        parentId: null,
+      },
       update: {},
+    });
+
+    await prisma.category.updateMany({
+      where: {
+        audience: root.audience,
+        slug: root.slug,
+        OR: [{ statement: null }, { statement: '' }],
+      },
+      data: { statement: root.statement },
     });
   }
 
@@ -103,7 +171,6 @@ const ensureDefaultCategories = async (prisma) => {
       .map((c) => [c.audience, c])
   );
 
-  // Nest any legacy top-level rows (Boxers, Tops, …) under the matching category root.
   for (const row of all) {
     if (row.parentId) continue;
     if (AUDIENCES.includes(row.slug)) continue;
@@ -116,7 +183,6 @@ const ensureDefaultCategories = async (prisma) => {
   }
 
   all = await prisma.category.findMany({ include: { parent: true } });
-  // Flatten accidental 3rd level → hang under the audience root.
   for (const row of all) {
     if (!row.parent?.parentId) continue;
     const root = rootByAudience[row.audience];
@@ -146,10 +212,12 @@ const ensureDefaultCategories = async (prisma) => {
       if (!AUDIENCES.includes(existing.slug)) {
         const updated = await prisma.category.update({
           where: { id: existing.id },
-          data: { parentId: root.id },
+          data: { parentId: root.id, name: sub.name, sortOrder: sub.sortOrder },
         });
         byAudienceSlug[key] = updated;
       }
+    } else if (existing.name !== sub.name) {
+      // Keep staff renames? Prefer seed names only on first create — skip rename
     }
   }
 

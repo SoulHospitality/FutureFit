@@ -67,6 +67,10 @@ model Category {
   slug      String
   audience  Audience
   parentId  String?
+  /// Cover image for homepage Departments (root categories).
+  imageUrl  String?
+  /// Short line shown under the name on homepage Departments.
+  statement String?
   sortOrder Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

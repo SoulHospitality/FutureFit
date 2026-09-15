@@ -91,6 +91,10 @@ const createCategory = async (req, res) => {
         slug: audience,
         audience,
         parentId: null,
+        imageUrl: req.body.imageUrl ? String(req.body.imageUrl).trim() : null,
+        statement: req.body.statement
+          ? String(req.body.statement).trim().slice(0, 200)
+          : null,
         sortOrder: Number(req.body.sortOrder) || AUDIENCES.indexOf(audience),
       },
       include: categoryInclude,
@@ -118,6 +122,12 @@ const updateCategory = async (req, res) => {
 
     if (req.body.name !== undefined) data.name = String(req.body.name).trim();
     if (req.body.sortOrder !== undefined) data.sortOrder = Number(req.body.sortOrder) || 0;
+    if (req.body.imageUrl !== undefined) {
+      data.imageUrl = req.body.imageUrl ? String(req.body.imageUrl).trim() : null;
+    }
+    if (req.body.statement !== undefined) {
+      data.statement = req.body.statement ? String(req.body.statement).trim().slice(0, 200) : null;
+    }
 
     if (!isRoot) {
       if (req.body.parentId !== undefined) {

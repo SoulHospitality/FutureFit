@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { asArray } from '../../utils/helpers';
+import { asArray, getImageUrl } from '../../utils/helpers';
 
 const emptySub = { name: '', slug: '', parentId: '', sortOrder: 0 };
 
@@ -12,7 +12,9 @@ export default function StaffCategories() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptySub);
-  const [mode, setMode] = useState('subcategory'); // subcategory | category
+  const [mode, setMode] = useState('subcategory');
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
 
   const load = () => api.get('/categories').then((r) => setCategories(asArray(r.data)));
   useEffect(() => {
@@ -56,11 +58,30 @@ export default function StaffCategories() {
     setEditing(c);
     setForm({
       name: c.name,
-      slug: c.slug,
-      parentId: '',
+      statement: c.statement || '',
+      imageUrl: c.imageUrl || '',
       sortOrder: c.sortOrder,
     });
     setOpen(true);
+  };
+
+  const onPickPhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      body.append('folder', 'futurefit/categories');
+      const { data } = await api.post('/upload', body);
+      setForm((f) => ({ ...f, imageUrl: data.url }));
+      toast.success('Photo uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const save = async (e) => {
@@ -69,6 +90,8 @@ export default function StaffCategories() {
       if (mode === 'category') {
         await api.put(`/categories/${editing.id}`, {
           name: form.name,
+          statement: form.statement,
+          imageUrl: form.imageUrl || null,
           sortOrder: Number(form.sortOrder) || 0,
         });
         toast.success('Category updated');
@@ -111,8 +134,8 @@ export default function StaffCategories() {
         <div>
           <h1 className="page-title">Categories</h1>
           <p className="page-subtitle">
-            Categories are Men, Women, and Kids. Subcategories are Boxers, Trunks, Underwear, and
-            so on.
+            Categories are Men, Women, and Kids (name, photo, homepage statement). Subcategories
+            are Boxers, Dresses, Hoodies, and the rest.
           </p>
         </div>
         <button type="button" className="btn-wheat" onClick={() => openCreateSub()}>
@@ -130,14 +153,32 @@ export default function StaffCategories() {
               className="overflow-hidden rounded-xl border border-timber-100 bg-white"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-timber-50 bg-timber-50/60 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-timber-400">
-                    Category
-                  </p>
-                  <p className="mt-0.5 text-lg font-medium text-timber-900">{parent.name}</p>
-                  <p className="mt-0.5 text-xs text-timber-400">
-                    {kids.length} subcategor{kids.length === 1 ? 'y' : 'ies'}
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-timber-200">
+                    {parent.imageUrl ? (
+                      <img
+                        src={getImageUrl(parent.imageUrl, { width: 120 })}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-full place-items-center text-timber-400">
+                        <ImagePlus className="h-5 w-5" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-timber-400">
+                      Category
+                    </p>
+                    <p className="mt-0.5 text-lg font-medium text-timber-900">{parent.name}</p>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-timber-500">
+                      {parent.statement || 'No homepage statement yet'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-timber-400">
+                      {kids.length} subcategor{kids.length === 1 ? 'y' : 'ies'}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <button
@@ -152,7 +193,7 @@ export default function StaffCategories() {
                     type="button"
                     className="btn-ghost btn-sm"
                     onClick={() => openEditCategory(parent)}
-                    title="Rename category"
+                    title="Edit category"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -201,7 +242,7 @@ export default function StaffCategories() {
                 </table>
               ) : (
                 <p className="px-4 py-3 text-sm text-timber-400">
-                  No subcategories yet — add Boxers, Trunks, Underwear, etc.
+                  No subcategories yet — add Boxers, Dresses, Hoodies, etc.
                 </p>
               )}
             </div>
@@ -227,54 +268,127 @@ export default function StaffCategories() {
         }
       >
         <form onSubmit={save} className="space-y-4">
-          {mode === 'subcategory' && (
-            <div>
-              <label className="label">Category</label>
-              <select
-                required
-                className="input"
-                value={form.parentId}
-                onChange={(e) => setForm({ ...form, parentId: e.target.value })}
-              >
-                <option value="">Select…</option>
-                {roots.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {mode === 'category' ? (
+            <>
+              <div>
+                <label className="label">Name</label>
+                <input
+                  required
+                  className="input"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Men"
+                />
+              </div>
+              <div>
+                <label className="label">Homepage statement</label>
+                <textarea
+                  className="input min-h-[72px]"
+                  value={form.statement || ''}
+                  onChange={(e) => setForm({ ...form, statement: e.target.value })}
+                  placeholder="Short line under the name on Departments"
+                  maxLength={200}
+                />
+                <p className="mt-1 text-[11px] text-timber-400">
+                  Shown on the homepage Departments section.
+                </p>
+              </div>
+              <div>
+                <label className="label">Photo</label>
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="h-24 w-20 overflow-hidden rounded-lg bg-timber-100">
+                    {form.imageUrl ? (
+                      <img
+                        src={getImageUrl(form.imageUrl, { width: 200 })}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <input
+                      className="input font-mono text-xs"
+                      value={form.imageUrl || ''}
+                      onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+                      placeholder="Image URL"
+                    />
+                    <input
+                      ref={fileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={onPickPhoto}
+                    />
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <ImagePlus className="h-4 w-4" />
+                      {uploading ? 'Uploading…' : 'Upload photo'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="label">Sort order</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={form.sortOrder}
+                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="label">Category</label>
+                <select
+                  required
+                  className="input"
+                  value={form.parentId}
+                  onChange={(e) => setForm({ ...form, parentId: e.target.value })}
+                >
+                  <option value="">Select…</option>
+                  {roots.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">Name</label>
+                <input
+                  required
+                  className="input"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Boxers"
+                />
+              </div>
+              <div>
+                <label className="label">Slug (optional)</label>
+                <input
+                  className="input font-mono text-sm"
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="boxers"
+                />
+              </div>
+              <div>
+                <label className="label">Sort order</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={form.sortOrder}
+                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                />
+              </div>
+            </>
           )}
-          <div>
-            <label className="label">Name</label>
-            <input
-              required
-              className="input"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder={mode === 'category' ? 'Men' : 'Boxers'}
-            />
-          </div>
-          {mode === 'subcategory' && (
-            <div>
-              <label className="label">Slug (optional)</label>
-              <input
-                className="input font-mono text-sm"
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="boxers"
-              />
-            </div>
-          )}
-          <div>
-            <label className="label">Sort order</label>
-            <input
-              type="number"
-              className="input"
-              value={form.sortOrder}
-              onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-            />
-          </div>
           <button type="submit" className="btn-wheat w-full">
             Save
           </button>
