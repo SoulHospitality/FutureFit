@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -8,6 +8,7 @@ import StarRating from '../components/store/StarRating';
 import { useCategories } from '../context/CategoriesContext';
 import {
   getImageUrl,
+  getImageSrcSet,
   AUDIENCES,
   DEPT_IMAGES,
   asArray,
@@ -31,6 +32,8 @@ export default function HomePage() {
   const [index, setIndex] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [email, setEmail] = useState('');
+  const [paused, setPaused] = useState(false);
+  const touchStartX = useRef(null);
 
   const departments = (tree?.length
     ? tree
@@ -86,10 +89,14 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (slides.length < 2) return undefined;
+    if (slides.length < 2 || paused) return undefined;
+    const reduceMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return undefined;
     const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 6000);
     return () => clearInterval(t);
-  }, [slides.length]);
+  }, [slides.length, paused]);
 
   useEffect(() => {
     if (slides.length < 2) return;
@@ -109,44 +116,70 @@ export default function HomePage() {
     setIndex((i) => (i + dir + slides.length) % slides.length);
   };
 
+  const onTouchStart = (e) => {
+    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+  };
+
+  const onTouchEnd = (e) => {
+    const start = touchStartX.current;
+    touchStartX.current = null;
+    if (start == null || slides.length < 2) return;
+    const dx = (e.changedTouches[0]?.clientX ?? start) - start;
+    if (Math.abs(dx) < 48) return;
+    go(dx < 0 ? 1 : -1);
+  };
+
   return (
     <div className="bg-white">
-      <section className="relative w-full overflow-hidden bg-timber-900 aspect-[4/5] sm:aspect-[16/9] sm:min-h-0 lg:aspect-[21/9] lg:max-h-[85svh]">
+      <section
+        className="home-hero relative w-full overflow-hidden bg-timber-900"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
+        }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        aria-roledescription="carousel"
+        aria-label="Homepage slideshow"
+      >
         <div className="absolute inset-0">
           {slide?.cloudinaryUrl ? (
             <img
               key={slide.id}
-              src={getImageUrl(slide.cloudinaryUrl, { width: 1600 })}
-              alt={slide.title}
+              src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
+              srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000])}
+              alt={slide.title || 'FutureFit'}
               width={1600}
               height={900}
               loading="eager"
               fetchPriority="high"
               decoding="async"
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover object-center"
               sizes="100vw"
             />
           ) : (
             <div className="absolute inset-0 bg-timber-900" />
           )}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
-        <div className="relative mx-auto flex h-full min-h-0 max-w-7xl items-end px-5 pb-20 pt-32 sm:px-8 sm:pb-24 sm:pt-40">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/20 sm:bg-gradient-to-r sm:from-black/55 sm:via-black/20 sm:to-transparent" />
+        <div className="relative mx-auto flex h-full max-w-7xl items-end px-4 pb-[max(4.5rem,env(safe-area-inset-bottom))] pt-28 sm:px-8 sm:pb-24 sm:pt-36">
           <div className="max-w-xl text-white">
-            <p className="text-[11px] font-medium uppercase tracking-[0.4em] text-white/70">
+            <p className="text-[10px] font-medium uppercase tracking-[0.4em] text-white/70 sm:text-[11px]">
               FutureFit
             </p>
             <div key={slide?.id || 'fallback'} className="hero-copy-fade">
-              <h1 className="mt-5 font-display text-4xl font-medium leading-[0.95] tracking-tight sm:text-7xl">
+              <h1 className="mt-4 font-display text-[clamp(2rem,6vw,4.5rem)] font-medium leading-[0.95] tracking-tight sm:mt-5">
                 {slide?.title || fallbackTitle}
               </h1>
-              <p className="mt-6 max-w-md text-balance text-base leading-relaxed text-white/80 sm:text-lg">
+              <p className="mt-4 max-w-md text-balance text-[clamp(0.9rem,2.2vw,1.125rem)] leading-relaxed text-white/80 sm:mt-6">
                 {slide?.description || fallbackDescription}
               </p>
             </div>
             <Link
               to="/shop"
-              className="btn-wheat btn-lg mt-10"
+              className="btn-wheat btn-lg mt-8 min-h-12 w-full max-w-xs touch-manipulation sm:mt-10 sm:w-auto"
             >
               Shop collection
             </Link>
@@ -157,7 +190,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => go(-1)}
-              className="absolute left-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 text-white transition hover:bg-white hover:text-timber-900 sm:grid"
+              className="absolute start-2 top-1/2 z-[1] grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-white hover:text-timber-900 sm:start-4 sm:h-12 sm:w-12"
               aria-label="Previous slide"
             >
               <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
@@ -165,44 +198,49 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => go(1)}
-              className="absolute right-4 top-1/2 hidden h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 text-white transition hover:bg-white hover:text-timber-900 sm:grid"
+              className="absolute end-2 top-1/2 z-[1] grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-white hover:text-timber-900 sm:end-4 sm:h-12 sm:w-12"
               aria-label="Next slide"
             >
               <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
             </button>
-            <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-2">
+            <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-[1] flex -translate-x-1/2 gap-2">
               {slides.map((s, i) => (
                 <button
                   key={s.id}
                   type="button"
                   aria-label={`Slide ${i + 1}`}
+                  aria-current={i === index ? 'true' : undefined}
                   onClick={() => setIndex(i)}
-                  className={`h-px transition-all duration-500 ease-out ${
-                    i === index ? 'w-10 bg-white' : 'w-5 bg-white/35'
-                  }`}
-                />
+                  className="flex h-10 items-center px-1 touch-manipulation"
+                >
+                  <span
+                    className={`block h-1 rounded-full transition-all duration-500 ease-out ${
+                      i === index ? 'w-10 bg-white' : 'w-5 bg-white/40'
+                    }`}
+                  />
+                </button>
               ))}
             </div>
           </>
         )}
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20">
-        <div className="mb-10 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
+        <div className="mb-8 flex items-end justify-between gap-4 border-b border-timber-100 pb-5 sm:mb-10 sm:pb-6">
           <div>
             <p className="brand-eyebrow">Shop</p>
-            <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
+            <h2 className="mt-3 font-display text-[clamp(1.75rem,4vw,3rem)] font-medium tracking-tight text-timber-900">
               Departments
             </h2>
           </div>
           <Link
             to="/shop"
-            className="mb-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
+            className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
           >
             Shop all
           </Link>
         </div>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="home-depts-track -mx-4 px-4 sm:mx-0 sm:px-0">
           {departments.map((dept) => {
             const photo =
               dept.imageUrl ||
@@ -218,32 +256,34 @@ export default function HomePage() {
               <Link
                 key={dept.id}
                 to={href}
-                className="group relative aspect-[4/5] overflow-hidden bg-timber-900"
+                className="group relative aspect-[4/5] max-h-[28rem] overflow-hidden bg-timber-900 sm:max-h-none"
               >
                 {photo ? (
                   <img
-                    src={getImageUrl(photo, { width: 800, aspect: '4:5' })}
+                    src={getImageUrl(photo, { width: 640, aspect: '4:5' })}
+                    srcSet={getImageSrcSet(photo, [480, 640, 800, 1000], { aspect: '4:5' })}
                     alt={`${dept.name} collection`}
                     width={800}
                     height={1000}
                     loading="lazy"
                     decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
+                    sizes="(min-width: 640px) 33vw, 80vw"
                   />
                 ) : (
                   <div className="absolute inset-0 bg-timber-800" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15" />
-                <div className="relative flex h-full flex-col justify-end p-8 text-white">
-                  <h3 className="font-display text-3xl font-medium text-white drop-shadow-sm sm:text-4xl">
+                <div className="relative flex h-full flex-col justify-end p-6 text-white sm:p-8">
+                  <h3 className="font-display text-[clamp(1.5rem,3vw,2.25rem)] font-medium text-white drop-shadow-sm">
                     {dept.name}
                   </h3>
                   {statement ? (
-                    <p className="mt-2 max-w-xs text-sm text-white/95 drop-shadow-sm">
+                    <p className="mt-2 line-clamp-3 max-w-xs text-sm text-white/95 drop-shadow-sm">
                       {statement}
                     </p>
                   ) : null}
-                  <span className="mt-6 text-[10px] font-medium uppercase tracking-[0.24em] text-white underline underline-offset-8">
+                  <span className="mt-5 text-[10px] font-medium uppercase tracking-[0.24em] text-white underline underline-offset-8 sm:mt-6">
                     Shop {dept.name}
                   </span>
                 </div>

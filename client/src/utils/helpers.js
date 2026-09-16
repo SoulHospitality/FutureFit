@@ -38,6 +38,14 @@ export const getImageUrl = (path, { width, aspect } = {}) => {
   return url;
 };
 
+/** Responsive srcset for Cloudinary (and plain fallbacks). */
+export const getImageSrcSet = (path, widths = [640, 960, 1280, 1600, 2000], opts = {}) => {
+  if (!path) return undefined;
+  return widths
+    .map((w) => `${getImageUrl(path, { width: w, ...opts })} ${w}w`)
+    .join(', ');
+};
+
 /** Homepage slideshow hero — landscape */
 export const SLIDE_IMAGE_ASPECT = '16:9';
 /** Homepage department / category covers — portrait */
