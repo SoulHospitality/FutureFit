@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-import { formatMoney, orderStatusBadge, orderStatusLabel, asArray } from '../utils/helpers';
+import { formatMoney, orderStatusBadge, orderStatusLabel, asArray, EGYPT_GOVERNORATES } from '../utils/helpers';
 
 export default function AccountPage() {
   const { user, updateUser } = useAuth();
@@ -16,7 +16,7 @@ export default function AccountPage() {
     city: user?.address?.city || '',
     state: user?.address?.state || '',
     zip: user?.address?.zip || '',
-    country: user?.address?.country || '',
+    country: user?.address?.country || 'Egypt',
     password: '',
   });
 
@@ -53,6 +53,12 @@ export default function AccountPage() {
     }
   };
 
+  const fieldLabel = (f) => {
+    if (f === 'password') return 'New password (optional)';
+    if (f === 'state') return 'Governorate';
+    return f;
+  };
+
   return (
     <div className="bg-white">
       <div className="mx-auto max-w-5xl space-y-12 px-4 py-12 sm:px-6 sm:py-16">
@@ -69,16 +75,30 @@ export default function AccountPage() {
           {['name', 'email', 'phone', 'password', 'street', 'city', 'state', 'zip', 'country'].map(
             (f) => (
               <div key={f} className={['street', 'password'].includes(f) ? 'md:col-span-2' : ''}>
-                <label className="label capitalize">
-                  {f === 'password' ? 'New password (optional)' : f}
-                </label>
-                <input
-                  type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
-                  className="input"
-                  value={form[f]}
-                  onChange={(e) => setForm({ ...form, [f]: e.target.value })}
-                  required={f !== 'password'}
-                />
+                <label className="label capitalize">{fieldLabel(f)}</label>
+                {f === 'state' ? (
+                  <select
+                    className="input"
+                    value={form.state}
+                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    required
+                  >
+                    <option value="">Select governorate</option>
+                    {EGYPT_GOVERNORATES.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
+                    className="input"
+                    value={form[f]}
+                    onChange={(e) => setForm({ ...form, [f]: e.target.value })}
+                    required={f !== 'password'}
+                  />
+                )}
               </div>
             )
           )}

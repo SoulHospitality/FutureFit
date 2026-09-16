@@ -4,6 +4,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
+import { EGYPT_GOVERNORATES } from '../utils/helpers';
 
 const ADDRESS_FIELDS = [
   { key: 'street', label: 'Street address', autoComplete: 'street-address', span: true },
@@ -170,16 +171,34 @@ export default function SignupPage() {
                 <label htmlFor={`signup-${key}`} className="label">
                   {label}
                 </label>
-                <input
-                  id={`signup-${key}`}
-                  required
-                  autoComplete={autoComplete}
-                  inputMode={inputMode}
-                  enterKeyHint={key === 'country' ? 'done' : 'next'}
-                  className="auth-input"
-                  value={form[key]}
-                  onChange={set(key)}
-                />
+                {key === 'state' ? (
+                  <select
+                    id={`signup-${key}`}
+                    required
+                    autoComplete={autoComplete}
+                    className="auth-input"
+                    value={form.state}
+                    onChange={set('state')}
+                  >
+                    <option value="">Select governorate</option>
+                    {EGYPT_GOVERNORATES.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={`signup-${key}`}
+                    required
+                    autoComplete={autoComplete}
+                    inputMode={inputMode}
+                    enterKeyHint={key === 'country' ? 'done' : 'next'}
+                    className="auth-input"
+                    value={form[key]}
+                    onChange={set(key)}
+                  />
+                )}
               </div>
             ))}
           </div>

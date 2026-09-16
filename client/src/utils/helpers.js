@@ -237,6 +237,37 @@ export const PAYMENT_METHODS = [
 
 export const INSTAPAY_HANDLE = import.meta.env.VITE_INSTAPAY_HANDLE || '';
 
+/** All 27 Egyptian governorates (for checkout / account address). */
+export const EGYPT_GOVERNORATES = [
+  'Cairo',
+  'Giza',
+  'Alexandria',
+  'Dakahlia',
+  'Red Sea',
+  'Beheira',
+  'Fayoum',
+  'Gharbia',
+  'Ismailia',
+  'Menofia',
+  'Minya',
+  'Qalyubia',
+  'New Valley',
+  'Suez',
+  'Aswan',
+  'Assiut',
+  'Beni Suef',
+  'Port Said',
+  'Damietta',
+  'Sharqia',
+  'South Sinai',
+  'Kafr El Sheikh',
+  'Matrouh',
+  'Luxor',
+  'Qena',
+  'North Sinai',
+  'Sohag',
+];
+
 export const calcShipping = (subtotal) =>
   Number(subtotal) >= FREE_SHIPPING_MIN || Number(subtotal) === 0 ? 0 : SHIPPING_FEE;
 

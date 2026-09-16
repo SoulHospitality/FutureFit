@@ -83,8 +83,9 @@ const createDelivery = async ({
     throw err;
   }
 
-  const dropCity = address.city || address.state || 'Cairo';
-  const dropZone = address.state || address.city || dropCity;
+  // Bosta cities are governorates — prefer state (governorate) over district/city text
+  const dropCity = address.state || address.city || 'Cairo';
+  const dropZone = address.city || address.state || dropCity;
   const dropLine = [address.street, address.zip].filter(Boolean).join(', ') || 'Address TBD';
 
   const payload = {

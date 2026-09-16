@@ -12,6 +12,7 @@ import {
   FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
   INSTAPAY_HANDLE,
+  EGYPT_GOVERNORATES,
 } from '../utils/helpers';
 import { getStoreSessionKey } from '../utils/sessionKey';
 
@@ -145,8 +146,8 @@ export default function CheckoutPage() {
       return true;
     }
     if (s === 2) {
-      if (!form.street.trim() || !form.city.trim() || !form.country.trim()) {
-        toast.error('Street, city, and country are required');
+      if (!form.street.trim() || !form.city.trim() || !form.state.trim() || !form.country.trim()) {
+        toast.error('Street, city, governorate, and country are required');
         return false;
       }
       return true;
@@ -355,12 +356,28 @@ export default function CheckoutPage() {
                   {ADDRESS_FIELDS.map(({ key, label, span }) => (
                     <div key={key} className={span ? 'md:col-span-2' : ''}>
                       <label className="label">{label}</label>
-                      <input
-                        required={key === 'street' || key === 'city' || key === 'country'}
-                        className="input"
-                        value={form[key]}
-                        onChange={set(key)}
-                      />
+                      {key === 'state' ? (
+                        <select
+                          required
+                          className="input"
+                          value={form.state}
+                          onChange={set('state')}
+                        >
+                          <option value="">Select governorate</option>
+                          {EGYPT_GOVERNORATES.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          required={key === 'street' || key === 'city' || key === 'country'}
+                          className="input"
+                          value={form[key]}
+                          onChange={set(key)}
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
