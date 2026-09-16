@@ -1,10 +1,11 @@
 /**
- * Wipe catalog products and import from a Shopify products_export CSV.
+ * Wipe catalog products and import from a Shopify products_export CSV or XLSX.
  *
  * Usage:
- *   node scripts/import-shopify-csv.js [path-to-csv]
+ *   node scripts/import-shopify-csv.js [path-to-csv-or-xlsx]
  *
- * Defaults to %USERPROFILE%/Downloads/products_export_1.csv
+ * Defaults to server/data/products_export_1.csv
+ * Includes active and draft products; skips archived.
  */
 require('dotenv').config();
 const fs = require('fs');
@@ -52,6 +53,23 @@ function parseCSV(text) {
   return rows;
 }
 
+function loadSheetRows(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.xlsx' || ext === '.xls') {
+    const XLSX = require('xlsx');
+    const wb = XLSX.readFile(filePath);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const objects = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+    if (!objects.length) return [];
+    const header = Object.keys(objects[0]);
+    return [
+      header,
+      ...objects.map((obj) => header.map((h) => (obj[h] != null ? String(obj[h]) : ''))),
+    ];
+  }
+  return parseCSV(fs.readFileSync(filePath, 'utf8'));
+}
+
 function stripHtml(html) {
   return String(html || '')
     .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -95,8 +113,7 @@ async function wipeCatalog() {
 }
 
 function buildProductsFromCsv(filePath) {
-  const text = fs.readFileSync(filePath, 'utf8');
-  const rows = parseCSV(text);
+  const rows = loadSheetRows(filePath);
   const header = rows[0];
   const idx = Object.fromEntries(header.map((h, i) => [h, i]));
   const get = (r, key) => (r[idx[key]] != null ? String(r[idx[key]]) : '');
@@ -110,10 +127,16 @@ function buildProductsFromCsv(filePath) {
   }
 
   const products = [];
+  let skippedArchived = 0;
   for (const [, list] of byHandle) {
     const titleRow = list.find((r) => get(r, 'Title')) || list[0];
-    const status = (get(titleRow, 'Status') || '').toLowerCase();
-    if (status !== 'active') continue;
+    const statusRaw = (get(titleRow, 'Status') || '').toLowerCase().trim();
+    // Include active + draft (+ blank as draft). Skip archived only.
+    if (statusRaw === 'archived') {
+      skippedArchived += 1;
+      continue;
+    }
+    const status = statusRaw === 'active' ? 'active' : 'draft';
 
     const title = get(titleRow, 'Title').trim();
     if (!title) continue;
@@ -230,6 +253,7 @@ function buildProductsFromCsv(filePath) {
       price: regularPrice,
       type,
       audience,
+      status,
       photos: photos.length ? photos : [],
       colors,
       photoByColor,
@@ -241,6 +265,9 @@ function buildProductsFromCsv(filePath) {
       _categorySlug: mapCategorySlug(productCategory, shopifyType, title, tags, audience),
     });
   }
+
+  console.log(`Parsed ${products.length} products from Shopify export.`);
+  if (skippedArchived) console.log(`Skipped ${skippedArchived} archived handles.`);
 
   return products;
 }

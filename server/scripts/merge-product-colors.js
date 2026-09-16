@@ -283,6 +283,7 @@ async function mergeGroup(annotated, { forceSameColor = false } = {}) {
         price,
         salePrice,
         isSaleActive,
+        status: list.some((p) => p.status === 'active') ? 'active' : 'draft',
         colors: finalColors,
         photos: allPhotos.length ? allPhotos : keeper.photos,
         photoByColor: Object.keys(finalMap).length ? finalMap : photoByColor,

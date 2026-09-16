@@ -19,6 +19,7 @@ const empty = {
   price: '',
   type: 'boxers',
   audience: 'men',
+  status: 'active',
   categoryId: '',
   photos: '',
   driveFolder: '',
@@ -68,7 +69,15 @@ export default function StaffProducts() {
     const query = q.trim().toLowerCase();
     if (!query) return products;
     return products.filter((p) =>
-      [p.name, p.description, p.type, audienceLabel(p.audience), categoryLabel(p), ...(p.colors || [])]
+      [
+        p.name,
+        p.description,
+        p.type,
+        p.status,
+        audienceLabel(p.audience),
+        categoryLabel(p),
+        ...(p.colors || []),
+      ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -185,6 +194,7 @@ export default function StaffProducts() {
       price: p.price,
       type: p.type,
       audience: p.audience || 'men',
+      status: p.status === 'draft' ? 'draft' : 'active',
       categoryId: p.category?.id || p.categoryId || '',
       photos: (p.photos || []).join('\n'),
       driveFolder: '',
@@ -263,6 +273,7 @@ export default function StaffProducts() {
       price: Number(form.price),
       type: form.type,
       audience: form.audience,
+      status: form.status === 'draft' ? 'draft' : 'active',
       categoryId: form.categoryId || null,
       photos: links,
       colors,
@@ -340,6 +351,7 @@ export default function StaffProducts() {
           <thead>
             <tr>
               <th>Item</th>
+              <th>Status</th>
               <th>Dept</th>
               <th>Price</th>
               <th>Stock by size</th>
@@ -350,7 +362,7 @@ export default function StaffProducts() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-10 text-center text-sm text-timber-500">
+                <td colSpan={7} className="py-10 text-center text-sm text-timber-500">
                   {q.trim() ? 'No products match your search.' : 'No products yet.'}
                 </td>
               </tr>
@@ -359,8 +371,9 @@ export default function StaffProducts() {
               const rows = p.sizeStocks?.length
                 ? p.sizeStocks
                 : [{ size: '', stock: p.stock }];
+              const isDraft = p.status === 'draft';
               return (
-                <tr key={p.id}>
+                <tr key={p.id} className={isDraft ? 'bg-timber-50/70' : undefined}>
                   <td>
                     <div className="flex items-center gap-3">
                       <img
@@ -370,6 +383,17 @@ export default function StaffProducts() {
                       />
                       <span className="font-medium">{p.name}</span>
                     </div>
+                  </td>
+                  <td>
+                    <span
+                      className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                        isDraft
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {isDraft ? 'Draft' : 'Active'}
+                    </span>
                   </td>
                   <td>
                   {audienceLabel(p.audience)}
@@ -473,6 +497,20 @@ export default function StaffProducts() {
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
               />
+            </div>
+            <div>
+              <label className="label">Status</label>
+              <select
+                className="input"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+              >
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+              </select>
+              <p className="mt-1 text-[11px] text-timber-400">
+                Draft items stay in staff only and are hidden on the storefront.
+              </p>
             </div>
             <div>
               <label className="label">Category</label>

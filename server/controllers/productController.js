@@ -42,6 +42,7 @@ const serializeProduct = (p, { includeReviews = false } = {}) => {
     sizeStocks,
     stock,
     audience: p.audience || 'men',
+    status: p.status === 'draft' ? 'draft' : 'active',
     category,
     ratingAvg,
     reviewCount,
@@ -68,6 +69,7 @@ const PRODUCT_SELECT = {
   price: true,
   type: true,
   audience: true,
+  status: true,
   categoryId: true,
   photos: true,
   colors: true,
@@ -196,6 +198,8 @@ const buildProductCreateData = async (body) => {
   const resolvedPhotos = await resolvePhotoLinks(photoLinks);
   const colorList = colors || [];
   const photoByColor = normalizePhotoByColor(body.photoByColor, colorList);
+  const status =
+    String(body.status || 'active').toLowerCase() === 'draft' ? 'draft' : 'active';
 
   return {
     name: String(name).trim(),
@@ -203,6 +207,7 @@ const buildProductCreateData = async (body) => {
     price,
     type,
     audience,
+    status,
     categoryId,
     photos: resolvedPhotos,
     colors: colorList,
@@ -217,13 +222,20 @@ const buildProductCreateData = async (body) => {
 
 const listProducts = async (req, res) => {
   try {
-    const { type, q, limit, audience, category } = req.query;
+    const { type, q, limit, audience, category, status } = req.query;
     const take = Math.min(Number(limit) || 500, 2000);
-    const useCache = !req.headers.authorization;
-    const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${take}`;
+    const isStaff = Boolean(req.headers.authorization);
+    const useCache = !isStaff;
+    const statusKey = isStaff ? String(status || 'all') : 'active';
+    const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${statusKey}:${take}`;
 
     const load = async () => {
       const where = {};
+      if (!isStaff) {
+        where.status = 'active';
+      } else if (status === 'active' || status === 'draft') {
+        where.status = status;
+      }
       if (type) where.type = type;
       if (audience && AUDIENCES.includes(audience)) where.audience = audience;
       if (category) {
@@ -277,19 +289,27 @@ const listProducts = async (req, res) => {
 
 const getProduct = async (req, res) => {
   try {
+    const isStaff = Boolean(req.headers.authorization);
     const { data: product } = await cache.wrap(
-      `product:${req.params.id}`,
+      `product:${req.params.id}:${isStaff ? 'staff' : 'public'}`,
       ITEM_TTL_MS,
       async () => {
         const row = await prisma.product.findUnique({
           where: { id: req.params.id },
           select: PRODUCT_DETAIL_SELECT,
         });
-        return row ? serializeProduct(row, { includeReviews: true }) : null;
+        if (!row) return null;
+        if (!isStaff && row.status !== 'active') return null;
+        return serializeProduct(row, { includeReviews: true });
       }
     );
     if (!product) return res.status(404).json({ message: 'Product not found' });
-    res.set('Cache-Control', 'public, max-age=20, stale-while-revalidate=40');
+    res.set(
+      'Cache-Control',
+      isStaff
+        ? 'no-store'
+        : 'public, max-age=20, stale-while-revalidate=40'
+    );
     res.json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -369,6 +389,7 @@ const ALLOWED_UPDATE = [
   'description',
   'price',
   'type',
+  'status',
   'photos',
   'colors',
   'photoByColor',
@@ -381,6 +402,9 @@ const updateProduct = async (req, res) => {
     const data = {};
     for (const key of ALLOWED_UPDATE) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
+    }
+    if (data.status != null) {
+      data.status = String(data.status).toLowerCase() === 'draft' ? 'draft' : 'active';
     }
     if (data.photos) {
       data.photos = await resolvePhotoLinks(data.photos);
