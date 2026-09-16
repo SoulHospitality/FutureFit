@@ -61,7 +61,10 @@ const fulfillOrderWithBosta = async (orderOrId, { confirm = true } = {}) => {
   const isCod = String(order.paymentMethod || '')
     .toLowerCase()
     .includes('cash on delivery');
-  const codAmount = isCod && !order.isPaid ? Number(order.totalPrice) : 0;
+  const isPaymob = /paymob|card\s*\/\s*wallet/i.test(String(order.paymentMethod || ''));
+  // Never send COD amount for prepaid Paymob / InstaPay orders
+  const codAmount =
+    isCod && !order.isPaid && !isPaymob ? Number(order.totalPrice) : 0;
 
   try {
     const result = await bosta.createDelivery({

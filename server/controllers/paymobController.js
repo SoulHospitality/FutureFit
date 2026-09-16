@@ -66,6 +66,10 @@ const handleWebhook = async (req, res) => {
       obj.order?.shipping_data?.order_id,
       obj.payment_key_claims?.extra?.merchant_order_id,
       obj.payment_key_claims?.extra?.special_reference,
+      obj.payment_key_claims?.extras?.merchant_order_id,
+      obj.payment_key_claims?.extras?.special_reference,
+      obj.intention?.extras?.merchant_order_id,
+      obj.intention?.special_reference,
       typeof obj.payment_key_claims?.order_id === 'string' &&
       obj.payment_key_claims.order_id.length > 20
         ? obj.payment_key_claims.order_id

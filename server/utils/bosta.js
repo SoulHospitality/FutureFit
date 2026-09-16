@@ -9,6 +9,15 @@ const apiPublicUrl = () =>
     ''
   );
 
+/** Normalize Egyptian mobile for Bosta (01xxxxxxxxx). */
+const normalizeEgyptPhone = (phone) => {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.startsWith('0020')) p = p.slice(4);
+  if (p.startsWith('20') && p.length >= 11) p = p.slice(2);
+  if (p.length === 10 && p.startsWith('1')) p = `0${p}`;
+  return p;
+};
+
 const request = async (method, path, body) => {
   if (!isConfigured()) {
     const err = new Error('Bosta is not configured');
@@ -67,6 +76,12 @@ const createDelivery = async ({
   description = 'FutureFit order',
 }) => {
   const { firstName, lastName } = splitName(customerName);
+  const normalizedPhone = normalizeEgyptPhone(phone);
+  if (!normalizedPhone || normalizedPhone.length < 10) {
+    const err = new Error('A valid Egyptian phone number is required for shipping');
+    err.status = 400;
+    throw err;
+  }
 
   const dropCity = address.city || address.state || 'Cairo';
   const dropZone = address.state || address.city || dropCity;
@@ -81,7 +96,7 @@ const createDelivery = async ({
     receiver: {
       firstName,
       lastName,
-      phone: String(phone || '').replace(/\s+/g, ''),
+      phone: normalizedPhone,
       email: email || undefined,
     },
     dropOffAddress: {
@@ -119,7 +134,11 @@ const mapBostaStateToOrderStatus = (state) => {
     .replace(/[\s_-]+/g, '');
   if (!s) return null;
   if (['delivered', 'completed'].some((k) => s.includes(k))) return 'delivered';
-  if (['pickedup', 'pickingup', 'intransit', 'outfordelivery', 'onhold', 'headingtocustomer'].some((k) => s.includes(k))) {
+  if (
+    ['pickedup', 'pickingup', 'intransit', 'outfordelivery', 'onhold', 'headingtocustomer'].some(
+      (k) => s.includes(k)
+    )
+  ) {
     return 'out_for_delivery';
   }
   if (['canceled', 'cancelled', 'terminated', 'returned', 'rto'].some((k) => s.includes(k))) {
@@ -138,4 +157,5 @@ module.exports = {
   isConfigured,
   createDelivery,
   mapBostaStateToOrderStatus,
+  normalizeEgyptPhone,
 };

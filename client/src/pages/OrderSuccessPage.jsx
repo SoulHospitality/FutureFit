@@ -63,18 +63,49 @@ export default function OrderSuccessPage() {
   useEffect(() => {
     if (!orderId || state?.order) return undefined;
     let cancelled = false;
+    let attempts = 0;
     setLoading(true);
-    api
-      .get(`/orders/${orderId}/receipt`)
-      .then((r) => {
-        if (!cancelled) setOrder(r.data);
-      })
-      .catch(() => {
-        if (!cancelled) setOrder(null);
+
+    const load = () =>
+      api
+        .get(`/orders/${orderId}/receipt`)
+        .then((r) => {
+          if (cancelled) return null;
+          setOrder(r.data);
+          return r.data;
+        })
+        .catch(() => {
+          if (!cancelled) setOrder(null);
+          return null;
+        });
+
+    load()
+      .then((data) => {
+        if (cancelled || !data) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        const isPaymob =
+          data.paymentMethod === 'Paymob' || data.paymentMethod === 'Card / Wallet (Paymob)';
+        // Webhook can lag behind redirect — poll briefly for paid status
+        if (isPaymob && !data.isPaid && attempts < 6) {
+          const tick = () => {
+            attempts += 1;
+            load().then((next) => {
+              if (cancelled) return;
+              if (next?.isPaid || attempts >= 6) setLoading(false);
+              else setTimeout(tick, 1500);
+            });
+          };
+          setTimeout(tick, 1500);
+        } else {
+          setLoading(false);
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        /* loading cleared in branches above when done */
       });
+
     return () => {
       cancelled = true;
     };

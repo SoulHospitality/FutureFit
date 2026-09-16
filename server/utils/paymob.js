@@ -28,6 +28,16 @@ const apiPublicUrl = () =>
     ''
   );
 
+/** Normalize Egyptian mobile numbers for Paymob (01xxxxxxxxx). */
+const normalizeEgyptPhone = (phone) => {
+  let p = String(phone || '').replace(/\D/g, '');
+  if (p.startsWith('0020')) p = p.slice(4);
+  if (p.startsWith('20') && p.length >= 11) p = p.slice(2);
+  if (p.length === 10 && p.startsWith('1')) p = `0${p}`;
+  if (!p) return '01000000000';
+  return p;
+};
+
 /**
  * Create a Paymob Intention and return checkout URL for Unified Checkout.
  * Amount must be in cents (piastres for EGP).
@@ -55,19 +65,34 @@ const createIntention = async ({
   const firstName = String(customer.firstName || billing.firstName || 'Customer').slice(0, 50);
   const lastName = String(customer.lastName || billing.lastName || 'FutureFit').slice(0, 50);
   const email = String(customer.email || billing.email || 'orders@futurefit.eg').slice(0, 100);
-  const phone = String(customer.phone || billing.phone || '01000000000').replace(/\s+/g, '');
+  const phone = normalizeEgyptPhone(customer.phone || billing.phone);
+
+  // One line item matching the charged total avoids Paymob rejecting
+  // mismatches when shipping / discounts are applied.
+  const itemSummary =
+    items.length === 1
+      ? String(items[0].name || 'FutureFit order').slice(0, 120)
+      : items.length > 1
+        ? `FutureFit order (${items.length} items)`
+        : 'FutureFit order';
 
   const payload = {
     amount: amountCents,
     currency: CURRENCY,
     payment_methods: integrationIds(),
-    items: items.map((i) => ({
-      name: String(i.name || 'Item').slice(0, 120),
-      amount: Math.round(Number(i.price) * 100),
-      description: String(i.name || '').slice(0, 120),
-      quantity: Number(i.qty) || 1,
-    })),
+    items: [
+      {
+        name: itemSummary,
+        amount: amountCents,
+        description: `Order ${String(orderId).slice(0, 8)}`,
+        quantity: 1,
+      },
+    ],
     special_reference: String(orderId),
+    extras: {
+      merchant_order_id: String(orderId),
+      special_reference: String(orderId),
+    },
     billing_data: {
       first_name: firstName,
       last_name: lastName,
@@ -75,18 +100,19 @@ const createIntention = async ({
       phone_number: phone,
       apartment: billing.apartment || 'NA',
       floor: billing.floor || 'NA',
-      street: billing.street || 'NA',
+      street: String(billing.street || 'NA').slice(0, 100) || 'NA',
       building: billing.building || 'NA',
       shipping_method: 'NA',
       postal_code: billing.zip || 'NA',
       city: billing.city || 'Cairo',
-      state: billing.state || 'Cairo',
-      country: billing.country === 'Egypt' ? 'EGY' : billing.country || 'EGY',
+      state: billing.state || billing.city || 'Cairo',
+      country: 'EGY',
     },
     customer: {
       first_name: firstName,
       last_name: lastName,
       email,
+      extras: { phone },
     },
     notification_url: `${apiPublicUrl()}/api/paymob/webhook`,
     redirection_url: `${clientUrl()}/order-success?orderId=${encodeURIComponent(orderId)}`,
@@ -110,6 +136,7 @@ const createIntention = async ({
       `Paymob intention failed (${res.status})`;
     const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
     err.status = 502;
+    err.payload = data;
     throw err;
   }
 
@@ -168,10 +195,15 @@ const verifyTransactionHmac = (obj, hmacFromQuery) => {
   }).join('');
 
   const digest = crypto.createHmac('sha512', HMAC_SECRET).update(concatenated).digest('hex');
+  const incoming = String(hmacFromQuery).toLowerCase();
+  const expected = digest.toLowerCase();
   try {
-    return crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(String(hmacFromQuery)));
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(incoming, 'utf8');
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
   } catch {
-    return digest === String(hmacFromQuery);
+    return expected === incoming;
   }
 };
 
@@ -179,6 +211,7 @@ module.exports = {
   isConfigured,
   createIntention,
   verifyTransactionHmac,
+  normalizeEgyptPhone,
   PUBLIC_KEY,
   BASE_URL,
 };
