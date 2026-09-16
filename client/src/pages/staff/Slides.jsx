@@ -93,7 +93,11 @@ export default function StaffSlides() {
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
         {slides.map((s) => (
           <div key={s.id} className="card !p-0 overflow-hidden">
-            <img src={getImageUrl(s.cloudinaryUrl)} alt={s.title} className="h-40 w-full object-cover" />
+            <img
+              src={getImageUrl(s.cloudinaryUrl, { width: 640, aspect: '16:9' })}
+              alt={s.title}
+              className="aspect-video w-full object-cover"
+            />
             <div className="p-4">
               <h3 className="font-semibold">{s.title}</h3>
               <p className="text-sm text-timber-500 mt-1">{s.description}</p>
@@ -128,6 +132,10 @@ export default function StaffSlides() {
           <div>
             <label className="label">{editing ? 'Replace image (optional)' : 'Upload (Cloudinary)'}</label>
             <input type="file" accept="image/*" onChange={onFile} className="input" />
+            <p className="mt-1.5 text-xs text-zinc-500">
+              Recommended: <span className="font-medium text-zinc-700">16:9</span> landscape
+              (e.g. 1920×1080). Keep the main subject centered — edges may crop on mobile.
+            </p>
           </div>
           <div>
             <label className="label">Or image URL</label>

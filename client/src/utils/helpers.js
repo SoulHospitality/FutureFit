@@ -1,5 +1,5 @@
 /** Normalize Drive / remote image URLs for <img src> */
-export const getImageUrl = (path, { width } = {}) => {
+export const getImageUrl = (path, { width, aspect } = {}) => {
   if (!path) return '';
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
 
@@ -21,8 +21,13 @@ export const getImageUrl = (path, { width } = {}) => {
     url = path.replace(/\/images\/products\/([^/?#]+)\.png$/i, '/images/products/$1.webp');
   }
 
-  if (url.includes('res.cloudinary.com') && width) {
-    return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+  if (url.includes('res.cloudinary.com')) {
+    const parts = ['f_auto', 'q_auto'];
+    if (aspect) parts.push(`c_fill`, `g_auto`, `ar_${aspect}`);
+    if (width) parts.push(`w_${width}`);
+    if (parts.length > 2 || width || aspect) {
+      return url.replace('/upload/', `/upload/${parts.join(',')}/`);
+    }
   }
 
   if (width && url.includes('googleusercontent.com') && !/=[sw]\d/.test(url)) {
@@ -32,6 +37,11 @@ export const getImageUrl = (path, { width } = {}) => {
   if (url.startsWith('http')) return url;
   return url;
 };
+
+/** Homepage slideshow hero — landscape */
+export const SLIDE_IMAGE_ASPECT = '16:9';
+/** Homepage department / category covers — portrait */
+export const CATEGORY_IMAGE_ASPECT = '4:5';
 
 const preloadedUrls = new Set();
 

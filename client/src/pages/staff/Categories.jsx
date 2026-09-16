@@ -154,10 +154,10 @@ export default function StaffCategories() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-timber-50 bg-timber-50/60 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-timber-200">
+                  <div className="h-14 w-11 shrink-0 overflow-hidden rounded-lg bg-timber-200">
                     {parent.imageUrl ? (
                       <img
-                        src={getImageUrl(parent.imageUrl, { width: 120 })}
+                        src={getImageUrl(parent.imageUrl, { width: 120, aspect: '4:5' })}
                         alt=""
                         className="h-full w-full object-cover"
                       />
@@ -296,10 +296,10 @@ export default function StaffCategories() {
               <div>
                 <label className="label">Photo</label>
                 <div className="flex flex-wrap items-start gap-3">
-                  <div className="h-24 w-20 overflow-hidden rounded-lg bg-timber-100">
+                  <div className="aspect-[4/5] w-24 overflow-hidden rounded-lg bg-timber-100">
                     {form.imageUrl ? (
                       <img
-                        src={getImageUrl(form.imageUrl, { width: 200 })}
+                        src={getImageUrl(form.imageUrl, { width: 200, aspect: '4:5' })}
                         alt=""
                         className="h-full w-full object-cover"
                       />
@@ -328,6 +328,11 @@ export default function StaffCategories() {
                       <ImagePlus className="h-4 w-4" />
                       {uploading ? 'Uploading…' : 'Upload photo'}
                     </button>
+                    <p className="text-xs text-zinc-500">
+                      Recommended:{' '}
+                      <span className="font-medium text-zinc-700">4:5</span> portrait
+                      (e.g. 1080×1350). Keep the subject centered — edges may crop.
+                    </p>
                   </div>
                 </div>
               </div>

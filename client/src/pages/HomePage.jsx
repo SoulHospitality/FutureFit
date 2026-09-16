@@ -111,14 +111,14 @@ export default function HomePage() {
 
   return (
     <div className="bg-white">
-      <section className="relative min-h-[72svh] w-full overflow-hidden bg-timber-900 sm:min-h-[85svh]">
+      <section className="relative w-full overflow-hidden bg-timber-900 aspect-[4/5] sm:aspect-[16/9] sm:min-h-0 lg:aspect-[21/9] lg:max-h-[85svh]">
         <div className="absolute inset-0">
           {slide?.cloudinaryUrl ? (
             <img
               key={slide.id}
-              src={getImageUrl(slide.cloudinaryUrl, { width: 1400 })}
+              src={getImageUrl(slide.cloudinaryUrl, { width: 1600 })}
               alt={slide.title}
-              width={1400}
+              width={1600}
               height={900}
               loading="eager"
               fetchPriority="high"
@@ -131,7 +131,7 @@ export default function HomePage() {
           )}
         </div>
         <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
-        <div className="relative mx-auto flex min-h-[72svh] max-w-7xl items-end px-5 pb-20 pt-32 sm:min-h-[85svh] sm:px-8 sm:pb-24 sm:pt-40">
+        <div className="relative mx-auto flex h-full min-h-0 max-w-7xl items-end px-5 pb-20 pt-32 sm:px-8 sm:pb-24 sm:pt-40">
           <div className="max-w-xl text-white">
             <p className="text-[11px] font-medium uppercase tracking-[0.4em] text-white/70">
               FutureFit
@@ -218,11 +218,11 @@ export default function HomePage() {
               <Link
                 key={dept.id}
                 to={href}
-                className="group relative min-h-[280px] overflow-hidden bg-timber-900 sm:min-h-[320px]"
+                className="group relative aspect-[4/5] overflow-hidden bg-timber-900"
               >
                 {photo ? (
                   <img
-                    src={getImageUrl(photo, { width: 800 })}
+                    src={getImageUrl(photo, { width: 800, aspect: '4:5' })}
                     alt={`${dept.name} collection`}
                     width={800}
                     height={1000}
@@ -234,7 +234,7 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-timber-800" />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15" />
-                <div className="relative flex h-full min-h-[280px] flex-col justify-end p-8 text-white sm:min-h-[320px]">
+                <div className="relative flex h-full flex-col justify-end p-8 text-white">
                   <h3 className="font-display text-3xl font-medium text-white drop-shadow-sm sm:text-4xl">
                     {dept.name}
                   </h3>
