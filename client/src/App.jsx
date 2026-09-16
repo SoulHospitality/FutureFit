@@ -12,6 +12,7 @@ import MiniCartDrawer from './components/store/MiniCartDrawer';
 import PresenceBeacon from './components/store/PresenceBeacon';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
+import MetaPixelTracker from './components/MetaPixelTracker';
 import { defaultStaffPage, isStaff } from './utils/permissions';
 
 import { COMING_SOON } from './config';
@@ -179,6 +180,7 @@ function AppRoutes() {
   return (
     <StoreShell>
       <ScrollToTop />
+      <MetaPixelTracker />
       <PrefetchStaffChunks />
       <Routes>
         {COMING_SOON ? (

@@ -15,6 +15,7 @@ import {
   EGYPT_GOVERNORATES,
 } from '../utils/helpers';
 import { getStoreSessionKey } from '../utils/sessionKey';
+import { trackInitiateCheckout } from '../utils/metaPixel';
 
 const ADDRESS_FIELDS = [
   { key: 'street', label: 'Street address', span: true },
@@ -72,12 +73,18 @@ export default function CheckoutPage() {
   const step = stepFromPath(pathname);
   const [form, setForm] = useState(() => loadSavedForm(user));
   const [loading, setLoading] = useState(false);
-  const shipping = calcShipping(subtotal);
-  const total = subtotal + shipping;
+  const shipping = calcShipping(subtotal, form.state);
+  const shippingAmount = shipping ?? 0;
+  const total = subtotal + shippingAmount;
 
   useEffect(() => {
     sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  useEffect(() => {
+    if (!items.length) return;
+    trackInitiateCheckout({ items, value: subtotal });
+  }, []); // once per checkout session mount
 
   // Sync abandoned checkout draft (debounced)
   useEffect(() => {
@@ -524,7 +531,9 @@ export default function CheckoutPage() {
                   <span className="tabular-nums">
                     {shipping === 0
                       ? 'Free'
-                      : `${formatMoney(shipping)} · free over ${formatMoney(FREE_SHIPPING_MIN)}`}
+                      : shipping == null
+                        ? 'Select governorate'
+                        : `${formatMoney(shipping)} · free over ${formatMoney(FREE_SHIPPING_MIN)}`}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-timber-100 pt-3 text-base font-medium">

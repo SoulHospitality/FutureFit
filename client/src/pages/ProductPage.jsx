@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { useCart } from '../context/CartContext';
+import { trackViewContent } from '../utils/metaPixel';
 import { useWishlist } from '../context/WishlistContext';
 import {
   formatMoney,
@@ -176,6 +177,7 @@ export default function ProductPage() {
     setRelated([]);
     api.get(`/products/${id}`).then((r) => {
       setProduct(r.data);
+      trackViewContent(r.data);
       const firstColor = r.data.colors?.[0] || '';
       setColor(firstColor);
       const firstInStock =

@@ -4,6 +4,7 @@ const { stockForSize } = require('../utils/sizeStock');
 const { fulfillOrderWithBosta, isCodMethod, isInstaPayMethod } = require('./bostaController');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
+const { calcShipping } = require('../utils/shipping');
 
 const isPaymobMethod = (method) =>
   method === PAYMOB_METHOD || method === 'Card / Wallet (Paymob)';
@@ -19,9 +20,6 @@ const confirmOrderOnly = async (order) => {
     },
   });
 };
-
-const FREE_SHIPPING_MIN = 2000;
-const SHIPPING_FEE = 75;
 
 const effectivePrice = (product) => {
   if (product.isSaleActive && product.salePrice != null) {
@@ -201,7 +199,10 @@ const createOrder = async (req, res) => {
       couponCode,
       itemsPrice
     );
-    const shippingPrice = itemsPrice >= FREE_SHIPPING_MIN ? 0 : SHIPPING_FEE;
+    if (!shippingAddress.state) {
+      return res.status(400).json({ message: 'Governorate is required' });
+    }
+    const shippingPrice = calcShipping(itemsPrice, shippingAddress.state);
     const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
 
     let order = await persistOrder({
@@ -269,8 +270,8 @@ const createGuestOrder = async (req, res) => {
     if (!paymentMethod || !shippingAddress) {
       return res.status(400).json({ message: 'Payment method and shipping address required' });
     }
-    if (!shippingAddress.street || !shippingAddress.city) {
-      return res.status(400).json({ message: 'Street and city are required' });
+    if (!shippingAddress.street || !shippingAddress.city || !shippingAddress.state) {
+      return res.status(400).json({ message: 'Street, city, and governorate are required' });
     }
 
     const { itemsPrice, itemsData } = await buildOrderItems(orderItems);
@@ -278,7 +279,7 @@ const createGuestOrder = async (req, res) => {
       couponCode,
       itemsPrice
     );
-    const shippingPrice = itemsPrice >= FREE_SHIPPING_MIN ? 0 : SHIPPING_FEE;
+    const shippingPrice = calcShipping(itemsPrice, shippingAddress.state);
     const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
 
     let order = await persistOrder({

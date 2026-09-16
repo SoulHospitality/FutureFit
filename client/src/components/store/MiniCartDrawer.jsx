@@ -21,6 +21,8 @@ export default function MiniCartDrawer() {
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
+  const shippingLabel =
+    shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
 
   useEffect(() => {
     if (!drawerOpen) return undefined;
@@ -182,9 +184,7 @@ export default function MiniCartDrawer() {
             </div>
             <div className="mb-4 flex justify-between text-sm">
               <span className="text-timber-500">Shipping</span>
-              <span className="tabular-nums text-timber-900">
-                {shipping === 0 ? 'Free' : formatMoney(shipping)}
-              </span>
+              <span className="tabular-nums text-timber-900">{shippingLabel}</span>
             </div>
             <div className="flex flex-col gap-2">
               <Link

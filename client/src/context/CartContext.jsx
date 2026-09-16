@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getSizeStock } from '../utils/helpers';
+import { trackAddToCart } from '../utils/metaPixel';
 
 const CartContext = createContext(null);
 
@@ -24,13 +25,19 @@ export function CartProvider({ children }) {
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const addItem = (product, qty = 1, color = null, size = null) => {
+    const price =
+      product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
+    trackAddToCart({
+      productId: product.id,
+      name: product.name,
+      price,
+      qty,
+    });
     setItems((prev) => {
       const key = itemKey(product.id, color, size);
       const existing = prev.find((i) => itemKey(i.productId, i.color, i.size) === key);
       const available = getSizeStock(product, size);
-      const nextQty = existing
-        ? existing.qty + qty
-        : qty;
+      const nextQty = existing ? existing.qty + qty : qty;
       const cappedQty = available > 0 ? Math.min(nextQty, available) : nextQty;
       if (existing) {
         return prev.map((i) =>
@@ -39,8 +46,6 @@ export function CartProvider({ children }) {
             : i
         );
       }
-      const price =
-        product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
       return [
         ...prev,
         {

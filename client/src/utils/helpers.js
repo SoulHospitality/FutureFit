@@ -215,7 +215,62 @@ export const totalStock = (product) => {
 
 
 export const FREE_SHIPPING_MIN = 2000;
-export const SHIPPING_FEE = 75;
+/** Lowest published rate (Cairo & Giza). Used as cart estimate when governorate unknown. */
+export const SHIPPING_FEE = 85;
+export const SHIPPING_FEE_MIN = 85;
+export const SHIPPING_FEE_DEFAULT = 180;
+
+const normalizeGovernorate = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '');
+
+/** Normalized governorate → fee (EGP). Unmatched → 180. */
+const SHIPPING_RATE_BY_KEY = {
+  cairo: 85,
+  giza: 85,
+
+  alexandria: 110,
+  sharqia: 110,
+  alsharqia: 110,
+  sharkia: 110,
+  beheira: 110,
+  dakahlia: 110,
+  damietta: 110,
+  gharbia: 110,
+  ismailia: 110,
+  kafrelsheikh: 110,
+  menofia: 110,
+  monufia: 110,
+  menoufia: 110,
+  portsaid: 110,
+  qalyubia: 110,
+  qaliubiya: 110,
+  suez: 110,
+
+  asyut: 145,
+  assiut: 145,
+  benisuef: 145,
+  fayoum: 145,
+  faiyum: 145,
+  minya: 145,
+  sohag: 145,
+
+  matrouh: 180,
+  northsinai: 180,
+  aswan: 180,
+  luxor: 180,
+  newvalley: 180,
+  qena: 180,
+  redsea: 180,
+  southsinai: 180,
+};
+
+export const getShippingRate = (governorate) => {
+  const key = normalizeGovernorate(governorate);
+  if (!key) return SHIPPING_FEE_DEFAULT;
+  return SHIPPING_RATE_BY_KEY[key] ?? SHIPPING_FEE_DEFAULT;
+};
 
 export const PAYMENT_METHODS = [
   {
@@ -268,8 +323,17 @@ export const EGYPT_GOVERNORATES = [
   'Sohag',
 ];
 
-export const calcShipping = (subtotal) =>
-  Number(subtotal) >= FREE_SHIPPING_MIN || Number(subtotal) === 0 ? 0 : SHIPPING_FEE;
+/**
+ * @param {number} subtotal
+ * @param {string} [governorate] optional; when omitted uses default remote rate (180)
+ *   except callers that pass nothing for cart UI should treat shipping as “at checkout”.
+ */
+export const calcShipping = (subtotal, governorate) => {
+  const items = Number(subtotal) || 0;
+  if (items === 0 || items >= FREE_SHIPPING_MIN) return 0;
+  if (governorate == null || governorate === '') return null;
+  return getShippingRate(governorate);
+};
 
 /** Operating costs for underwear brand ops (packaging, fabric, ads, etc.). */
 export const EXPENSE_CATEGORIES = [

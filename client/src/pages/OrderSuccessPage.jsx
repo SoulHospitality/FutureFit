@@ -5,6 +5,7 @@ import {
   INSTAPAY_HANDLE,
 } from '../utils/helpers';
 import api from '../api/axios';
+import { trackPurchase } from '../utils/metaPixel';
 
 function SuccessMark() {
   return (
@@ -110,6 +111,10 @@ export default function OrderSuccessPage() {
       cancelled = true;
     };
   }, [orderId, state?.order]);
+
+  useEffect(() => {
+    if (order?.id) trackPurchase(order);
+  }, [order?.id]);
 
   if (loading) {
     return (

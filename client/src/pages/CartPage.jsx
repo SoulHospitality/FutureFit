@@ -18,6 +18,9 @@ export default function CartPage() {
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
+  const shippingLabel =
+    shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
+  const displayTotal = shipping == null ? subtotal : subtotal + shipping;
 
   if (!items.length) {
     return (
@@ -190,11 +193,11 @@ export default function CartPage() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-timber-500">Shipping</span>
-              <span className="tabular-nums">{shipping === 0 ? 'Free' : formatMoney(shipping)}</span>
+              <span className="tabular-nums">{shippingLabel}</span>
             </div>
             <div className="flex justify-between border-t border-timber-100 pt-4 text-base font-medium">
               <span>Total</span>
-              <span className="tabular-nums">{formatMoney(subtotal + shipping)}</span>
+              <span className="tabular-nums">{formatMoney(displayTotal)}</span>
             </div>
 
             <button
