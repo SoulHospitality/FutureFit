@@ -90,7 +90,7 @@ const createDelivery = async ({
   const payload = {
     type: 10,
     cod: Math.max(0, Math.round(Number(codAmount) || 0)),
-    businessReference: `${process.env.BOSTA_REF_PREFIX || 'FF'}-${String(orderId).slice(0, 8)}`,
+    businessReference: `${process.env.BOSTA_REF_PREFIX || 'FF'}-${orderId}`,
     notes: notes || `FutureFit order ${orderId}`,
     webhookUrl: `${apiPublicUrl()}/api/bosta/webhook`,
     receiver: {
@@ -127,27 +127,74 @@ const createDelivery = async ({
   };
 };
 
-/** Map common Bosta state codes/labels → FutureFit OrderStatus */
+/** Map Bosta webhook state (numeric code or label) → FutureFit OrderStatus */
 const mapBostaStateToOrderStatus = (state) => {
+  if (state == null || state === '') return null;
+
+  // Numeric codes from Bosta webhook docs
+  const code = Number(state);
+  if (Number.isFinite(code) && String(state).trim() !== '') {
+    const CODE_MAP = {
+      10: 'confirmed', // Pickup requested
+      11: 'confirmed', // Waiting for route
+      20: 'confirmed', // Route assigned
+      21: 'out_for_delivery', // Picked up from business
+      22: 'out_for_delivery',
+      23: 'out_for_delivery',
+      24: 'confirmed', // Received at warehouse
+      25: 'confirmed', // Fulfilled
+      30: 'out_for_delivery', // In transit between hubs
+      40: 'out_for_delivery',
+      41: 'out_for_delivery', // Picked up / heading to customer
+      45: 'delivered',
+      46: 'problem', // Returned to business
+      47: 'problem', // Exception
+      48: 'canceled', // Terminated
+      49: 'canceled',
+      60: 'canceled', // Returned to stock
+      100: 'problem', // Lost
+      101: 'problem', // Damaged
+      102: 'problem', // Investigation
+      103: 'problem', // Awaiting your action
+      104: 'canceled', // Archived
+      105: 'confirmed', // On hold
+    };
+    if (CODE_MAP[code]) return CODE_MAP[code];
+  }
+
   const s = String(state || '')
     .toLowerCase()
     .replace(/[\s_-]+/g, '');
   if (!s) return null;
-  if (['delivered', 'completed'].some((k) => s.includes(k))) return 'delivered';
+  if (['delivered', 'completed', 'successful'].some((k) => s.includes(k))) return 'delivered';
   if (
-    ['pickedup', 'pickingup', 'intransit', 'outfordelivery', 'onhold', 'headingtocustomer'].some(
-      (k) => s.includes(k)
-    )
+    [
+      'pickedup',
+      'pickingup',
+      'intransit',
+      'outfordelivery',
+      'onhold',
+      'headingtocustomer',
+      'routeassigned',
+    ].some((k) => s.includes(k))
   ) {
     return 'out_for_delivery';
   }
-  if (['canceled', 'cancelled', 'terminated', 'returned', 'rto'].some((k) => s.includes(k))) {
+  if (['canceled', 'cancelled', 'terminated', 'returned', 'rto', 'archived'].some((k) => s.includes(k))) {
     return 'canceled';
   }
-  if (['exception', 'failed', 'problem', 'returnedtocorporate'].some((k) => s.includes(k))) {
+  if (
+    ['exception', 'failed', 'problem', 'returnedtocorporate', 'lost', 'damaged'].some((k) =>
+      s.includes(k)
+    )
+  ) {
     return 'problem';
   }
-  if (['created', 'waitingforroute', 'receivedatwarehouse', 'new'].some((k) => s.includes(k))) {
+  if (
+    ['created', 'waitingforroute', 'receivedatwarehouse', 'new', 'pickuprequested'].some((k) =>
+      s.includes(k)
+    )
+  ) {
     return 'confirmed';
   }
   return null;

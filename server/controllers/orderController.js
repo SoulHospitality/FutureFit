@@ -1,12 +1,24 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { stockForSize } = require('../utils/sizeStock');
-const paymob = require('../utils/paymob');
+const { fulfillOrderWithBosta, isCodMethod, isInstaPayMethod } = require('./bostaController');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
-const { fulfillOrderWithBosta } = require('./bostaController');
+const paymob = require('../utils/paymob');
 
 const isPaymobMethod = (method) =>
   method === PAYMOB_METHOD || method === 'Card / Wallet (Paymob)';
+
+const confirmOrderOnly = async (order) => {
+  if (order.status !== 'pending') return order;
+  return prisma.order.update({
+    where: { id: order.id },
+    data: { status: 'confirmed' },
+    include: {
+      items: true,
+      user: { select: { id: true, name: true, email: true, phone: true } },
+    },
+  });
+};
 
 const FREE_SHIPPING_MIN = 2000;
 const SHIPPING_FEE = 75;
@@ -213,7 +225,17 @@ const createOrder = async (req, res) => {
       });
     }
 
-    // COD / InstaPay / other: confirm + auto-sync to Bosta
+    // COD → confirm + auto Bosta. InstaPay → confirm only; ship after mark paid.
+    if (isCodMethod(paymentMethod)) {
+      const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+      return res.status(201).json(serializeOrder(fulfilled.order));
+    }
+
+    if (isInstaPayMethod(paymentMethod)) {
+      const confirmed = await confirmOrderOnly(order);
+      return res.status(201).json(serializeOrder(confirmed));
+    }
+
     const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
     res.status(201).json(serializeOrder(fulfilled.order));
   } catch (error) {
@@ -281,6 +303,16 @@ const createGuestOrder = async (req, res) => {
         ...payload.order,
         ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
       });
+    }
+
+    if (isCodMethod(paymentMethod)) {
+      const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+      return res.status(201).json(serializeOrder(fulfilled.order));
+    }
+
+    if (isInstaPayMethod(paymentMethod)) {
+      const confirmed = await confirmOrderOnly(order);
+      return res.status(201).json(serializeOrder(confirmed));
     }
 
     const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });

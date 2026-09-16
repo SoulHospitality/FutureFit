@@ -17,11 +17,31 @@ const orderInclude = {
   user: { select: { id: true, name: true, email: true, phone: true } },
 };
 
+const isCodMethod = (method) =>
+  String(method || '')
+    .toLowerCase()
+    .includes('cash on delivery');
+
+const isPaymobMethod = (method) =>
+  /paymob|card\s*\/\s*wallet/i.test(String(method || ''));
+
+const isInstaPayMethod = (method) =>
+  String(method || '')
+    .toLowerCase()
+    .includes('instapay');
+
 /**
  * Confirm order (if still pending) and create a Bosta shipment when configured.
  * Idempotent — safe to call multiple times.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.confirm=true] - promote pending → confirmed
+ * @param {boolean} [opts.force=false] - ship even if unpaid (staff retry)
  */
-const fulfillOrderWithBosta = async (orderOrId, { confirm = true } = {}) => {
+const fulfillOrderWithBosta = async (
+  orderOrId,
+  { confirm = true, force = false } = {}
+) => {
   let order =
     typeof orderOrId === 'string'
       ? await prisma.order.findUnique({ where: { id: orderOrId }, include: orderInclude })
@@ -49,22 +69,23 @@ const fulfillOrderWithBosta = async (orderOrId, { confirm = true } = {}) => {
     return { order, shipped: false, skipped: 'already_shipped' };
   }
 
+  // Auto-ship only for COD, or once prepaid (Paymob / InstaPay) is paid.
+  // Staff can pass force=true to retry anyway.
+  const cod = isCodMethod(order.paymentMethod);
+  if (!force && !cod && !order.isPaid) {
+    return { order, shipped: false, skipped: 'awaiting_payment' };
+  }
+
   if (!bosta.isConfigured()) {
     return { order, shipped: false, skipped: 'bosta_not_configured' };
   }
 
-  // Ensure we have items + user for shipment payload
   if (!order.items || !Array.isArray(order.items)) {
     order = await prisma.order.findUnique({ where: { id: order.id }, include: orderInclude });
   }
 
-  const isCod = String(order.paymentMethod || '')
-    .toLowerCase()
-    .includes('cash on delivery');
-  const isPaymob = /paymob|card\s*\/\s*wallet/i.test(String(order.paymentMethod || ''));
-  // Never send COD amount for prepaid Paymob / InstaPay orders
-  const codAmount =
-    isCod && !order.isPaid && !isPaymob ? Number(order.totalPrice) : 0;
+  const isPaymob = isPaymobMethod(order.paymentMethod);
+  const codAmount = cod && !order.isPaid && !isPaymob ? Number(order.totalPrice) : 0;
 
   try {
     const result = await bosta.createDelivery({
@@ -106,7 +127,10 @@ const createShipment = async (req, res) => {
       });
     }
 
-    const result = await fulfillOrderWithBosta(req.params.id, { confirm: true });
+    const result = await fulfillOrderWithBosta(req.params.id, {
+      confirm: true,
+      force: true,
+    });
     if (result.skipped === 'already_shipped') {
       return res.status(400).json({
         message: 'Shipment already created',
@@ -139,6 +163,20 @@ const createShipment = async (req, res) => {
   }
 };
 
+const extractWebhookState = (body = {}) => {
+  const raw =
+    body.state ??
+    body.currentState ??
+    body.data?.state ??
+    body.delivery?.state ??
+    null;
+  if (raw == null) return null;
+  if (typeof raw === 'object') {
+    return raw.code ?? raw.value ?? raw.name ?? null;
+  }
+  return raw;
+};
+
 /** Bosta delivery state webhook */
 const handleWebhook = async (req, res) => {
   try {
@@ -148,13 +186,11 @@ const handleWebhook = async (req, res) => {
       body.tracking_number ||
       body.data?.trackingNumber ||
       body.delivery?.trackingNumber;
-    const deliveryId = body._id || body.deliveryId || body.data?._id || body.delivery?._id;
-    const state =
-      body.state ||
-      body.currentState ||
-      body.data?.state ||
-      body.delivery?.state ||
-      body.type;
+    const deliveryId =
+      body._id || body.deliveryId || body.data?._id || body.delivery?._id;
+    const state = extractWebhookState(body);
+    const businessReference =
+      body.businessReference || body.data?.businessReference || body.delivery?.businessReference;
 
     let order = null;
     if (trackingNumber) {
@@ -167,12 +203,15 @@ const handleWebhook = async (req, res) => {
         where: { bostaDeliveryId: String(deliveryId) },
       });
     }
-    if (!order && body.businessReference) {
-      const ref = String(body.businessReference);
-      const short = ref.includes('-') ? ref.split('-').pop() : ref;
-      order = await prisma.order.findFirst({
-        where: { id: { startsWith: short } },
-      });
+    if (!order && businessReference) {
+      const ref = String(businessReference);
+      const id = ref.replace(/^FF-/i, '');
+      order = await prisma.order.findUnique({ where: { id } }).catch(() => null);
+      if (!order && id.length >= 8) {
+        order = await prisma.order.findFirst({
+          where: { id: { startsWith: id.slice(0, 8) } },
+        });
+      }
     }
 
     if (!order) {
@@ -181,7 +220,7 @@ const handleWebhook = async (req, res) => {
 
     const nextStatus = bosta.mapBostaStateToOrderStatus(state);
     const data = {
-      shippingStatus: state ? String(state) : order.shippingStatus,
+      shippingStatus: state != null ? String(state) : order.shippingStatus,
       shippingCarrier: 'bosta',
     };
     if (trackingNumber && !order.bostaTrackingNumber) {
@@ -191,7 +230,6 @@ const handleWebhook = async (req, res) => {
       data.bostaDeliveryId = String(deliveryId);
     }
     if (nextStatus && order.status !== 'canceled') {
-      // Don't downgrade delivered → earlier states
       const rank = {
         pending: 0,
         confirmed: 1,
@@ -205,12 +243,7 @@ const handleWebhook = async (req, res) => {
       }
       if (nextStatus === 'delivered') {
         data.deliveredAt = order.deliveredAt || new Date();
-        // COD collected on delivery
-        if (
-          String(order.paymentMethod || '')
-            .toLowerCase()
-            .includes('cash on delivery')
-        ) {
+        if (isCodMethod(order.paymentMethod) || body.cod != null) {
           data.isPaid = true;
           data.paidAt = order.paidAt || new Date();
         }
@@ -218,11 +251,18 @@ const handleWebhook = async (req, res) => {
     }
 
     await prisma.order.update({ where: { id: order.id }, data });
-    return res.status(200).json({ received: true, matched: true });
+    return res.status(200).json({ received: true, matched: true, status: nextStatus });
   } catch (err) {
     console.error('Bosta webhook error:', err);
     return res.status(200).json({ received: true, error: true });
   }
 };
 
-module.exports = { createShipment, handleWebhook, fulfillOrderWithBosta };
+module.exports = {
+  createShipment,
+  handleWebhook,
+  fulfillOrderWithBosta,
+  isCodMethod,
+  isPaymobMethod,
+  isInstaPayMethod,
+};
