@@ -16,6 +16,7 @@ const ADMIN_PAGES = [
   'settings',
   'users',
   'slides',
+  'homepage',
   'promotions',
   'finance',
 ];

@@ -20,7 +20,9 @@ const PAGE_TITLES = {
   '/staff/problems': 'Problems',
   '/staff/users': 'Users',
   '/staff/slides': 'Slideshow',
+  '/staff/homepage': 'Homepage',
   '/staff/promotions': 'Promotions',
+  '/staff/categories': 'Categories',
   '/staff/finance': 'Finance',
   '/staff/newsletter': 'Newsletter',
 };

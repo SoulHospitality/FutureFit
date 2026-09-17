@@ -48,6 +48,7 @@ const NAV_GROUPS = [
       { path: '/staff/reviews', label: 'Reviews', icon: Star, page: 'reviews' },
       { path: '/staff/newsletter', label: 'Newsletter', icon: Mail, page: 'newsletter' },
       { path: '/staff/slides', label: 'Slideshow', icon: Images, page: 'slides' },
+      { path: '/staff/homepage', label: 'Homepage', icon: Store, page: 'homepage' },
       { path: '/staff/promotions', label: 'Promotions', icon: Tag, page: 'promotions' },
     ],
   },

@@ -52,25 +52,18 @@ export default function HomePage() {
   useEffect(() => {
     Promise.all([
       api.get('/slides').then((r) => asArray(r.data)).catch(() => []),
-      api.get('/products?limit=8').then((r) => asArray(r.data)).catch(() => []),
-      api.get('/products?type=bundle&limit=4').then((r) => asArray(r.data)).catch(() => []),
-      api.get('/products?limit=12').then((r) => asArray(r.data)).catch(() => []),
+      api.get('/homepage').then((r) => r.data || {}).catch(() => ({})),
       api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
-    ]).then(([slideData, productData, packData, moreProducts, reviewData]) => {
+    ]).then(([slideData, homeData, reviewData]) => {
       setSlides(slideData);
-      setProducts(productData);
-      const featuredIds = new Set(productData.map((p) => p.id));
-      const secondRail =
-        packData.length > 0
-          ? packData
-          : moreProducts.filter((p) => !featuredIds.has(p.id)).slice(0, 4);
-      setPacks(secondRail);
+      setProducts(asArray(homeData.bestSellers));
+      setPacks(asArray(homeData.packs));
       setReviews(reviewData);
       const sortedSlides = [...slideData].sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
       );
       const productPhotoByAudience = {};
-      productData.forEach((p) => {
+      asArray(homeData.bestSellers).forEach((p) => {
         const key = p.audience || 'men';
         if (!productPhotoByAudience[key] && p.photos?.[0]) {
           productPhotoByAudience[key] = p.photos[0];
@@ -299,11 +292,11 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
         <div className="mb-12 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
           <div>
-            <p className="brand-eyebrow">New season</p>
+            <p className="brand-eyebrow">Top picks</p>
             <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
-              Featured
+              Best sellers
             </h2>
-            <p className="mt-2 text-sm text-timber-500">Pieces selected for fit and finish</p>
+            <p className="mt-2 text-sm text-timber-500">Customer favourites, selected by the house</p>
           </div>
           <Link
             to="/shop"
@@ -317,7 +310,7 @@ export default function HomePage() {
             <BrandLoader size="md" label="Loading pieces" />
           </div>
         ) : products.length === 0 ? (
-          <p className="text-sm text-timber-500">No products yet — check back soon.</p>
+          <p className="text-sm text-timber-500">Best sellers coming soon.</p>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
             {products.map((p, i) => (
@@ -354,12 +347,10 @@ export default function HomePage() {
             <div>
               <p className="brand-eyebrow">Keep exploring</p>
               <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
-                {packs.some((p) => p.type === 'bundle') ? 'Packs & bundles' : 'More to discover'}
+                Packs &amp; bundles
               </h2>
               <p className="mt-2 text-sm text-timber-500">
-                {packs.some((p) => p.type === 'bundle')
-                  ? 'Stock up on the pieces you wear most'
-                  : 'Fresh picks from the collection'}
+                Stock up on the pieces you wear most
               </p>
             </div>
             <Link
