@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useCart } from '../../context/CartContext';
+import BrandLoader from '../ui/BrandLoader';
 import {
   colorSwatchStyle,
   formatMoney,
@@ -128,9 +129,8 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
           </div>
 
           {loading ? (
-            <div className="mt-8 space-y-3 animate-pulse">
-              <div className="h-3 w-20 bg-timber-100" />
-              <div className="h-10 w-full bg-timber-100" />
+            <div className="mt-10 grid place-items-center py-8">
+              <BrandLoader size="sm" label="Loading" />
             </div>
           ) : (
             <>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Copy, ExternalLink, Settings2, XCircle } from 'lucide-react';
 import api from '../../api/axios';
+import BrandLoader from '../../components/ui/BrandLoader';
 import { toast } from 'react-toastify';
 
 function StatusRow({ label, ok, hint }) {
@@ -57,7 +58,9 @@ export default function StaffSettings() {
         <div className="sp-card p-5">
           <h2 className="text-sm font-semibold text-zinc-900">Integrations</h2>
           {loading ? (
-            <p className="mt-4 text-sm text-zinc-400">Loading…</p>
+            <div className="mt-6 grid place-items-center py-6">
+              <BrandLoader size="sm" label="Loading" />
+            </div>
           ) : (
             <div className="mt-2">
               <StatusRow

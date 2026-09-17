@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axios';
+import BrandLoader from '../components/ui/BrandLoader';
 import { formatMoney, getImageUrl, orderStatusBadge, orderStatusLabel } from '../utils/helpers';
 
 export default function OrderPage() {
@@ -11,7 +12,7 @@ export default function OrderPage() {
     api.get(`/orders/${id}`).then((r) => setOrder(r.data));
   }, [id]);
 
-  if (!order) return <div className="max-w-3xl mx-auto px-4 py-16 text-timber-500">Loading…</div>;
+  if (!order) return <BrandLoader fullPage size="md" label="Loading order" />;
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">

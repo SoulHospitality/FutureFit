@@ -10,6 +10,7 @@ import {
   colorSwatchStyle,
 } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
+import BrandLoader from '../components/ui/BrandLoader';
 
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Recommended' },
@@ -683,14 +684,8 @@ export default function ShopPage() {
             )}
 
             {loading ? (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="animate-pulse">
-                    <div className="aspect-[3/4] bg-timber-100" />
-                    <div className="mt-4 h-3 w-1/3 bg-timber-100" />
-                    <div className="mt-2 h-4 w-2/3 bg-timber-100" />
-                  </div>
-                ))}
+              <div className="grid min-h-[40vh] place-items-center py-16">
+                <BrandLoader size="lg" label="Loading pieces" />
               </div>
             ) : products.length === 0 ? (
               <EmptyState

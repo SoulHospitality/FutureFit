@@ -13,6 +13,7 @@ import PresenceBeacon from './components/store/PresenceBeacon';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
 import MetaPixelTracker from './components/MetaPixelTracker';
+import BrandLoader from './components/ui/BrandLoader';
 import { defaultStaffPage, isStaff } from './utils/permissions';
 
 import { COMING_SOON } from './config';
@@ -86,26 +87,13 @@ const STAFF_PREFETCH = [
 ];
 
 function PageLoader() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center">
-      <div className="h-8 w-8 border border-timber-900 border-t-transparent animate-spin" />
-    </div>
-  );
+  return <BrandLoader fullPage size="lg" label="Loading" />;
 }
 
 function StaffSkeleton() {
   return (
-    <div className="animate-pulse space-y-6">
-      <div className="space-y-2">
-        <div className="h-8 w-48 bg-timber-200" />
-        <div className="h-4 w-64 bg-timber-100" />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-24 border border-timber-100 bg-white" />
-        ))}
-      </div>
-      <div className="h-72 border border-timber-100 bg-white" />
+    <div className="grid min-h-[40vh] place-items-center">
+      <BrandLoader size="md" label="Loading" />
     </div>
   );
 }

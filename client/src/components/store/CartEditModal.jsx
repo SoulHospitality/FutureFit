@@ -3,6 +3,7 @@ import { Minus, Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../ui/Modal';
+import BrandLoader from '../ui/BrandLoader';
 import { getSizeStock } from '../../utils/helpers';
 
 export default function CartEditModal({ item, open, onClose, onSave }) {
@@ -73,10 +74,8 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
   return (
     <Modal open={open} onClose={onClose} title="Edit item">
       {loading ? (
-        <div className="space-y-4 animate-pulse">
-          <div className="h-4 w-1/3 bg-timber-100" />
-          <div className="h-10 w-full bg-timber-100" />
-          <div className="h-10 w-full bg-timber-100" />
+        <div className="grid place-items-center py-10">
+          <BrandLoader size="sm" label="Loading" />
         </div>
       ) : (
         <div className="space-y-6">

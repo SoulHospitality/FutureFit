@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
+import BrandLoader from '../components/ui/BrandLoader';
 import ProductCard from '../components/store/ProductCard';
 import StarRating from '../components/store/StarRating';
 import { useCategories } from '../context/CategoriesContext';
@@ -312,12 +313,8 @@ export default function HomePage() {
           </Link>
         </div>
         {loadingProducts ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="aspect-[3/4] bg-timber-100" />
-              </div>
-            ))}
+          <div className="grid min-h-[20rem] place-items-center py-12">
+            <BrandLoader size="md" label="Loading pieces" />
           </div>
         ) : products.length === 0 ? (
           <p className="text-sm text-timber-500">No products yet — check back soon.</p>

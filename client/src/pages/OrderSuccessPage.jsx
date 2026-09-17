@@ -5,6 +5,7 @@ import {
   INSTAPAY_HANDLE,
 } from '../utils/helpers';
 import api from '../api/axios';
+import BrandLoader from '../components/ui/BrandLoader';
 import { trackPurchase } from '../utils/metaPixel';
 
 function SuccessMark() {
@@ -117,11 +118,7 @@ export default function OrderSuccessPage() {
   }, [order?.id]);
 
   if (loading) {
-    return (
-      <div className="grid min-h-[50vh] place-items-center text-sm text-timber-500">
-        Confirming your order…
-      </div>
-    );
+    return <BrandLoader fullPage size="lg" label="Confirming order" />;
   }
 
   if (!order) return <Navigate to="/" replace />;
