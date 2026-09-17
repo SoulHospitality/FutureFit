@@ -177,29 +177,30 @@
     @apply mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16;
   }
 
-  /* Flexible homepage hero — phones, tablets, desktops, TVs, landscape */
+  /* Flexible homepage hero — tall frame so 16:9 slide photos fit cleanly */
   .home-hero {
-    height: clamp(22rem, 78svh, 54rem);
-    min-height: min(22rem, 100svh);
+    height: clamp(30rem, 92svh, 72rem);
+    min-height: min(30rem, 100svh);
   }
   @media (orientation: landscape) and (max-height: 520px) {
     .home-hero {
-      height: clamp(16rem, 92svh, 28rem);
+      height: clamp(18rem, 96svh, 32rem);
     }
   }
   @media (min-width: 768px) {
     .home-hero {
-      height: clamp(26rem, 72svh, 52rem);
+      /* Prefer ~16:9 of the viewport width, capped to almost full screen height */
+      height: min(92svh, max(42rem, calc(100vw * 9 / 16)));
     }
   }
   @media (min-width: 1280px) {
     .home-hero {
-      height: clamp(28rem, 70svh, 56rem);
+      height: min(94svh, max(48rem, calc(100vw * 9 / 16)));
     }
   }
   @media (min-width: 1920px) {
     .home-hero {
-      height: clamp(32rem, 65svh, 60rem);
+      height: min(94svh, max(52rem, calc(100vw * 9 / 16)));
     }
   }
 

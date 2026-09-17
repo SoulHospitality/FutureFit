@@ -96,7 +96,9 @@ export default function StoreHeader() {
         className={`${overHero ? 'fixed' : 'sticky'} top-0 inset-x-0 z-50 transition-colors duration-200 ${
           solid
             ? 'border-b border-timber-100 bg-white'
-            : 'border-b border-transparent bg-transparent'
+            : openMenu
+              ? 'border-b border-white/15 bg-timber-950/90 backdrop-blur-md'
+              : 'border-b border-transparent bg-transparent'
         }`}
         onMouseLeave={() => setOpenMenu(null)}
       >
@@ -277,28 +279,58 @@ export default function StoreHeader() {
         )}
 
         {openMenu && (
-          <div className="mega-dropdown hidden border-t border-timber-100 bg-white lg:block">
+          <div
+            className={`mega-dropdown hidden border-t lg:block ${
+              solid
+                ? 'border-timber-100 bg-white'
+                : 'border-white/15 bg-timber-950/90 backdrop-blur-md'
+            }`}
+          >
             <div className="mx-auto grid max-w-7xl gap-0 px-8 py-0 lg:grid-cols-[220px_1fr]">
-              <div className="border-r border-timber-100 py-8 pr-8">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-timber-400">
+              <div
+                className={`border-r py-8 pr-8 ${
+                  solid ? 'border-timber-100' : 'border-white/15'
+                }`}
+              >
+                <p
+                  className={`text-[10px] font-semibold uppercase tracking-[0.32em] ${
+                    solid ? 'text-timber-400' : 'text-white/50'
+                  }`}
+                >
                   Department
                 </p>
-                <h3 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
+                <h3
+                  className={`mt-3 font-display text-3xl font-medium tracking-tight ${
+                    solid ? 'text-timber-900' : 'text-white'
+                  }`}
+                >
                   {openDept?.label}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-timber-500">
+                <p
+                  className={`mt-2 text-sm leading-relaxed ${
+                    solid ? 'text-timber-500' : 'text-white/70'
+                  }`}
+                >
                   Essentials cut for everyday presence.
                 </p>
                 <Link
                   to={`/shop?audience=${openMenu}`}
-                  className="mt-6 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-timber-900 underline decoration-timber-300 underline-offset-8 transition hover:decoration-timber-900"
+                  className={`mt-6 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] underline underline-offset-8 transition ${
+                    solid
+                      ? 'text-timber-900 decoration-timber-300 hover:decoration-timber-900'
+                      : 'text-white decoration-white/40 hover:decoration-white'
+                  }`}
                 >
                   Shop all {openDept?.label}
                   <ArrowRight className="h-3.5 w-3.5" strokeWidth={1.75} />
                 </Link>
               </div>
               <div className="py-8 pl-8">
-                <p className="mb-4 text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
+                <p
+                  className={`mb-4 text-[10px] font-semibold uppercase tracking-[0.28em] ${
+                    solid ? 'text-timber-400' : 'text-white/50'
+                  }`}
+                >
                   Subcategories
                 </p>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-3">
@@ -307,7 +339,11 @@ export default function StoreHeader() {
                       <Link
                         key={c.id}
                         to={`/shop?audience=${openMenu}&category=${c.slug}`}
-                        className="group flex items-center justify-between border-b border-transparent py-2.5 text-sm text-timber-600 transition hover:border-timber-200 hover:text-timber-900"
+                        className={`group flex items-center justify-between border-b border-transparent py-2.5 text-sm transition ${
+                          solid
+                            ? 'text-timber-600 hover:border-timber-200 hover:text-timber-900'
+                            : 'text-white/80 hover:border-white/30 hover:text-white'
+                        }`}
                       >
                         <span>{c.name}</span>
                         <ArrowRight
@@ -317,7 +353,11 @@ export default function StoreHeader() {
                       </Link>
                     ))
                   ) : (
-                    <p className="col-span-full py-2 text-sm text-timber-400">
+                    <p
+                      className={`col-span-full py-2 text-sm ${
+                        solid ? 'text-timber-400' : 'text-white/55'
+                      }`}
+                    >
                       Browse the full {openDept?.label?.toLowerCase()} collection.
                     </p>
                   )}
