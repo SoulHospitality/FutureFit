@@ -4,7 +4,7 @@ import { asArray } from '../utils/helpers';
 
 const CategoriesContext = createContext(null);
 
-/** Build parent → children trees. Roots are Men / Women / Kids. */
+/** Build parent → children trees. Roots are top-level categories (no parent). */
 export function buildCategoryTree(categories = []) {
   const list = asArray(categories);
   const childrenByParent = new Map();
@@ -18,16 +18,8 @@ export function buildCategoryTree(categories = []) {
   }
 
   const roots = list
-    .filter((c) => !c.parentId && ['men', 'women', 'kids'].includes(c.slug))
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-  // Fallback if roots not seeded yet: treat audience groups as flat lists
-  if (!roots.length) {
-    return list
-      .filter((c) => !c.parentId)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
-      .map((c) => ({ ...c, children: childrenByParent.get(c.id) || [] }));
-  }
+    .filter((c) => !c.parentId)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 
   return roots.map((c) => ({
     ...c,

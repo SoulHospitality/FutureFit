@@ -3,9 +3,20 @@ import { toast } from 'react-toastify';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { asArray, getImageUrl } from '../../utils/helpers';
+import { asArray, getImageUrl, AUDIENCES } from '../../utils/helpers';
+
+const emptyCategory = {
+  name: '',
+  slug: '',
+  audience: 'men',
+  statement: '',
+  imageUrl: '',
+  sortOrder: 0,
+};
 
 const emptySub = { name: '', slug: '', parentId: '', sortOrder: 0 };
+
+const SYSTEM_ROOTS = new Set(['men', 'women', 'kids']);
 
 export default function StaffCategories() {
   const [categories, setCategories] = useState([]);
@@ -24,8 +35,8 @@ export default function StaffCategories() {
   const roots = useMemo(
     () =>
       categories
-        .filter((c) => !c.parentId && ['men', 'women', 'kids'].includes(c.slug))
-        .sort((a, b) => a.sortOrder - b.sortOrder),
+        .filter((c) => !c.parentId)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
     [categories]
   );
 
@@ -33,6 +44,16 @@ export default function StaffCategories() {
     categories
       .filter((c) => c.parentId === parentId)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+  const openCreateCategory = () => {
+    setMode('category');
+    setEditing(null);
+    setForm({
+      ...emptyCategory,
+      sortOrder: roots.length,
+    });
+    setOpen(true);
+  };
 
   const openCreateSub = (parentId = '') => {
     setMode('subcategory');
@@ -58,6 +79,8 @@ export default function StaffCategories() {
     setEditing(c);
     setForm({
       name: c.name,
+      slug: c.slug || '',
+      audience: c.audience || 'men',
       statement: c.statement || '',
       imageUrl: c.imageUrl || '',
       sortOrder: c.sortOrder,
@@ -88,16 +111,20 @@ export default function StaffCategories() {
     e.preventDefault();
     try {
       if (mode === 'category') {
-        await api.put(`/categories/${editing.id}`, {
+        const payload = {
           name: form.name,
           statement: form.statement,
           imageUrl: form.imageUrl || null,
           sortOrder: Number(form.sortOrder) || 0,
-        });
-        toast.success('Category updated');
+          audience: form.audience,
+          slug: form.slug || undefined,
+        };
+        if (editing) await api.put(`/categories/${editing.id}`, payload);
+        else await api.post('/categories', payload);
+        toast.success(editing ? 'Category updated' : 'Category added');
       } else {
         if (!form.parentId) {
-          toast.error('Choose Men, Women, or Kids');
+          toast.error('Choose a category');
           return;
         }
         const payload = {
@@ -118,7 +145,8 @@ export default function StaffCategories() {
   };
 
   const remove = async (c) => {
-    if (!window.confirm(`Delete subcategory “${c.name}”?`)) return;
+    const label = c.parentId ? 'subcategory' : 'category';
+    if (!window.confirm(`Delete ${label} “${c.name}”?`)) return;
     try {
       await api.delete(`/categories/${c.id}`);
       toast.success('Deleted');
@@ -128,25 +156,41 @@ export default function StaffCategories() {
     }
   };
 
+  const modalTitle =
+    mode === 'category'
+      ? editing
+        ? 'Edit category'
+        : 'New category'
+      : editing
+        ? 'Edit subcategory'
+        : 'New subcategory';
+
   return (
     <>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">Categories</h1>
           <p className="page-subtitle">
-            Categories are Men, Women, and Kids (name, photo, homepage statement). Subcategories
-            are Boxers, Dresses, Hoodies, and the rest.
+            Add top-level categories (Men, Women, Kids, or custom) and nest subcategories under
+            them.
           </p>
         </div>
-        <button type="button" className="btn-wheat" onClick={() => openCreateSub()}>
-          <Plus className="h-4 w-4" />
-          Add subcategory
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-outline" onClick={openCreateCategory}>
+            <Plus className="h-4 w-4" />
+            Add category
+          </button>
+          <button type="button" className="btn-wheat" onClick={() => openCreateSub()}>
+            <Plus className="h-4 w-4" />
+            Add subcategory
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
         {roots.map((parent) => {
           const kids = childrenOf(parent.id);
+          const isSystem = SYSTEM_ROOTS.has(parent.slug);
           return (
             <div
               key={parent.id}
@@ -170,6 +214,11 @@ export default function StaffCategories() {
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-timber-400">
                       Category
+                      {!isSystem ? (
+                        <span className="ms-2 font-medium normal-case tracking-normal text-timber-500">
+                          · {parent.audience}
+                        </span>
+                      ) : null}
                     </p>
                     <p className="mt-0.5 text-lg font-medium text-timber-900">{parent.name}</p>
                     <p className="mt-0.5 line-clamp-1 text-xs text-timber-500">
@@ -197,6 +246,16 @@ export default function StaffCategories() {
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
+                  {!isSystem ? (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm text-red-600"
+                      onClick={() => remove(parent)}
+                      title="Delete category"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -251,22 +310,15 @@ export default function StaffCategories() {
 
         {roots.length === 0 && (
           <div className="rounded-xl border border-dashed border-timber-200 px-4 py-10 text-center text-sm text-timber-500">
-            Categories will appear after the server seeds Men, Women, and Kids. Refresh in a moment.
+            No categories yet.{' '}
+            <button type="button" className="font-medium text-timber-800 underline" onClick={openCreateCategory}>
+              Add your first category
+            </button>
           </div>
         )}
       </div>
 
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={
-          mode === 'category'
-            ? 'Edit category'
-            : editing
-              ? 'Edit subcategory'
-              : 'New subcategory'
-        }
-      >
+      <Modal open={open} onClose={() => setOpen(false)} title={modalTitle}>
         <form onSubmit={save} className="space-y-4">
           {mode === 'category' ? (
             <>
@@ -280,6 +332,37 @@ export default function StaffCategories() {
                   placeholder="Men"
                 />
               </div>
+              <div>
+                <label className="label">Audience</label>
+                <select
+                  required
+                  className="input"
+                  value={form.audience}
+                  onChange={(e) => setForm({ ...form, audience: e.target.value })}
+                  disabled={editing && SYSTEM_ROOTS.has(editing.slug)}
+                >
+                  {AUDIENCES.map((a) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-timber-400">
+                  Used for product filtering. For Men / Women / Kids, name the category to match
+                  (or use those exact names).
+                </p>
+              </div>
+              {!(editing && SYSTEM_ROOTS.has(editing.slug)) ? (
+                <div>
+                  <label className="label">Slug (optional)</label>
+                  <input
+                    className="input font-mono text-sm"
+                    value={form.slug || ''}
+                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                    placeholder="auto from name"
+                  />
+                </div>
+              ) : null}
               <div>
                 <label className="label">Homepage statement</label>
                 <textarea

@@ -13,6 +13,8 @@ const categoryInclude = {
   parent: { select: { id: true, name: true, slug: true } },
 };
 
+const isRootCategory = (row) => Boolean(row && !row.parentId);
+
 const listCategories = async (req, res) => {
   try {
     const { audience } = req.query;
@@ -36,17 +38,12 @@ const createCategory = async (req, res) => {
 
     const parentId = req.body.parentId ? String(req.body.parentId) : null;
 
-    // Subcategory under Men / Women / Kids
+    // Subcategory under a root category
     if (parentId) {
       const parent = await prisma.category.findUnique({ where: { id: parentId } });
       if (!parent) return res.status(400).json({ message: 'Category not found' });
       if (parent.parentId) {
-        return res.status(400).json({ message: 'Choose Men, Women, or Kids as the category' });
-      }
-      if (!AUDIENCES.includes(parent.slug)) {
-        return res.status(400).json({
-          message: 'Subcategories must belong to Men, Women, or Kids',
-        });
+        return res.status(400).json({ message: 'Choose a top-level category as the parent' });
       }
 
       const slug = slugify(req.body.slug || name);
@@ -69,33 +66,45 @@ const createCategory = async (req, res) => {
       return res.status(201).json(serializeCategory(category));
     }
 
-    // Top-level category (Men / Women / Kids only — one per department)
-    const audience = String(req.body.audience || slugify(name) || '').trim();
+    // Top-level category
+    const slug = slugify(req.body.slug || name);
+    if (!slug) return res.status(400).json({ message: 'A valid slug is required' });
+
+    let audience = String(req.body.audience || '').trim();
+    if (AUDIENCES.includes(slug)) {
+      audience = slug;
+    }
     if (!AUDIENCES.includes(audience)) {
       return res.status(400).json({
-        message: 'Category must be Men, Women, or Kids',
+        message: 'Pick an audience for this category (Men, Women, or Kids)',
       });
     }
-    const existingRoot = await prisma.category.findFirst({
-      where: { audience, parentId: null, slug: audience },
-    });
-    if (existingRoot) {
-      return res.status(400).json({
-        message: `${existingRoot.name} already exists — add a subcategory under it instead`,
+
+    // Men / Women / Kids: only one root each
+    if (AUDIENCES.includes(slug)) {
+      const existingRoot = await prisma.category.findFirst({
+        where: { audience, parentId: null, slug },
       });
+      if (existingRoot) {
+        return res.status(400).json({
+          message: `${existingRoot.name} already exists — add a subcategory under it instead`,
+        });
+      }
     }
 
     const category = await prisma.category.create({
       data: {
-        name: name || audience[0].toUpperCase() + audience.slice(1),
-        slug: audience,
+        name,
+        slug,
         audience,
         parentId: null,
         imageUrl: req.body.imageUrl ? String(req.body.imageUrl).trim() : null,
         statement: req.body.statement
           ? String(req.body.statement).trim().slice(0, 200)
           : null,
-        sortOrder: Number(req.body.sortOrder) || AUDIENCES.indexOf(audience),
+        sortOrder:
+          Number(req.body.sortOrder) ||
+          (AUDIENCES.includes(slug) ? AUDIENCES.indexOf(slug) : 10),
       },
       include: categoryInclude,
     });
@@ -103,7 +112,7 @@ const createCategory = async (req, res) => {
     res.status(201).json(serializeCategory(category));
   } catch (error) {
     if (error.code === 'P2002') {
-      return res.status(400).json({ message: 'That subcategory already exists in this category' });
+      return res.status(400).json({ message: 'A category with that slug already exists' });
     }
     res.status(500).json({ message: error.message });
   }
@@ -117,7 +126,7 @@ const updateCategory = async (req, res) => {
     });
     if (!existing) return res.status(404).json({ message: 'Category not found' });
 
-    const isRoot = !existing.parentId && AUDIENCES.includes(existing.slug);
+    const isRoot = isRootCategory(existing);
     const data = {};
 
     if (req.body.name !== undefined) data.name = String(req.body.name).trim();
@@ -133,11 +142,11 @@ const updateCategory = async (req, res) => {
       if (req.body.parentId !== undefined) {
         const nextParent = req.body.parentId ? String(req.body.parentId) : null;
         if (!nextParent) {
-          return res.status(400).json({ message: 'Subcategories must stay under Men, Women, or Kids' });
+          return res.status(400).json({ message: 'Subcategories must stay under a category' });
         }
         const parent = await prisma.category.findUnique({ where: { id: nextParent } });
-        if (!parent || parent.parentId || !AUDIENCES.includes(parent.slug)) {
-          return res.status(400).json({ message: 'Choose Men, Women, or Kids as the category' });
+        if (!parent || parent.parentId) {
+          return res.status(400).json({ message: 'Choose a top-level category as the parent' });
         }
         data.parentId = parent.id;
         data.audience = parent.audience;
@@ -149,9 +158,21 @@ const updateCategory = async (req, res) => {
         }
         data.slug = slug;
       }
-    } else if (req.body.slug !== undefined) {
-      // Keep root slugs locked to men/women/kids for shop URLs
-      data.slug = existing.slug;
+    } else {
+      // Keep men/women/kids slugs locked; allow custom root slugs to change
+      if (AUDIENCES.includes(existing.slug)) {
+        data.slug = existing.slug;
+      } else if (req.body.slug !== undefined || req.body.name !== undefined) {
+        const slug = slugify(req.body.slug || req.body.name || data.name || existing.name);
+        if (!slug) return res.status(400).json({ message: 'A valid slug is required' });
+        if (AUDIENCES.includes(slug)) {
+          return res.status(400).json({ message: 'That slug is reserved for Men, Women, or Kids' });
+        }
+        data.slug = slug;
+      }
+      if (req.body.audience !== undefined && AUDIENCES.includes(String(req.body.audience))) {
+        data.audience = String(req.body.audience);
+      }
     }
 
     const category = await prisma.category.update({
@@ -163,7 +184,7 @@ const updateCategory = async (req, res) => {
     res.json(serializeCategory(category));
   } catch (error) {
     if (error.code === 'P2002') {
-      return res.status(400).json({ message: 'That subcategory already exists in this category' });
+      return res.status(400).json({ message: 'A category with that slug already exists' });
     }
     res.status(500).json({ message: error.message });
   }
@@ -179,8 +200,8 @@ const deleteCategory = async (req, res) => {
     });
     if (!row) return res.status(404).json({ message: 'Category not found' });
 
-    const isRoot = !row.parentId && AUDIENCES.includes(row.slug);
-    if (isRoot) {
+    const isRoot = isRootCategory(row);
+    if (isRoot && AUDIENCES.includes(row.slug)) {
       return res.status(400).json({
         message: 'Men, Women, and Kids cannot be deleted — remove their subcategories instead',
       });
@@ -198,13 +219,13 @@ const deleteCategory = async (req, res) => {
       return res.status(400).json({
         message: `Cannot delete — ${row._count.products} product${
           row._count.products === 1 ? '' : 's'
-        } still use this subcategory`,
+        } still use this ${isRoot ? 'category' : 'subcategory'}`,
       });
     }
 
-    await prisma.category.delete({ where: { id: req.params.id } });
+    await prisma.category.delete({ where: { id: row.id } });
     bust();
-    res.json({ message: 'Subcategory deleted' });
+    res.json({ message: isRoot ? 'Category deleted' : 'Subcategory deleted' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

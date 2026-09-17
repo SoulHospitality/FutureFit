@@ -251,7 +251,9 @@ export default function HomePage() {
               dept.statement ||
               FALLBACK_COPY[dept.audience || dept.slug] ||
               '';
-            const href = `/shop?audience=${dept.audience || dept.slug}`;
+            const href = ['men', 'women', 'kids'].includes(dept.slug)
+              ? `/shop?audience=${dept.slug}`
+              : `/shop?category=${dept.slug}`;
             return (
               <Link
                 key={dept.id}

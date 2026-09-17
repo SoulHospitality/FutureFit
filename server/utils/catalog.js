@@ -106,7 +106,7 @@ const typeFromCategory = (category, fallback = 'boxers') => {
 };
 
 const serializeCategory = (c) => {
-  const isCategory = !c.parentId && AUDIENCES.includes(c.slug);
+  const isCategory = !c.parentId;
   return {
     id: c.id,
     name: c.name,
@@ -171,9 +171,13 @@ const ensureDefaultCategories = async (prisma) => {
       .map((c) => [c.audience, c])
   );
 
+  const defaultSubSlugs = new Set(DEFAULT_SUBCATEGORIES.map((s) => s.slug));
+
+  // Legacy migration: only nest known subcategory slugs that were stored as roots
   for (const row of all) {
     if (row.parentId) continue;
     if (AUDIENCES.includes(row.slug)) continue;
+    if (!defaultSubSlugs.has(row.slug)) continue;
     const root = rootByAudience[row.audience];
     if (!root) continue;
     await prisma.category.update({
