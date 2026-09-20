@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import BrandLogo from '../BrandLogo';
-import { AUDIENCES } from '../../utils/helpers';
+import { AUDIENCES, STORE_EMAIL, STORE_PHONE_DISPLAY, STORE_WHATSAPP_URL } from '../../utils/helpers';
 import api from '../../api/axios';
 
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
@@ -20,6 +20,26 @@ export default function StoreFooter() {
             Setting trends with every stitch — refined apparel designed for presence, fit, and
             everyday confidence.
           </p>
+          <div className="mt-5 space-y-2 text-sm text-timber-400">
+            {STORE_PHONE_DISPLAY ? (
+              <a
+                href={STORE_WHATSAPP_URL || undefined}
+                target={STORE_WHATSAPP_URL ? '_blank' : undefined}
+                rel={STORE_WHATSAPP_URL ? 'noreferrer' : undefined}
+                className="block hover:text-white transition"
+              >
+                {STORE_PHONE_DISPLAY}
+              </a>
+            ) : null}
+            {STORE_EMAIL ? (
+              <a
+                href={`mailto:${STORE_EMAIL}`}
+                className="block hover:text-white transition"
+              >
+                {STORE_EMAIL}
+              </a>
+            ) : null}
+          </div>
           <a
             href={FACEBOOK}
             target="_blank"

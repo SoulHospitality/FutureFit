@@ -310,6 +310,26 @@ export const PAYMENT_METHODS = [
 
 export const INSTAPAY_HANDLE = import.meta.env.VITE_INSTAPAY_HANDLE || '';
 
+/** Store contact — override on Vercel with VITE_* vars if needed. */
+export const STORE_EMAIL =
+  import.meta.env.VITE_CONTACT_EMAIL || 'online@futurefits.net';
+
+export const STORE_PHONE_DISPLAY =
+  import.meta.env.VITE_CONTACT_PHONE || '+20 101 164 8029';
+
+/** Digits only with country code (for tel: / WhatsApp). */
+export const STORE_PHONE_DIGITS = String(
+  import.meta.env.VITE_WHATSAPP_NUMBER ||
+    import.meta.env.VITE_CONTACT_PHONE ||
+    '201011648029'
+).replace(/\D/g, '').replace(/^00/, '');
+
+export const STORE_WHATSAPP_URL = STORE_PHONE_DIGITS
+  ? `https://wa.me/${STORE_PHONE_DIGITS}`
+  : '';
+
+export const STORE_PHONE_TEL = STORE_PHONE_DIGITS ? `tel:+${STORE_PHONE_DIGITS}` : '';
+
 /** All 27 Egyptian governorates (for checkout / account address). */
 export const EGYPT_GOVERNORATES = [
   'Cairo',

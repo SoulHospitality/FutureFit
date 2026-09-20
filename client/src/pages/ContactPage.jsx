@@ -1,17 +1,17 @@
 import { Link } from 'react-router-dom';
-import { MessageCircle, Phone, Truck } from 'lucide-react';
-import { FREE_SHIPPING_MIN, formatMoney } from '../utils/helpers';
+import { Mail, MessageCircle, Phone, Truck } from 'lucide-react';
+import {
+  FREE_SHIPPING_MIN,
+  formatMoney,
+  STORE_EMAIL,
+  STORE_PHONE_DISPLAY,
+  STORE_PHONE_TEL,
+  STORE_WHATSAPP_URL,
+} from '../utils/helpers';
 
-const WHATSAPP = import.meta.env.VITE_WHATSAPP_NUMBER || '';
-const PHONE = import.meta.env.VITE_CONTACT_PHONE || '';
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function ContactPage() {
-  const whatsappHref = WHATSAPP
-    ? `https://wa.me/${String(WHATSAPP).replace(/\D/g, '')}`
-    : null;
-  const phoneHref = PHONE ? `tel:${String(PHONE).replace(/\s+/g, '')}` : null;
-
   return (
     <div className="bg-white">
       <section className="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
@@ -25,9 +25,9 @@ export default function ContactPage() {
         </p>
 
         <div className="mt-10 space-y-3">
-          {whatsappHref && (
+          {STORE_WHATSAPP_URL && (
             <a
-              href={whatsappHref}
+              href={STORE_WHATSAPP_URL}
               target="_blank"
               rel="noreferrer"
               className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
@@ -35,19 +35,31 @@ export default function ContactPage() {
               <MessageCircle className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
               <span>
                 <span className="block text-sm font-medium text-timber-800">WhatsApp</span>
-                <span className="text-sm text-timber-500">{WHATSAPP}</span>
+                <span className="text-sm text-timber-500">{STORE_PHONE_DISPLAY}</span>
               </span>
             </a>
           )}
-          {phoneHref && (
+          {STORE_PHONE_TEL && (
             <a
-              href={phoneHref}
+              href={STORE_PHONE_TEL}
               className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
             >
               <Phone className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
               <span>
                 <span className="block text-sm font-medium text-timber-800">Call us</span>
-                <span className="text-sm text-timber-500">{PHONE}</span>
+                <span className="text-sm text-timber-500">{STORE_PHONE_DISPLAY}</span>
+              </span>
+            </a>
+          )}
+          {STORE_EMAIL && (
+            <a
+              href={`mailto:${STORE_EMAIL}`}
+              className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
+            >
+              <Mail className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
+              <span>
+                <span className="block text-sm font-medium text-timber-800">Email</span>
+                <span className="text-sm text-timber-500">{STORE_EMAIL}</span>
               </span>
             </a>
           )}
@@ -65,11 +77,6 @@ export default function ContactPage() {
               <span className="text-sm text-timber-500">@FutureFit.eg</span>
             </span>
           </a>
-          {!whatsappHref && !phoneHref && (
-            <div className="border border-timber-200 bg-timber-50 px-5 py-5 text-sm text-timber-600">
-              Place an order and we’ll contact you on the phone number you provide at checkout.
-            </div>
-          )}
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2">
