@@ -203,6 +203,7 @@ export default function CheckoutPage() {
       state: form.state,
       zip: form.zip,
       country: form.country,
+      phone: form.phone.trim(),
     };
 
     const orderItems = items.map((i) => ({
@@ -216,19 +217,19 @@ export default function CheckoutPage() {
     try {
       let data;
       if (user) {
+        if (form.phone && form.phone !== user.phone) {
+          try {
+            await api.put('/auth/profile', { phone: form.phone.trim() });
+          } catch {
+            /* non-blocking — phone still saved on shippingAddress */
+          }
+        }
         ({ data } = await api.post('/orders', {
           orderItems,
           paymentMethod: form.paymentMethod,
           shippingAddress,
           couponCode: form.couponCode || undefined,
         }));
-        if (form.phone && form.phone !== user.phone) {
-          try {
-            await api.put('/auth/profile', { phone: form.phone });
-          } catch {
-            /* non-blocking */
-          }
-        }
       } else {
         ({ data } = await api.post('/orders/guest', {
           orderItems,

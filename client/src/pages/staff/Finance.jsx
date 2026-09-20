@@ -22,6 +22,7 @@ import {
   EXPENSE_CATEGORIES,
   expenseCategoryLabel,
   asArray,
+  isCodPayment,
 } from '../../utils/helpers';
 
 const TABS = [
@@ -494,7 +495,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
       <div className="card !p-0 overflow-hidden">
         <div className="border-b border-timber-100 px-5 py-4">
           <h2 className="text-sm font-semibold text-timber-900">Recent orders</h2>
-          <p className="text-xs text-timber-400">Mark COD / transfer payments when received</p>
+          <p className="text-xs text-timber-400">Mark prepaid / transfer payments when received (COD pays on delivery)</p>
         </div>
         <div className="table-wrapper !rounded-none !border-0">
           <table className="table text-sm">
@@ -523,7 +524,7 @@ function OverviewTab({ data, onMarkPaid, markingId }) {
                     </span>
                   </td>
                   <td>
-                    {!o.isPaid && o.status !== 'canceled' && (
+                    {!o.isPaid && o.status !== 'canceled' && !isCodPayment(o) && (
                       <button
                         type="button"
                         className="btn-outline btn-sm"
@@ -589,7 +590,7 @@ function OrdersTab({ orders, onMarkPaid, markingId }) {
                   </span>
                 </td>
                 <td>
-                  {!o.isPaid && o.status !== 'canceled' && (
+                  {!o.isPaid && o.status !== 'canceled' && !isCodPayment(o) && (
                     <button
                       type="button"
                       className="btn-outline btn-sm"

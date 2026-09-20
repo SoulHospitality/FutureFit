@@ -10,6 +10,7 @@ import {
   formatStaffDate,
   fulfillmentStatusMeta,
   isBostaSynced,
+  isCodPayment,
   paymentStatusMeta,
 } from '../../utils/helpers';
 
@@ -55,8 +56,9 @@ export default function StaffOrders() {
   const filtered = useMemo(() => {
     let list = orders;
     if (tab === 'unpaid') {
-      list = list.filter((o) => !o.isPaid && o.status !== 'canceled');
-    } else if (tab === 'unfulfilled') {
+      list = list.filter(
+        (o) => !o.isPaid && o.status !== 'canceled' && !isCodPayment(o)
+      ); else if (tab === 'unfulfilled') {
       list = list.filter(
         (o) =>
           o.status !== 'canceled' &&
@@ -125,8 +127,12 @@ export default function StaffOrders() {
   const selectedOrders = orders.filter((o) => selected.has(o.id));
 
   const bulkCapture = async () => {
-    const unpaid = selectedOrders.filter((o) => !o.isPaid && o.status !== 'canceled');
-    if (!unpaid.length) return toast.info('No unpaid orders selected');
+    const unpaid = selectedOrders.filter(
+      (o) => !o.isPaid && o.status !== 'canceled' && !isCodPayment(o)
+    );
+    if (!unpaid.length) {
+      return toast.info('No prepaid unpaid orders selected (COD pays on delivery)');
+    }
     setBusy(true);
     let ok = 0;
     try {
@@ -388,7 +394,7 @@ export default function StaffOrders() {
                     </td>
                     <td>
                       <div className="flex flex-wrap items-center justify-end gap-1">
-                        {!o.isPaid && !voided && (
+                        {!o.isPaid && !voided && !isCodPayment(o) && (
                           <button
                             type="button"
                             className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium hover:bg-zinc-50"

@@ -9,6 +9,7 @@ import {
   formatMoney,
   formatStaffDate,
   isBostaSynced,
+  isCodPayment,
   orderStatusLabel,
   paymentStatusMeta,
 } from '../../utils/helpers';
@@ -182,7 +183,7 @@ export default function StaffDeliveries() {
                     </td>
                     <td>
                       <div className="flex flex-wrap items-center gap-1">
-                        {!o.isPaid && o.status !== 'canceled' && (
+                        {!o.isPaid && o.status !== 'canceled' && !isCodPayment(o) && (
                           <button
                             type="button"
                             className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"

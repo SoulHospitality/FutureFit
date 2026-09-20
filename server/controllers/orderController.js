@@ -335,7 +335,8 @@ const serializeOrder = (order) => ({
   totalPrice: Number(order.totalPrice),
   items: order.items?.map((i) => ({ ...i, price: Number(i.price) })),
   customerName: order.user?.name || order.guestName || null,
-  customerPhone: order.user?.phone || order.guestPhone || null,
+  customerPhone:
+    order.user?.phone || order.guestPhone || order.shippingAddress?.phone || null,
   customerEmail: order.user?.email || order.guestEmail || null,
 });
 
@@ -504,6 +505,14 @@ const markOrderPaid = async (req, res) => {
     }
     if (existing.isPaid) {
       return res.json(serializeOrder(existing));
+    }
+
+    // COD: paid automatically when Bosta reports delivered — do not Capture early.
+    if (isCodMethod(existing.paymentMethod) && existing.status !== 'delivered') {
+      return res.status(400).json({
+        message:
+          'Cash on delivery is marked paid when Bosta reports the order as delivered. Use Retry Bosta if the shipment is missing.',
+      });
     }
 
     const order = await prisma.order.update({

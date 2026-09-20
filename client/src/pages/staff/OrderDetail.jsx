@@ -16,6 +16,7 @@ import {
   formatStaffDate,
   getImageUrl,
   isBostaSynced,
+  isCodPayment,
   orderStatusLabel,
   paymentStatusMeta,
   fulfillmentStatusMeta,
@@ -336,7 +337,13 @@ export default function StaffOrderDetail() {
             <div className="mt-2">
               <span className={pay.className}>{pay.label}</span>
             </div>
-            {!order.isPaid && order.status !== 'canceled' && (
+            {isCodPayment(order) && !order.isPaid && (
+              <p className="mt-2 text-xs text-zinc-500">
+                COD is marked paid automatically when Bosta reports delivered. No Capture needed —
+                shipment starts when the order is placed.
+              </p>
+            )}
+            {!order.isPaid && order.status !== 'canceled' && !isCodPayment(order) && (
               <button
                 type="button"
                 disabled={busy === 'paid'}

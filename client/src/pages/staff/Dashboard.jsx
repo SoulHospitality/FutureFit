@@ -9,6 +9,7 @@ import {
   formatMoney,
   formatStaffDate,
   isBostaSynced,
+  isCodPayment,
   paymentStatusMeta,
   sparkSeriesFromOrders,
 } from '../../utils/helpers';
@@ -94,7 +95,11 @@ export default function StaffDashboard() {
       (o) => o.status !== 'canceled' && o.status !== 'delivered' && !isBostaSynced(o)
     ).length;
     const needCapture = allOrders.filter(
-      (o) => !o.isPaid && o.status !== 'canceled' && o.status !== 'delivered'
+      (o) =>
+        !o.isPaid &&
+        o.status !== 'canceled' &&
+        o.status !== 'delivered' &&
+        !isCodPayment(o)
     ).length;
     const orderSeries = sparkSeriesFromOrders(allOrders, 14, 'count');
     const salesSeries = sparkSeriesFromOrders(allOrders, 14, 'revenue');

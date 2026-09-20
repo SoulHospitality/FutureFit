@@ -422,12 +422,24 @@ export const formatStaffDate = (value) => {
 export const isBostaSynced = (order) =>
   Boolean(order?.bostaTrackingNumber || order?.bostaDeliveryId);
 
+/** Cash on delivery — paid when Bosta reports delivered, not via Capture. */
+export const isCodPayment = (methodOrOrder) => {
+  const method =
+    typeof methodOrOrder === 'string'
+      ? methodOrOrder
+      : methodOrOrder?.paymentMethod;
+  return /cash\s*on\s*delivery|\bcod\b/i.test(String(method || ''));
+};
+
 export const paymentStatusMeta = (order) => {
   if (order?.status === 'canceled') {
     return { label: 'Voided', className: 'sp-pill sp-pill-void' };
   }
   if (order?.isPaid) {
     return { label: 'Paid', className: 'sp-pill sp-pill-paid' };
+  }
+  if (isCodPayment(order)) {
+    return { label: 'COD · collect on delivery', className: 'sp-pill sp-pill-info' };
   }
   return { label: 'Payment pending', className: 'sp-pill sp-pill-pending' };
 };

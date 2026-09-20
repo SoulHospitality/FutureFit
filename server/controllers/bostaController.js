@@ -18,9 +18,7 @@ const orderInclude = {
 };
 
 const isCodMethod = (method) =>
-  String(method || '')
-    .toLowerCase()
-    .includes('cash on delivery');
+  /cash\s*on\s*delivery|\bcod\b/i.test(String(method || ''));
 
 const isPaymobMethod = (method) =>
   /paymob|card\s*\/\s*wallet/i.test(String(method || ''));
@@ -91,7 +89,11 @@ const fulfillOrderWithBosta = async (
     const result = await bosta.createDelivery({
       orderId: order.id,
       customerName: order.user?.name || order.guestName || 'Customer',
-      phone: order.user?.phone || order.guestPhone,
+      phone:
+        order.user?.phone ||
+        order.guestPhone ||
+        order.shippingAddress?.phone ||
+        '',
       email: order.user?.email || order.guestEmail,
       address: order.shippingAddress || {},
       codAmount,
@@ -243,7 +245,8 @@ const handleWebhook = async (req, res) => {
       }
       if (nextStatus === 'delivered') {
         data.deliveredAt = order.deliveredAt || new Date();
-        if (isCodMethod(order.paymentMethod) || body.cod != null) {
+        // COD cash is collected at the door — mark paid when Bosta confirms delivery.
+        if (isCodMethod(order.paymentMethod) || Number(body.cod) > 0) {
           data.isPaid = true;
           data.paidAt = order.paidAt || new Date();
         }
