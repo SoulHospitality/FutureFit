@@ -75,7 +75,7 @@ export default function AboutPage() {
           </p>
           <p>
             Every piece is chosen for proportion, comfort, and lasting wear. We ship across Egypt
-            with cash on delivery, InstaPay, and card payment so checkout stays simple.
+            with cash on delivery and card payment so checkout stays simple.
           </p>
         </div>
       </section>
@@ -111,7 +111,7 @@ export default function AboutPage() {
         <div className="mx-auto grid max-w-7xl gap-12 px-5 sm:px-8 md:grid-cols-3">
           {[
             ['Fabric first', 'Materials selected for drape, comfort, and lasting shape.'],
-            ['Egypt-ready delivery', 'COD, InstaPay, and card — confirmed within 12 hours.'],
+            ['Egypt-ready delivery', 'COD and card — confirmed within 12 hours.'],
             ['Easy returns', 'Unworn items can be returned within 14 days.'],
           ].map(([title, body]) => (
             <div key={title}>

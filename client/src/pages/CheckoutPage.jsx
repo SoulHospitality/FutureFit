@@ -11,7 +11,6 @@ import {
   calcShipping,
   FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
-  INSTAPAY_HANDLE,
   EGYPT_GOVERNORATES,
 } from '../utils/helpers';
 import { getStoreSessionKey } from '../utils/sessionKey';
@@ -39,6 +38,9 @@ const stepFromPath = (pathname) => {
 
 const FORM_KEY = 'ff_checkout_form';
 
+const allowedPayment = (method) =>
+  PAYMENT_METHODS.some((m) => m.value === method) ? method : 'Cash on Delivery';
+
 const loadSavedForm = (user) => {
   const addr = user?.address || {};
   const base = {
@@ -56,7 +58,9 @@ const loadSavedForm = (user) => {
   try {
     const saved = JSON.parse(sessionStorage.getItem(FORM_KEY) || 'null');
     if (saved && typeof saved === 'object') {
-      return { ...base, ...saved, email: user?.email || saved.email || '' };
+      const merged = { ...base, ...saved, email: user?.email || saved.email || '' };
+      merged.paymentMethod = allowedPayment(merged.paymentMethod);
+      return merged;
     }
   } catch {
     /* ignore */
@@ -440,19 +444,6 @@ export default function CheckoutPage() {
                     <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
                       You’ll be redirected to Paymob’s secure checkout to finish card or wallet
                       payment.
-                    </p>
-                  )}
-                  {form.paymentMethod === 'InstaPay' && (
-                    <p className="mt-3 border border-timber-100 bg-timber-50 px-3 py-2.5 text-sm text-timber-600">
-                      {INSTAPAY_HANDLE ? (
-                        <>
-                          Send to InstaPay:{' '}
-                          <span className="font-medium text-timber-800">{INSTAPAY_HANDLE}</span>.
-                          Include your order phone in the note.
-                        </>
-                      ) : (
-                        'After you place the order, we’ll share our InstaPay details by phone.'
-                      )}
                     </p>
                   )}
                 </div>

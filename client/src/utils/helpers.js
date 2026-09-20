@@ -301,14 +301,7 @@ export const PAYMENT_METHODS = [
     label: 'Card / Wallet',
     hint: 'Pay securely online with card or mobile wallet via Paymob.',
   },
-  {
-    value: 'InstaPay',
-    label: 'InstaPay',
-    hint: 'Transfer via InstaPay after placing your order. We’ll confirm once received.',
-  },
 ];
-
-export const INSTAPAY_HANDLE = import.meta.env.VITE_INSTAPAY_HANDLE || '';
 
 /** Store contact — override on Vercel with VITE_* vars if needed. */
 export const STORE_EMAIL =

@@ -21,6 +21,14 @@ const TABS = [
   { id: 'delivered', label: 'Delivered' },
 ];
 
+const isInstaPayOrder = (o) =>
+  String(o?.paymentMethod || '')
+    .toLowerCase()
+    .includes('instapay');
+
+const orderPhone = (o) =>
+  o.customerPhone || o.user?.phone || o.guestPhone || '';
+
 export default function StaffOrders() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get('tab') || 'all';
@@ -323,6 +331,7 @@ export default function StaffOrders() {
                 const delivery = deliveryStatusMeta(o);
                 const itemCount = (o.items || []).reduce((n, i) => n + (i.qty || 0), 0);
                 const voided = o.status === 'canceled';
+                const phone = orderPhone(o);
                 return (
                   <tr key={o.id} className={voided ? 'opacity-50' : ''}>
                     <td>
@@ -343,6 +352,9 @@ export default function StaffOrders() {
                       <Link to={`/staff/orders/${o.id}`} className="hover:underline">
                         {o.customerName || o.user?.name || o.guestName || o.guestPhone || 'Guest'}
                       </Link>
+                      {isInstaPayOrder(o) && phone && (
+                        <div className="mt-0.5 text-xs tabular-nums text-zinc-500">{phone}</div>
+                      )}
                     </td>
                     <td className="text-zinc-500">Online Store</td>
                     <td className={`tabular-nums ${voided ? 'line-through' : ''}`}>

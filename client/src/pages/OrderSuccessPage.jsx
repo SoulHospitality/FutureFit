@@ -2,7 +2,6 @@ import { Link, useLocation, Navigate, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import {
   formatMoney,
-  INSTAPAY_HANDLE,
 } from '../utils/helpers';
 import api from '../api/axios';
 import BrandLoader from '../components/ui/BrandLoader';
@@ -125,9 +124,7 @@ export default function OrderSuccessPage() {
 
   const name = order.customerName || order.guestName;
   const method = order.paymentMethod;
-  const isInstaPay = method === 'InstaPay';
   const isPaymob = method === 'Paymob' || method === 'Card / Wallet (Paymob)';
-  const isWallet = isInstaPay;
 
   return (
     <div className="relative min-h-[70vh] overflow-hidden bg-white">
@@ -181,24 +178,8 @@ export default function OrderSuccessPage() {
           </div>
         </div>
 
-        {isInstaPay && (
-          <div className="card mt-4 space-y-2 text-left text-sm">
-            <p className="font-semibold text-timber-800">InstaPay transfer</p>
-            {INSTAPAY_HANDLE ? (
-              <p className="text-timber-600">
-                Send <span className="font-semibold">{formatMoney(order.totalPrice)}</span> to{' '}
-                <span className="font-semibold text-timber-900">{INSTAPAY_HANDLE}</span>.
-              </p>
-            ) : (
-              <p className="text-timber-600">
-                We’ll share our InstaPay details when we call. Use your order number as the note.
-              </p>
-            )}
-          </div>
-        )}
-
         <p className="mt-6 text-sm text-timber-500">
-          {isWallet || isPaymob
+          {isPaymob
             ? 'Delivery usually takes 2–3 business days after payment is confirmed.'
             : 'Delivery usually takes 2–3 business days · Cash on delivery.'}
         </p>

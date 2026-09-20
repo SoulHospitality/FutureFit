@@ -658,7 +658,7 @@ export default function ProductPage() {
                   Orders take 2–3 business days
                 </p>
                 <p className="mt-2 text-timber-500">
-                  Cash on delivery, InstaPay, and card payment available at checkout. Free shipping
+                  Cash on delivery and card / wallet payment available at checkout. Free shipping
                   on orders over EGP 2,000.
                 </p>
               </Accordion>
