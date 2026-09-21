@@ -25,10 +25,61 @@ const isLatinText = (value) => {
   return /^[\p{Script=Latin}\d\s.'\-_/]+$/u.test(s);
 };
 
+/** Common free-text / Arabic districts → Bosta-friendly English names. */
+const DISTRICT_ALIASES = {
+  'new cairo': 'New Cairo',
+  'القاهره الجديده': 'New Cairo',
+  'القاهرة الجديدة': 'New Cairo',
+  'القاهره الجديدة': 'New Cairo',
+  'القاهرة الجديده': 'New Cairo',
+  'التجمع': 'New Cairo',
+  'التجمع الخامس': 'New Cairo',
+  'rehab': 'El Rehab',
+  'el rehab': 'El Rehab',
+  الرحاب: 'El Rehab',
+  'nasr city': 'Nasr City',
+  'مدينة نصر': 'Nasr City',
+  maadi: 'Maadi',
+  المعادي: 'Maadi',
+  '6th of october': '6th of October',
+  'sixth of october': '6th of October',
+  '6 october': '6th of October',
+  'أكتوبر': '6th of October',
+  'sheikh zayed': 'Sheikh Zayed',
+  'الشيخ زايد': 'Sheikh Zayed',
+  heliopolis: 'Heliopolis',
+  مصرالجديدة: 'Heliopolis',
+  'مصر الجديدة': 'Heliopolis',
+  mokattam: 'Mokattam',
+  المقطم: 'Mokattam',
+  dokki: 'Dokki',
+  الدقي: 'Dokki',
+  mohandessin: 'Mohandessin',
+  المهندسين: 'Mohandessin',
+  zamalek: 'Zamalek',
+  الزمالك: 'Zamalek',
+};
+
+const normalizeDistrictKey = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const resolveDistrictName = (city, fallback) => {
+  const raw = String(city || '').trim();
+  if (!raw) return fallback;
+  const aliased = DISTRICT_ALIASES[normalizeDistrictKey(raw)];
+  if (aliased) return aliased;
+  // Latin free-text district names are fine; Arabic unknown → use fallback city
+  if (isLatinText(raw)) return raw;
+  return fallback;
+};
+
 /**
  * Map checkout address → Bosta drop-off fields.
- * Bosta rejects Arabic / free-form zones (error 3002 Zone Not Found).
- * Governorate (English) is the city; Arabic districts go into firstLine.
+ * Bosta requires districtId or districtName (error 777).
+ * Arabic / free-form areas are sent as districtName + firstLine; zone stays Latin.
  */
 const resolveDropOffAddress = (address = {}) => {
   const state = String(address.state || '').trim();
@@ -39,13 +90,15 @@ const resolveDropOffAddress = (address = {}) => {
 
   const dropCity = isLatinText(state) ? state : isLatinText(city) ? city : 'Cairo';
   const dropZone = isLatinText(city) ? city : dropCity;
-  const districtNote = city && city !== dropZone ? city : '';
+  const districtName = resolveDistrictName(city, dropZone || dropCity);
+  const districtNote = city && city !== districtName ? city : '';
   const firstLine =
     [street, districtNote, zip].filter(Boolean).join(', ') || `${dropCity}, Egypt`;
 
   return {
     city: dropCity,
     zone: dropZone,
+    districtName,
     firstLine: firstLine.slice(0, 180),
     secondLine: country || 'Egypt',
   };
