@@ -169,9 +169,16 @@ const listCities = async () => {
     return citiesCache.list;
   }
   const data = await request('GET', '/api/v2/cities');
-  const list = data?.data || data?.cities || (Array.isArray(data) ? data : []);
-  citiesCache = { at: Date.now(), list };
-  return list;
+  const list =
+    data?.data?.list ||
+    data?.data?.cities ||
+    data?.data ||
+    data?.cities ||
+    data?.list ||
+    (Array.isArray(data) ? data : []);
+  const normalized = Array.isArray(list) ? list : [];
+  citiesCache = { at: Date.now(), list: normalized };
+  return normalized;
 };
 
 const listCityDistricts = async (cityId) => {
@@ -198,62 +205,81 @@ const listCityDistricts = async (cityId) => {
 };
 
 /**
- * Resolve Bosta catalog IDs so create-delivery accepts the address
- * (needs districtId or districtName — error 777).
+ * Resolve Bosta catalog IDs so create-delivery accepts the address.
+ * Newer Bosta validation: districtName requires peer cityId (error 777).
  */
 const enrichDropOffAddress = async (dropOff) => {
   const enriched = { ...dropOff };
-  try {
-    const cities = await listCities();
-    const cityCodeHint = GOVERNORATE_CITY_CODES[dropOff.city];
-    const cityHit =
-      pickNamed(cities, dropOff.city) ||
-      cities.find((c) => String(c?.code || c?.cityCode || '') === String(cityCodeHint || '')) ||
-      pickNamed(cities, 'Cairo');
-
-    const cityId = cityHit?._id || cityHit?.id || cityHit?.cityId || null;
-    const cityCode =
-      cityHit?.code || cityHit?.cityCode || cityCodeHint || null;
-
-    if (cityHit?.nameEn || cityHit?.name) {
-      enriched.city = cityHit.nameEn || cityHit.name;
-    } else if (cityCode) {
-      enriched.city = cityCode;
-    }
-
-    const districts = await listCityDistricts(cityId);
-    const districtHit =
-      pickNamed(districts, dropOff.districtName) ||
-      pickNamed(districts, dropOff.zone) ||
-      pickNamed(districts, 'New Cairo') ||
-      districts[0] ||
-      null;
-
-    if (districtHit) {
-      const districtId =
-        districtHit.districtId ||
-        districtHit._id ||
-        districtHit.id ||
-        districtHit.zoneId ||
-        null;
-      const districtName =
-        districtHit.districtName ||
-        districtHit.name ||
-        districtHit.nameEn ||
-        districtHit.zoneName ||
-        enriched.districtName;
-      if (districtId) enriched.districtId = String(districtId);
-      if (districtName) {
-        enriched.districtName = districtName;
-        enriched.zone = districtName;
-      }
-    }
-  } catch (err) {
-    console.warn('Bosta catalog lookup failed:', err.message);
+  const cities = await listCities();
+  if (!Array.isArray(cities) || !cities.length) {
+    const err = new Error('Could not load Bosta cities catalog');
+    err.status = 502;
+    throw err;
   }
 
-  if (!enriched.districtName) {
-    enriched.districtName = enriched.zone || enriched.city || 'Cairo';
+  const cityCodeHint = GOVERNORATE_CITY_CODES[dropOff.city] || GOVERNORATE_CITY_CODES.Cairo;
+  const cityHit =
+    pickNamed(cities, dropOff.city) ||
+    cities.find((c) => String(c?.code || c?.cityCode || '') === String(cityCodeHint || '')) ||
+    pickNamed(cities, 'Cairo') ||
+    cities[0];
+
+  const cityId =
+    cityHit?._id ||
+    cityHit?.id ||
+    cityHit?.cityId ||
+    cityHit?.cityID ||
+    null;
+
+  if (!cityId) {
+    const err = new Error(
+      'Bosta cityId missing for this address. Check BOSTA_API_KEY can read /api/v2/cities.'
+    );
+    err.status = 502;
+    throw err;
+  }
+
+  enriched.cityId = String(cityId);
+  if (cityHit?.nameEn || cityHit?.name) {
+    enriched.city = cityHit.nameEn || cityHit.name;
+  } else if (cityCodeHint) {
+    enriched.city = cityCodeHint;
+  }
+
+  const districts = await listCityDistricts(cityId);
+  const districtHit =
+    pickNamed(districts, dropOff.districtName) ||
+    pickNamed(districts, dropOff.zone) ||
+    pickNamed(districts, 'New Cairo') ||
+    pickNamed(districts, dropOff.city) ||
+    districts[0] ||
+    null;
+
+  if (districtHit) {
+    const districtId =
+      districtHit.districtId ||
+      districtHit._id ||
+      districtHit.id ||
+      districtHit.zoneId ||
+      null;
+    const districtName =
+      districtHit.districtName ||
+      districtHit.name ||
+      districtHit.nameEn ||
+      districtHit.zoneName ||
+      enriched.districtName;
+    // Prefer IDs — Bosta pairs cityId with districtId/districtName
+    if (districtId) enriched.districtId = String(districtId);
+    if (districtName) {
+      enriched.districtName = districtName;
+      enriched.zone = districtName;
+    }
+    const zoneId = districtHit.zoneId || districtHit.zone?._id || null;
+    if (zoneId) enriched.zoneId = String(zoneId);
+  }
+
+  if (!enriched.districtName && !enriched.districtId) {
+    enriched.districtName = enriched.zone || 'New Cairo';
   }
   if (!enriched.buildingNumber) enriched.buildingNumber = '1';
 
@@ -341,6 +367,12 @@ const createDelivery = async ({
   }
 
   const dropOffAddress = await enrichDropOffAddress(resolveDropOffAddress(address));
+
+  if (!dropOffAddress.cityId) {
+    const err = new Error('Bosta requires cityId on dropOffAddress');
+    err.status = 502;
+    throw err;
+  }
 
   const payload = {
     type: 10,
