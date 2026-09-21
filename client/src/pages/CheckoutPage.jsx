@@ -12,15 +12,16 @@ import {
   FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
   EGYPT_GOVERNORATES,
+  citiesForGovernorate,
 } from '../utils/helpers';
 import { getStoreSessionKey } from '../utils/sessionKey';
 import { trackInitiateCheckout } from '../utils/metaPixel';
 
 const ADDRESS_FIELDS = [
-  { key: 'street', label: 'Street address', span: true },
-  { key: 'city', label: 'City' },
   { key: 'state', label: 'Governorate' },
-  { key: 'zip', label: 'Postal code' },
+  { key: 'city', label: 'City / area' },
+  { key: 'street', label: 'Street address', span: true },
+  { key: 'zip', label: 'Postal code (optional)' },
   { key: 'country', label: 'Country' },
 ];
 
@@ -146,7 +147,19 @@ export default function CheckoutPage() {
     return <Navigate to="/checkout/contact" replace />;
   }
 
-  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const set = (key) => (e) => {
+    const value = e.target.value;
+    if (key === 'state') {
+      const cities = citiesForGovernorate(value);
+      setForm((prev) => ({
+        ...prev,
+        state: value,
+        city: cities.includes(prev.city) ? prev.city : '',
+      }));
+      return;
+    }
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
 
   const validateStep = (s) => {
     if (s === 1) {
@@ -157,8 +170,24 @@ export default function CheckoutPage() {
       return true;
     }
     if (s === 2) {
-      if (!form.street.trim() || !form.city.trim() || !form.state.trim() || !form.country.trim()) {
-        toast.error('Street, city, governorate, and country are required');
+      if (!form.state.trim()) {
+        toast.error('Please select a governorate');
+        return false;
+      }
+      if (!EGYPT_GOVERNORATES.includes(form.state.trim())) {
+        toast.error('Please select a valid governorate');
+        return false;
+      }
+      if (!form.city.trim()) {
+        toast.error('Please select a city / area');
+        return false;
+      }
+      if (!form.street.trim() || form.street.trim().length < 5) {
+        toast.error('Please enter a full street address');
+        return false;
+      }
+      if (!form.country.trim()) {
+        toast.error('Country is required');
         return false;
       }
       return true;
@@ -382,12 +411,34 @@ export default function CheckoutPage() {
                             </option>
                           ))}
                         </select>
+                      ) : key === 'city' ? (
+                        <select
+                          required
+                          className="input"
+                          value={form.city}
+                          onChange={set('city')}
+                          disabled={!form.state}
+                        >
+                          <option value="">
+                            {form.state ? 'Select city / area' : 'Select governorate first'}
+                          </option>
+                          {citiesForGovernorate(form.state).map((c) => (
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
+                          ))}
+                        </select>
                       ) : (
                         <input
-                          required={key === 'street' || key === 'city' || key === 'country'}
+                          required={key === 'street' || key === 'country'}
                           className="input"
                           value={form[key]}
                           onChange={set(key)}
+                          placeholder={
+                            key === 'street'
+                              ? 'Building, street, landmark…'
+                              : undefined
+                          }
                         />
                       )}
                     </div>

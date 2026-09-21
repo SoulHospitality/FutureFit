@@ -355,6 +355,76 @@ export const EGYPT_GOVERNORATES = [
 ];
 
 /**
+ * Common cities / areas per governorate for checkout (Bosta-friendly English names).
+ * Customers must pick governorate + city + street address.
+ */
+export const EGYPT_CITIES_BY_GOVERNORATE = {
+  Cairo: [
+    'New Cairo',
+    'Nasr City',
+    'Heliopolis',
+    'Maadi',
+    'El Rehab',
+    'Mokattam',
+    'Downtown',
+    'Zamalek',
+    'Shubra',
+    'Ain Shams',
+    'El Marg',
+    'Helwan',
+    'Other',
+  ],
+  Giza: [
+    'Dokki',
+    'Mohandessin',
+    'Agouza',
+    'Haram',
+    'Faisal',
+    '6th of October',
+    'Sheikh Zayed',
+    'Hadayek El Ahram',
+    'Imbaba',
+    'Other',
+  ],
+  Alexandria: [
+    'Smouha',
+    'Stanley',
+    'Gleem',
+    'Sidi Gaber',
+    'Sporting',
+    'Miami',
+    'Montaza',
+    'Other',
+  ],
+  Qalyubia: ['Shubra El Kheima', 'Banha', 'Qalyub', 'Other'],
+  Dakahlia: ['Mansoura', 'Talkha', 'Mit Ghamr', 'Other'],
+  Sharqia: ['Zagazig', '10th of Ramadan', 'Other'],
+  Gharbia: ['Tanta', 'El Mahalla', 'Other'],
+  Menofia: ['Shebin El Kom', 'Menouf', 'Other'],
+  Beheira: ['Damanhur', 'Kafr El Dawar', 'Other'],
+  'Kafr El Sheikh': ['Kafr El Sheikh', 'Desouk', 'Other'],
+  Damietta: ['Damietta', 'New Damietta', 'Other'],
+  'Port Said': ['Port Said', 'Other'],
+  Ismailia: ['Ismailia', 'Other'],
+  Suez: ['Suez', 'Other'],
+  Fayoum: ['Fayoum', 'Other'],
+  'Beni Suef': ['Beni Suef', 'Other'],
+  Minya: ['Minya', 'Other'],
+  Assiut: ['Assiut', 'Other'],
+  Sohag: ['Sohag', 'Other'],
+  Qena: ['Qena', 'Other'],
+  Luxor: ['Luxor', 'Other'],
+  Aswan: ['Aswan', 'Other'],
+  'Red Sea': ['Hurghada', 'Other'],
+  'South Sinai': ['Sharm El Sheikh', 'Other'],
+  'North Sinai': ['Arish', 'Other'],
+  Matrouh: ['Marsa Matrouh', 'Other'],
+  'New Valley': ['Kharga', 'Other'],
+};
+
+export const citiesForGovernorate = (governorate) =>
+  EGYPT_CITIES_BY_GOVERNORATE[governorate] || ['Other'];
+/**
  * @param {number} subtotal
  * @param {string} [governorate] optional; when omitted uses default remote rate (180)
  *   except callers that pass nothing for cart UI should treat shipping as “at checkout”.

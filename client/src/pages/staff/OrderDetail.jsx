@@ -94,7 +94,14 @@ export default function StaffOrderDetail() {
   const retryBosta = async () => {
     setBusy('bosta');
     try {
-      const { data } = await api.post(`/bosta/orders/${id}/ship`);
+      const { data } = await api.post(`/bosta/orders/${id}/ship`, {
+        shippingAddress: {
+          state: order.shippingAddress?.state || 'Cairo',
+          city: order.shippingAddress?.city || 'New Cairo',
+          country: order.shippingAddress?.country || 'Egypt',
+          street: order.shippingAddress?.street,
+        },
+      });
       setOrder((prev) => ({ ...prev, ...data }));
       toast.success(data.bostaTrackingNumber ? `Bosta · ${data.bostaTrackingNumber}` : 'Bosta synced');
       await load();

@@ -104,6 +104,162 @@ const resolveDropOffAddress = (address = {}) => {
   };
 };
 
+const GOVERNORATE_CITY_CODES = {
+  Cairo: 'EG-01',
+  Giza: 'EG-02',
+  Alexandria: 'EG-03',
+  Dakahlia: 'EG-05',
+  'Red Sea': 'EG-31',
+  Beheira: 'EG-18',
+  Fayoum: 'EG-15',
+  Gharbia: 'EG-09',
+  Ismailia: 'EG-19',
+  Menofia: 'EG-10',
+  Minya: 'EG-24',
+  Qalyubia: 'EG-04',
+  'New Valley': 'EG-32',
+  Suez: 'EG-20',
+  Aswan: 'EG-28',
+  Assiut: 'EG-25',
+  'Beni Suef': 'EG-22',
+  'Port Said': 'EG-21',
+  Damietta: 'EG-11',
+  Sharqia: 'EG-13',
+  'South Sinai': 'EG-30',
+  'Kafr El Sheikh': 'EG-14',
+  Matrouh: 'EG-33',
+  Luxor: 'EG-29',
+  Qena: 'EG-27',
+  'North Sinai': 'EG-34',
+  Sohag: 'EG-26',
+};
+
+const normalizeMatch = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06ff]+/gi, '')
+    .trim();
+
+const pickNamed = (list, wanted) => {
+  const want = normalizeMatch(wanted);
+  if (!want || !Array.isArray(list)) return null;
+  return (
+    list.find((item) => {
+      const names = [
+        item?.name,
+        item?.Name,
+        item?.nameEn,
+        item?.nameAr,
+        item?.districtName,
+        item?.zoneName,
+        item?.cityName,
+      ]
+        .filter(Boolean)
+        .map(normalizeMatch);
+      return names.some((n) => n === want || n.includes(want) || want.includes(n));
+    }) || null
+  );
+};
+
+/** Cache Bosta city catalog briefly to avoid hammering on retries. */
+let citiesCache = { at: 0, list: null };
+
+const listCities = async () => {
+  if (citiesCache.list && Date.now() - citiesCache.at < 10 * 60 * 1000) {
+    return citiesCache.list;
+  }
+  const data = await request('GET', '/api/v2/cities');
+  const list = data?.data || data?.cities || (Array.isArray(data) ? data : []);
+  citiesCache = { at: Date.now(), list };
+  return list;
+};
+
+const listCityDistricts = async (cityId) => {
+  if (!cityId) return [];
+  for (const path of [
+    `/api/v2/cities/${cityId}/districts`,
+    `/api/v2/cities/${cityId}/zones`,
+  ]) {
+    try {
+      const data = await request('GET', path);
+      const list =
+        data?.data?.districts ||
+        data?.data?.zones ||
+        data?.data ||
+        data?.districts ||
+        data?.zones ||
+        (Array.isArray(data) ? data : []);
+      if (Array.isArray(list) && list.length) return list;
+    } catch {
+      /* try next path */
+    }
+  }
+  return [];
+};
+
+/**
+ * Resolve Bosta catalog IDs so create-delivery accepts the address
+ * (needs districtId or districtName — error 777).
+ */
+const enrichDropOffAddress = async (dropOff) => {
+  const enriched = { ...dropOff };
+  try {
+    const cities = await listCities();
+    const cityCodeHint = GOVERNORATE_CITY_CODES[dropOff.city];
+    const cityHit =
+      pickNamed(cities, dropOff.city) ||
+      cities.find((c) => String(c?.code || c?.cityCode || '') === String(cityCodeHint || '')) ||
+      pickNamed(cities, 'Cairo');
+
+    const cityId = cityHit?._id || cityHit?.id || cityHit?.cityId || null;
+    const cityCode =
+      cityHit?.code || cityHit?.cityCode || cityCodeHint || null;
+
+    if (cityHit?.nameEn || cityHit?.name) {
+      enriched.city = cityHit.nameEn || cityHit.name;
+    } else if (cityCode) {
+      enriched.city = cityCode;
+    }
+
+    const districts = await listCityDistricts(cityId);
+    const districtHit =
+      pickNamed(districts, dropOff.districtName) ||
+      pickNamed(districts, dropOff.zone) ||
+      pickNamed(districts, 'New Cairo') ||
+      districts[0] ||
+      null;
+
+    if (districtHit) {
+      const districtId =
+        districtHit.districtId ||
+        districtHit._id ||
+        districtHit.id ||
+        districtHit.zoneId ||
+        null;
+      const districtName =
+        districtHit.districtName ||
+        districtHit.name ||
+        districtHit.nameEn ||
+        districtHit.zoneName ||
+        enriched.districtName;
+      if (districtId) enriched.districtId = String(districtId);
+      if (districtName) {
+        enriched.districtName = districtName;
+        enriched.zone = districtName;
+      }
+    }
+  } catch (err) {
+    console.warn('Bosta catalog lookup failed:', err.message);
+  }
+
+  if (!enriched.districtName) {
+    enriched.districtName = enriched.zone || enriched.city || 'Cairo';
+  }
+  if (!enriched.buildingNumber) enriched.buildingNumber = '1';
+
+  return enriched;
+};
+
 const extractBostaError = (data, status) => {
   if (data == null) return `Bosta request failed (${status})`;
   if (typeof data === 'string') return data;
@@ -184,7 +340,7 @@ const createDelivery = async ({
     throw err;
   }
 
-  const dropOffAddress = resolveDropOffAddress(address);
+  const dropOffAddress = await enrichDropOffAddress(resolveDropOffAddress(address));
 
   const payload = {
     type: 10,

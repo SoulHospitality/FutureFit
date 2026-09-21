@@ -137,6 +137,26 @@ const createShipment = async (req, res) => {
       });
     }
 
+    const override = req.body?.shippingAddress;
+    if (override && typeof override === 'object') {
+      const existing = await prisma.order.findUnique({
+        where: { id: req.params.id },
+        select: { shippingAddress: true },
+      });
+      if (!existing) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      await prisma.order.update({
+        where: { id: req.params.id },
+        data: {
+          shippingAddress: {
+            ...(existing.shippingAddress || {}),
+            ...override,
+          },
+        },
+      });
+    }
+
     const result = await fulfillOrderWithBosta(req.params.id, {
       confirm: true,
       force: true,

@@ -193,6 +193,11 @@ const createOrder = async (req, res) => {
     if (!paymentMethod || !shippingAddress) {
       return res.status(400).json({ message: 'Payment method and shipping address required' });
     }
+    if (!shippingAddress.street || !shippingAddress.city || !shippingAddress.state) {
+      return res.status(400).json({
+        message: 'Governorate, city, and street address are required',
+      });
+    }
 
     const { itemsPrice, itemsData } = await buildOrderItems(orderItems);
     const { discountAmount, couponId, savedCouponCode } = await resolveCoupon(
