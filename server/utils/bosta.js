@@ -18,6 +18,60 @@ const normalizeEgyptPhone = (phone) => {
   return p;
 };
 
+/** Latin-script text is safe for Bosta city/zone catalog names. */
+const isLatinText = (value) => {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  return /^[\p{Script=Latin}\d\s.'\-_/]+$/u.test(s);
+};
+
+/**
+ * Map checkout address → Bosta drop-off fields.
+ * Bosta rejects Arabic / free-form zones (error 3002 Zone Not Found).
+ * Governorate (English) is the city; Arabic districts go into firstLine.
+ */
+const resolveDropOffAddress = (address = {}) => {
+  const state = String(address.state || '').trim();
+  const city = String(address.city || '').trim();
+  const street = String(address.street || '').trim();
+  const zip = String(address.zip || '').trim();
+  const country = String(address.country || 'Egypt').trim();
+
+  const dropCity = isLatinText(state) ? state : isLatinText(city) ? city : 'Cairo';
+  const dropZone = isLatinText(city) ? city : dropCity;
+  const districtNote = city && city !== dropZone ? city : '';
+  const firstLine =
+    [street, districtNote, zip].filter(Boolean).join(', ') || `${dropCity}, Egypt`;
+
+  return {
+    city: dropCity,
+    zone: dropZone,
+    firstLine: firstLine.slice(0, 180),
+    secondLine: country || 'Egypt',
+  };
+};
+
+const extractBostaError = (data, status) => {
+  if (data == null) return `Bosta request failed (${status})`;
+  if (typeof data === 'string') return data;
+  const parts = [
+    data.message,
+    data.error,
+    data.detail,
+    data.errorMessage,
+    data.errorCode != null ? `code ${data.errorCode}` : null,
+  ]
+    .flatMap((v) => (Array.isArray(v) ? v : [v]))
+    .filter(Boolean)
+    .map((v) => (typeof v === 'string' ? v : JSON.stringify(v)));
+  if (parts.length) return parts.join(' — ');
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return `Bosta request failed (${status})`;
+  }
+};
+
 const request = async (method, path, body) => {
   if (!isConfigured()) {
     const err = new Error('Bosta is not configured');
@@ -38,13 +92,7 @@ const request = async (method, path, body) => {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg =
-      data?.message ||
-      data?.error ||
-      data?.detail ||
-      (typeof data === 'string' ? data : null) ||
-      `Bosta request failed (${res.status})`;
-    const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    const err = new Error(extractBostaError(data, res.status));
     err.status = res.status >= 400 && res.status < 500 ? res.status : 502;
     err.payload = data;
     throw err;
@@ -83,10 +131,7 @@ const createDelivery = async ({
     throw err;
   }
 
-  // Bosta cities are governorates — prefer state (governorate) over district/city text
-  const dropCity = address.state || address.city || 'Cairo';
-  const dropZone = address.city || address.state || dropCity;
-  const dropLine = [address.street, address.zip].filter(Boolean).join(', ') || 'Address TBD';
+  const dropOffAddress = resolveDropOffAddress(address);
 
   const payload = {
     type: 10,
@@ -100,12 +145,7 @@ const createDelivery = async ({
       phone: normalizedPhone,
       email: email || undefined,
     },
-    dropOffAddress: {
-      city: dropCity,
-      zone: dropZone,
-      firstLine: dropLine,
-      secondLine: address.country || 'Egypt',
-    },
+    dropOffAddress,
     specs: {
       packageDetails: {
         itemsCount: Math.max(1, Number(itemsCount) || 1),
@@ -206,4 +246,5 @@ module.exports = {
   createDelivery,
   mapBostaStateToOrderStatus,
   normalizeEgyptPhone,
+  resolveDropOffAddress,
 };

@@ -99,6 +99,14 @@ const fulfillOrderWithBosta = async (
       codAmount,
       itemsCount: (order.items || []).reduce((n, i) => n + (i.qty || 0), 0),
       description: (order.items || []).map((i) => i.name).join(', ').slice(0, 180),
+      notes: [
+        `FutureFit order ${order.id}`,
+        order.shippingAddress?.city
+          ? `District: ${order.shippingAddress.city}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
     });
 
     order = await prisma.order.update({
