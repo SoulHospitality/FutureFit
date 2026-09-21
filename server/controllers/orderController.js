@@ -503,9 +503,6 @@ const markOrderPaid = async (req, res) => {
     if (existing.status === 'canceled') {
       return res.status(400).json({ message: 'Cannot mark a canceled order as paid' });
     }
-    if (existing.isPaid) {
-      return res.json(serializeOrder(existing));
-    }
 
     // COD: paid automatically when Bosta reports delivered — do not Capture early.
     if (isCodMethod(existing.paymentMethod) && existing.status !== 'delivered') {
@@ -515,15 +512,36 @@ const markOrderPaid = async (req, res) => {
       });
     }
 
-    const order = await prisma.order.update({
-      where: { id: req.params.id },
-      data: { isPaid: true, paidAt: new Date() },
-      include: {
-        items: true,
-        user: { select: { id: true, name: true, email: true, phone: true } },
-      },
-    });
-    const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
+    let order = existing;
+    if (!existing.isPaid) {
+      order = await prisma.order.update({
+        where: { id: req.params.id },
+        data: { isPaid: true, paidAt: new Date() },
+        include: {
+          items: true,
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+      });
+    }
+
+    const needsShip = !order.bostaDeliveryId && !order.bostaTrackingNumber;
+    if (!needsShip) {
+      return res.json(serializeOrder(order));
+    }
+
+    const fulfilled = await fulfillOrderWithBosta(order, { confirm: true, force: true });
+    if (fulfilled.skipped === 'bosta_error' || fulfilled.skipped === 'bosta_not_configured') {
+      return res.status(502).json({
+        message:
+          fulfilled.error ||
+          (fulfilled.skipped === 'bosta_not_configured'
+            ? 'Bosta is not configured on the server'
+            : 'Payment captured, but Bosta shipment failed. Open the order and tap Retry Bosta.'),
+        order: serializeOrder(fulfilled.order),
+        bostaSkipped: fulfilled.skipped,
+      });
+    }
+
     res.json(serializeOrder(fulfilled.order));
   } catch (error) {
     res.status(500).json({ message: error.message });

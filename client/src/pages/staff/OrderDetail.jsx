@@ -64,9 +64,15 @@ export default function StaffOrderDetail() {
     try {
       const { data } = await api.patch(`/orders/${id}/paid`, { isPaid: true });
       setOrder(data);
-      toast.success('Payment captured');
+      toast.success(
+        data.bostaTrackingNumber
+          ? `Payment captured · Bosta ${data.bostaTrackingNumber}`
+          : 'Payment captured'
+      );
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed');
+      const payload = err.response?.data;
+      if (payload?.order) setOrder(payload.order);
+      toast.error(payload?.message || 'Failed');
     } finally {
       setBusy('');
     }
@@ -375,17 +381,24 @@ export default function StaffOrderDetail() {
                 )}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-zinc-500">Not synced yet</p>
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-medium">Not on Bosta yet</p>
+                <p className="mt-0.5 text-xs text-amber-800/80">
+                  {order.isPaid || isCodPayment(order)
+                    ? 'Tap Retry Bosta sync to create the shipment. Check the phone number if it fails.'
+                    : 'Capture payment first for prepaid orders, or use Retry if this is COD.'}
+                </p>
+              </div>
             )}
             {!isBostaSynced(order) && order.status !== 'canceled' && (
               <button
                 type="button"
                 disabled={busy === 'bosta'}
                 onClick={retryBosta}
-                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium hover:bg-zinc-50 disabled:opacity-50"
+                className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                Retry Bosta sync
+                {busy === 'bosta' ? 'Syncing…' : 'Retry Bosta sync'}
               </button>
             )}
             <div className="mt-3 flex flex-wrap gap-1">

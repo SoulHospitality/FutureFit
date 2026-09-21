@@ -212,9 +212,17 @@ export default function StaffOrders() {
     try {
       const { data } = await api.patch(`/orders/${order.id}/paid`, { isPaid: true });
       setOrders((prev) => prev.map((o) => (o.id === order.id ? data : o)));
-      toast.success('Marked as paid');
+      toast.success(
+        data.bostaTrackingNumber
+          ? `Paid · Bosta ${data.bostaTrackingNumber}`
+          : 'Marked as paid'
+      );
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not mark paid');
+      const payload = err.response?.data;
+      if (payload?.order) {
+        setOrders((prev) => prev.map((o) => (o.id === order.id ? payload.order : o)));
+      }
+      toast.error(payload?.message || 'Could not mark paid');
     }
   };
 
