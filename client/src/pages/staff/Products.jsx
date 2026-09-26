@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FolderOpen, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
+import { FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
@@ -320,6 +321,10 @@ export default function StaffProducts() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to="/staff/shop-control" className="btn-outline">
+            <LayoutGrid className="h-4 w-4" />
+            Shop Control
+          </Link>
           <button type="button" className="btn-outline" onClick={() => setBulkOpen(true)}>
             <Upload className="h-4 w-4" />
             Bulk upload

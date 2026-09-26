@@ -35,8 +35,13 @@ const OPS_PAGES = [
 
 export const canAccess = (user, page) => {
   if (!user) return false;
-  if (user.role === 'admin') return ADMIN_PAGES.includes(page);
-  if (user.role === 'ops') return OPS_PAGES.includes(page);
+  // Normalize so "shop-control" / "shopControl" both work
+  const key = String(page || '')
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, '-');
+  if (user.role === 'admin') return ADMIN_PAGES.includes(key);
+  if (user.role === 'ops') return OPS_PAGES.includes(key);
   return false;
 };
 

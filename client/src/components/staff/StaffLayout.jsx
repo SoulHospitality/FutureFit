@@ -40,7 +40,11 @@ export default function StaffLayout({ children, page }) {
   }
 
   const title =
-    Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] || 'Staff';
+    PAGE_TITLES[pathname] ||
+    Object.entries(PAGE_TITLES)
+      .sort((a, b) => b[0].length - a[0].length)
+      .find(([path]) => pathname.startsWith(path))?.[1] ||
+    'Staff';
 
   return (
     <div className="staff-shell min-h-screen bg-[#f1f1f1]">
