@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import DragSortList from '../../components/staff/DragSortList';
 import { getImageUrl, asArray } from '../../utils/helpers';
 
-const emptyForm = { title: '', description: '', imageUrl: '', sortOrder: 0 };
+const emptyForm = { title: '', description: '', imageUrl: '' };
 
 export default function StaffSlides() {
   const [slides, setSlides] = useState([]);
@@ -14,12 +15,18 @@ export default function StaffSlides() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [fileData, setFileData] = useState(null);
+  const [savingOrder, setSavingOrder] = useState(false);
 
   const load = () => {
     api.get('/slides').then((r) => setSlides(asArray(r.data)));
-    api.get('/slides/cloudinary-status').then((r) => setCloudOk(r.data.configured)).catch(() => {});
+    api
+      .get('/slides/cloudinary-status')
+      .then((r) => setCloudOk(r.data.configured))
+      .catch(() => {});
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const onFile = (e) => {
     const file = e.target.files?.[0];
@@ -42,7 +49,6 @@ export default function StaffSlides() {
       title: s.title || '',
       description: s.description || '',
       imageUrl: '',
-      sortOrder: s.sortOrder || 0,
     });
     setFileData(null);
     setOpen(true);
@@ -54,7 +60,7 @@ export default function StaffSlides() {
       const payload = {
         title: form.title,
         description: form.description,
-        sortOrder: Number(form.sortOrder) || 0,
+        sortOrder: editing ? editing.sortOrder ?? slides.length : slides.length,
         imageUrl: form.imageUrl || undefined,
         imageData: fileData || undefined,
       };
@@ -66,7 +72,10 @@ export default function StaffSlides() {
       setFileData(null);
       load();
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed — set Cloudinary keys or paste an image URL');
+      toast.error(
+        err.response?.data?.message ||
+          'Failed — set Cloudinary keys or paste an image URL'
+      );
     }
   };
 
@@ -75,59 +84,102 @@ export default function StaffSlides() {
     load();
   };
 
+  const onReorder = async (next) => {
+    setSlides(next);
+    setSavingOrder(true);
+    try {
+      await Promise.all(
+        next.map((s, i) => api.put(`/slides/${s.id}`, { sortOrder: i }))
+      );
+      toast.success('Slide order saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save slide order');
+      load();
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="page-title">Slideshow</h1>
           <p className="page-subtitle">
-            Homepage hero images via Cloudinary
+            Homepage hero images via Cloudinary — drag to set order
             {!cloudOk && (
-              <span className="text-amber-600"> — Cloudinary not configured; you can still paste a hosted image URL.</span>
+              <span className="text-amber-600">
+                {' '}
+                — Cloudinary not configured; you can still paste a hosted image URL.
+              </span>
             )}
           </p>
         </div>
-        <button type="button" className="btn-wheat" onClick={openCreate}>Add slide</button>
+        <button type="button" className="btn-wheat" onClick={openCreate}>
+          Add slide
+        </button>
       </div>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {slides.map((s) => (
-          <div key={s.id} className="card !p-0 overflow-hidden">
-            <img
-              src={getImageUrl(s.cloudinaryUrl, { width: 640, aspect: '16:9' })}
-              alt={s.title}
-              className="aspect-video w-full object-cover"
-            />
-            <div className="p-4">
-              <h3 className="font-semibold">{s.title}</h3>
-              <p className="text-sm text-timber-500 mt-1">{s.description}</p>
-              <div className="mt-3 flex gap-2">
-                <button type="button" className="btn-ghost btn-sm" onClick={() => openEdit(s)}>
-                  <Pencil className="w-4 h-4" />
-                  Edit
-                </button>
-                <button type="button" className="btn-ghost btn-sm text-red-600" onClick={() => remove(s.id)}>
-                  Delete
-                </button>
+      <div className="sp-card overflow-hidden">
+        {slides.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-zinc-400">No slides yet</p>
+        ) : (
+          <DragSortList
+            items={slides}
+            onReorder={onReorder}
+            disabled={savingOrder}
+            className="px-4"
+            renderItem={(s) => (
+              <div className="flex items-center gap-3">
+                <img
+                  src={getImageUrl(s.cloudinaryUrl, { width: 160, aspect: '16:9' })}
+                  alt={s.title}
+                  className="h-14 w-24 shrink-0 rounded object-cover bg-zinc-100"
+                  draggable={false}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-zinc-900">{s.title}</p>
+                  <p className="truncate text-xs text-zinc-500">{s.description}</p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={() => openEdit(s)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm text-red-600"
+                    onClick={() => remove(s.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            )}
+          />
+        )}
       </div>
 
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit slide' : 'New slide'}>
         <form onSubmit={save} className="space-y-4">
           <div>
             <label className="label">Title</label>
-            <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <input
+              className="input"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+            />
           </div>
           <div>
             <label className="label">Description</label>
-            <input className="input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-          <div>
-            <label className="label">Sort order</label>
-            <input type="number" className="input" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: e.target.value })} />
+            <input
+              className="input"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
           </div>
           <div>
             <label className="label">{editing ? 'Replace image (optional)' : 'Upload (Cloudinary)'}</label>
@@ -139,9 +191,16 @@ export default function StaffSlides() {
           </div>
           <div>
             <label className="label">Or image URL</label>
-            <input className="input" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://…" />
+            <input
+              className="input"
+              value={form.imageUrl}
+              onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+              placeholder="https://…"
+            />
           </div>
-          <button type="submit" className="btn-wheat w-full">Save slide</button>
+          <button type="submit" className="btn-wheat w-full">
+            Save slide
+          </button>
         </form>
       </Modal>
     </>

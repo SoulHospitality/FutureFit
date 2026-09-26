@@ -11,11 +11,14 @@ const {
   listProductReviews,
   createProductReview,
 } = require('../controllers/productController');
+const { getShopOrder, saveShopOrder } = require('../controllers/shopControlController');
 const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
 router.get('/', listProducts);
+router.get('/shop-order', protect, adminOnly, getShopOrder);
+router.put('/shop-order', protect, adminOnly, saveShopOrder);
 router.post('/resolve-photos', protect, adminOnly, resolvePhotos);
 router.post('/bulk', protect, adminOnly, bulkCreateProducts);
 router.get('/:id/reviews', listProductReviews);

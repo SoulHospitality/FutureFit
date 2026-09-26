@@ -23,6 +23,7 @@ import {
   UserRound,
   PackageSearch,
   Settings2,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess } from '../../utils/permissions';
@@ -49,6 +50,7 @@ const NAV_GROUPS = [
       { path: '/staff/newsletter', label: 'Newsletter', icon: Mail, page: 'newsletter' },
       { path: '/staff/slides', label: 'Slideshow', icon: Images, page: 'slides' },
       { path: '/staff/homepage', label: 'Homepage', icon: Store, page: 'homepage' },
+      { path: '/staff/shop-control', label: 'Shop Control', icon: LayoutGrid, page: 'shop-control' },
       { path: '/staff/promotions', label: 'Promotions', icon: Tag, page: 'promotions' },
     ],
   },

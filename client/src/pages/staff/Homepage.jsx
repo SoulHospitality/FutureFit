@@ -1,74 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { ArrowDown, ArrowUp, Plus, Search, Trash2, X } from 'lucide-react';
+import { Plus, Search, Trash2, X } from 'lucide-react';
 import api from '../../api/axios';
+import DragSortList from '../../components/staff/DragSortList';
 import { asArray, formatMoney, getImageUrl } from '../../utils/helpers';
 
 const SECTIONS = [
   {
     key: 'bestSellers',
     title: 'Best sellers',
-    hint: 'Shown in the Best sellers rail on the homepage.',
+    hint: 'Shown in the Best sellers rail on the homepage. Drag to reorder.',
     max: 12,
   },
   {
     key: 'packs',
     title: 'Packs & bundles',
-    hint: 'Shown in the Packs & bundles rail on the homepage.',
+    hint: 'Shown in the Packs & bundles rail on the homepage. Drag to reorder.',
     max: 12,
   },
 ];
-
-function ProductRow({ product, index, total, onMove, onRemove }) {
-  return (
-    <li className="flex items-center gap-3 border-b border-timber-50 py-3 last:border-0">
-      <span className="w-6 shrink-0 text-center text-xs tabular-nums text-timber-400">
-        {index + 1}
-      </span>
-      <img
-        src={getImageUrl(product.photos?.[0], { width: 80 })}
-        alt=""
-        className="h-14 w-12 shrink-0 object-cover bg-timber-100"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-timber-900">{product.name}</p>
-        <p className="mt-0.5 text-xs text-timber-500">
-          {formatMoney(product.isSaleActive && product.salePrice != null ? product.salePrice : product.price)}
-          {product.status === 'draft' ? ' · Draft' : ''}
-          {product.type === 'bundle' ? ' · Bundle' : ''}
-        </p>
-      </div>
-      <div className="flex shrink-0 gap-1">
-        <button
-          type="button"
-          className="btn-ghost btn-sm"
-          disabled={index === 0}
-          onClick={() => onMove(index, -1)}
-          aria-label="Move up"
-        >
-          <ArrowUp className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="btn-ghost btn-sm"
-          disabled={index >= total - 1}
-          onClick={() => onMove(index, 1)}
-          aria-label="Move down"
-        >
-          <ArrowDown className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          className="btn-ghost btn-sm text-red-600"
-          onClick={() => onRemove(index)}
-          aria-label="Remove"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </li>
-  );
-}
 
 export default function StaffHomepage() {
   const [bestSellers, setBestSellers] = useState([]);
@@ -130,16 +80,6 @@ export default function StaffHomepage() {
       .slice(0, 40);
   }, [catalog, query]);
 
-  const move = (key, index, dir) => {
-    setters[key]((prev) => {
-      const next = [...prev];
-      const j = index + dir;
-      if (j < 0 || j >= next.length) return prev;
-      [next[index], next[j]] = [next[j], next[index]];
-      return next;
-    });
-  };
-
   const removeAt = (key, index) => {
     setters[key]((prev) => prev.filter((_, i) => i !== index));
   };
@@ -181,6 +121,7 @@ export default function StaffHomepage() {
           <h1 className="page-title">Homepage</h1>
           <p className="page-subtitle">
             Choose which products appear in Best sellers and Packs &amp; bundles on the storefront.
+            Drag to set order.
           </p>
         </div>
         <button type="button" className="btn-wheat" disabled={saving || loading} onClick={save}>
@@ -220,18 +161,39 @@ export default function StaffHomepage() {
                   </button>
                 </div>
                 {items.length ? (
-                  <ul className="px-4">
-                    {items.map((p, i) => (
-                      <ProductRow
-                        key={p.id}
-                        product={p}
-                        index={i}
-                        total={items.length}
-                        onMove={(idx, dir) => move(section.key, idx, dir)}
-                        onRemove={(idx) => removeAt(section.key, idx)}
-                      />
-                    ))}
-                  </ul>
+                  <DragSortList
+                    items={items}
+                    onReorder={(next) => setters[section.key](next)}
+                    className="px-4"
+                    renderItem={(p, i) => (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getImageUrl(p.photos?.[0], { width: 80 })}
+                          alt=""
+                          className="h-14 w-12 shrink-0 object-cover bg-timber-100"
+                          draggable={false}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-timber-900">{p.name}</p>
+                          <p className="mt-0.5 text-xs text-timber-500">
+                            {formatMoney(
+                              p.isSaleActive && p.salePrice != null ? p.salePrice : p.price
+                            )}
+                            {p.status === 'draft' ? ' · Draft' : ''}
+                            {p.type === 'bundle' ? ' · Bundle' : ''}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm text-red-600"
+                          onClick={() => removeAt(section.key, i)}
+                          aria-label="Remove"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  />
                 ) : (
                   <p className="px-4 py-8 text-center text-sm text-timber-400">
                     No products yet — click Add to choose items.

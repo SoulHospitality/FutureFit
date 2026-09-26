@@ -106,6 +106,12 @@ model Product {
   stock        Int           @default(0)
   isSaleActive Boolean       @default(false)
   salePrice    Decimal?      @db.Decimal(10, 2)
+  /// Manual merchandising order for the All shop collection.
+  shopSortAll  Int           @default(0)
+  /// Manual merchandising order within Men / Women / Kids.
+  shopSortMen  Int           @default(0)
+  shopSortWomen Int          @default(0)
+  shopSortKids Int           @default(0)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
@@ -118,6 +124,10 @@ model Product {
   @@index([audience])
   @@index([categoryId])
   @@index([status])
+  @@index([shopSortAll])
+  @@index([shopSortMen])
+  @@index([shopSortWomen])
+  @@index([shopSortKids])
 }
 
 enum HomepageSection {

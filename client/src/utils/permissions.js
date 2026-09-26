@@ -17,6 +17,7 @@ const ADMIN_PAGES = [
   'users',
   'slides',
   'homepage',
+  'shop-control',
   'promotions',
   'finance',
 ];

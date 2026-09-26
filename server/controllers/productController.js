@@ -78,6 +78,10 @@ const PRODUCT_SELECT = {
   stock: true,
   isSaleActive: true,
   salePrice: true,
+  shopSortAll: true,
+  shopSortMen: true,
+  shopSortWomen: true,
+  shopSortKids: true,
   createdAt: true,
   updatedAt: true,
   category: {
@@ -201,6 +205,26 @@ const buildProductCreateData = async (body) => {
   const status =
     String(body.status || 'active').toLowerCase() === 'draft' ? 'draft' : 'active';
 
+  const [maxAll, maxAudience] = await Promise.all([
+    prisma.product.aggregate({ _max: { shopSortAll: true } }),
+    prisma.product.aggregate({
+      where: { audience },
+      _max: {
+        shopSortMen: true,
+        shopSortWomen: true,
+        shopSortKids: true,
+      },
+    }),
+  ]);
+  const nextAll = (maxAll._max.shopSortAll ?? -1) + 1;
+  const audienceField =
+    audience === 'women'
+      ? 'shopSortWomen'
+      : audience === 'kids'
+        ? 'shopSortKids'
+        : 'shopSortMen';
+  const nextAudience = (maxAudience._max[audienceField] ?? -1) + 1;
+
   return {
     name: String(name).trim(),
     description: String(description).trim(),
@@ -216,6 +240,10 @@ const buildProductCreateData = async (body) => {
     stock: sizeRows.reduce((n, r) => n + r.stock, 0),
     isSaleActive: Boolean(isSaleActive),
     salePrice: salePrice || null,
+    shopSortAll: nextAll,
+    shopSortMen: audience === 'men' ? nextAudience : 0,
+    shopSortWomen: audience === 'women' ? nextAudience : 0,
+    shopSortKids: audience === 'kids' ? nextAudience : 0,
     sizeStocks: { create: sizeStockWrites(sizeRows) },
   };
 };
@@ -262,10 +290,18 @@ const listProducts = async (req, res) => {
           { description: { contains: q, mode: 'insensitive' } },
         ];
       }
+      const sortField =
+        audience === 'men'
+          ? 'shopSortMen'
+          : audience === 'women'
+            ? 'shopSortWomen'
+            : audience === 'kids'
+              ? 'shopSortKids'
+              : 'shopSortAll';
       const rows = await prisma.product.findMany({
         where,
         select: PRODUCT_SELECT,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ [sortField]: 'asc' }, { createdAt: 'desc' }],
         take,
       });
       return rows.map((row) => serializeProduct(row));

@@ -21,6 +21,7 @@ const PAGE_TITLES = {
   '/staff/users': 'Users',
   '/staff/slides': 'Slideshow',
   '/staff/homepage': 'Homepage',
+  '/staff/shop-control': 'Shop Control',
   '/staff/promotions': 'Promotions',
   '/staff/categories': 'Categories',
   '/staff/finance': 'Finance',

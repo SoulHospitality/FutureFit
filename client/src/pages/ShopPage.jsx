@@ -460,9 +460,20 @@ export default function ShopPage() {
         const pb = b.isSaleActive && b.salePrice != null ? b.salePrice : b.price;
         return (Number(pa) - Number(pb)) * dir;
       });
+    } else {
+      // recommended — honor Shop Control order from the API (already sorted); keep stable
+      const field =
+        audience === 'men'
+          ? 'shopSortMen'
+          : audience === 'women'
+            ? 'shopSortWomen'
+            : audience === 'kids'
+              ? 'shopSortKids'
+              : 'shopSortAll';
+      list.sort((a, b) => (Number(a[field] ?? 0) - Number(b[field] ?? 0)));
     }
     return list;
-  }, [allProducts, searchQuery, selectedColors, selectedSizes, minPrice, maxPrice, sort]);
+  }, [allProducts, searchQuery, selectedColors, selectedSizes, minPrice, maxPrice, sort, audience]);
 
   const filterProps = {
     categories: audienceCategories,
