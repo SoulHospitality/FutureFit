@@ -58,7 +58,8 @@ export default function StaffOrders() {
     if (tab === 'unpaid') {
       list = list.filter(
         (o) => !o.isPaid && o.status !== 'canceled' && !isCodPayment(o)
-      ); else if (tab === 'unfulfilled') {
+      );
+    } else if (tab === 'unfulfilled') {
       list = list.filter(
         (o) =>
           o.status !== 'canceled' &&
