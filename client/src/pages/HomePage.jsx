@@ -36,6 +36,9 @@ const FALLBACK_COPY = {
 };
 
 const SLIDE_MS = 6500;
+// Portrait phones/tablets get a smart-cropped tall image instead of an upscaled 16:9 slice.
+const HERO_PORTRAIT_MEDIA = '(max-aspect-ratio: 3/4)';
+const HERO_PORTRAIT_ASPECT = '9:16';
 
 const TRUST_ITEMS = [
   `Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}`,
@@ -93,8 +96,11 @@ function Hero({ slides }) {
     if (count < 2) return;
     const next = slides[(index + 1) % count];
     if (!next?.cloudinaryUrl) return;
+    const portrait = window.matchMedia?.(HERO_PORTRAIT_MEDIA).matches;
     const img = new Image();
-    img.src = getImageUrl(next.cloudinaryUrl, { width: 1400 });
+    img.src = portrait
+      ? getImageUrl(next.cloudinaryUrl, { width: 960, aspect: HERO_PORTRAIT_ASPECT })
+      : getImageUrl(next.cloudinaryUrl, { width: 1600 });
   }, [index, slides, count]);
 
   const go = (dir) => count && setIndex((i) => (i + dir + count) % count);
@@ -102,8 +108,8 @@ function Hero({ slides }) {
   return (
     <section
       className="home-hero relative w-full overflow-hidden bg-timber-900 text-white"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onPointerEnter={(e) => e.pointerType === 'mouse' && setPaused(true)}
+      onPointerLeave={(e) => e.pointerType === 'mouse' && setPaused(false)}
       onTouchStart={(e) => {
         touchStartX.current = e.changedTouches[0]?.clientX ?? null;
       }}
@@ -119,32 +125,40 @@ function Hero({ slides }) {
     >
       <div className="absolute inset-0">
         {slide?.cloudinaryUrl ? (
-          <img
-            key={slide.id}
-            src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
-            srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000])}
-            alt={slide.title || 'FutureFit'}
-            width={1600}
-            height={900}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            sizes="100vw"
-            className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
-          />
+          <picture key={slide.id}>
+            <source
+              media={HERO_PORTRAIT_MEDIA}
+              srcSet={getImageSrcSet(slide.cloudinaryUrl, [480, 720, 960, 1280, 1600], {
+                aspect: HERO_PORTRAIT_ASPECT,
+              })}
+              sizes="120vw"
+            />
+            <img
+              src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
+              srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000, 2560])}
+              alt={slide.title || 'FutureFit'}
+              width={1600}
+              height={900}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              sizes="100vw"
+              className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
+            />
+          </picture>
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(161,161,170,0.25),transparent_55%),linear-gradient(160deg,#27272a_0%,#18181b_60%,#09090b_100%)]" />
         )}
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
 
-      <div className="ff-container relative flex h-full flex-col justify-end pb-24 pt-32 sm:pb-28">
+      <div className="home-hero__content ff-container relative flex h-full flex-col justify-end pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-28 sm:pb-28 sm:pt-32 short:!pb-16 short:!pt-20">
         <div key={slide?.id || 'fallback'} className="max-w-3xl">
-          <p className="ff-fade-up text-[11px] font-semibold uppercase tracking-[0.36em] text-blush">
+          <p className="ff-fade-up text-[10px] font-semibold uppercase tracking-[0.32em] text-blush sm:text-[11px] sm:tracking-[0.36em]">
             FutureFit · From Cairo
           </p>
           <h1
-            className="ff-fade-up mt-5 font-display text-[clamp(2.6rem,8vw,6.5rem)] font-light leading-[0.95] tracking-[-0.03em] text-balance"
+            className="ff-fade-up mt-4 font-display text-[clamp(2.4rem,min(9vw,8svh),6.5rem)] font-light leading-[0.98] tracking-[-0.03em] text-balance sm:mt-5 short:!mt-2 short:!text-[clamp(1.8rem,9svh,2.6rem)]"
             style={{ animationDelay: '80ms' }}
           >
             {slide?.title || (
@@ -154,22 +168,25 @@ function Hero({ slides }) {
             )}
           </h1>
           <p
-            className="ff-fade-up mt-5 max-w-lg text-[15px] leading-relaxed text-white/80 sm:text-lg"
+            className="ff-fade-up mt-4 line-clamp-3 max-w-lg text-[15px] leading-relaxed text-white/80 sm:mt-5 sm:text-lg short:!hidden"
             style={{ animationDelay: '160ms' }}
           >
             {slide?.description ||
               'Classic cuts. Modern presence. Essentials made to move with you — from Cairo streets to every occasion.'}
           </p>
         </div>
-        <div className="ff-fade-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
-          <Link to="/shop" className="btn-lg btn bg-white text-timber-900 hover:bg-blush">
+        <div className="ff-fade-up mt-7 flex flex-wrap gap-3 sm:mt-8 short:!mt-4" style={{ animationDelay: '240ms' }}>
+          <Link
+            to="/shop"
+            className="btn-lg btn w-full bg-white text-timber-900 hover:bg-blush min-[420px]:w-auto short:!w-auto"
+          >
             Shop all
           </Link>
         </div>
       </div>
 
       {count > 1 && (
-        <div className="ff-container absolute inset-x-0 bottom-6 flex items-center gap-4 sm:bottom-8">
+        <div className="home-hero__content ff-container absolute inset-x-0 bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex items-center gap-4 sm:bottom-8 short:!bottom-4">
           <span className="text-[11px] font-semibold tabular-nums tracking-[0.2em] text-white/80">
             {String(index + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
           </span>

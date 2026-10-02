@@ -215,6 +215,24 @@
     height: 100svh;
     min-height: 22rem;
   }
+  @supports (padding: max(0px)) {
+    .home-hero .home-hero__content {
+      padding-left: max(1.25rem, env(safe-area-inset-left));
+      padding-right: max(1.25rem, env(safe-area-inset-right));
+    }
+    @media (min-width: 640px) {
+      .home-hero .home-hero__content {
+        padding-left: max(2rem, env(safe-area-inset-left));
+        padding-right: max(2rem, env(safe-area-inset-right));
+      }
+    }
+    @media (min-width: 1024px) {
+      .home-hero .home-hero__content {
+        padding-left: max(3rem, env(safe-area-inset-left));
+        padding-right: max(3rem, env(safe-area-inset-right));
+      }
+    }
+  }
 
   .home-depts-track {
     display: grid;

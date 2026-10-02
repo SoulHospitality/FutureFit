@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin';
+
 /** @type {import('tailwindcss').Config} */
 const timber = (step) => `rgb(var(--timber-${step}) / <alpha-value>)`;
 
@@ -65,5 +67,10 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addVariant }) => {
+      // Phones held sideways — very little vertical room
+      addVariant('short', '@media (orientation: landscape) and (max-height: 520px)');
+    }),
+  ],
 };

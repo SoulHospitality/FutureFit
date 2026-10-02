@@ -29,7 +29,7 @@ export default function WhatsAppButton() {
       title="Chat with us on WhatsApp"
       aria-hidden={!visible}
       tabIndex={visible ? undefined : -1}
-      className={`${hideOnMobile ? 'max-lg:hidden ' : ''}group fixed bottom-5 end-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-timber-900 text-white shadow-[0_18px_40px_-12px_rgba(9,9,11,0.6)] ring-4 ring-blush/60 transition duration-500 ease-ff hover:bg-timber-700 hover:ring-blush md:bottom-7 md:end-7 ${
+      className={`${hideOnMobile ? 'max-lg:hidden ' : ''}group fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] end-[max(1.25rem,env(safe-area-inset-right))] z-40 grid h-14 w-14 place-items-center rounded-full bg-timber-900 text-white shadow-[0_18px_40px_-12px_rgba(9,9,11,0.6)] ring-4 ring-blush/60 transition duration-500 ease-ff hover:bg-timber-700 hover:ring-blush md:bottom-7 md:end-7 ${
         visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
       }`}
     >
