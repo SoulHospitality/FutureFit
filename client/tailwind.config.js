@@ -17,7 +17,7 @@ export default {
           500: '#262626',
           600: '#171717',
         },
-        // Neutral scale — cool greys in staff, warm stone on the storefront (see index.css)
+        // Neutral grey scale (kept as `timber` token, values in index.css)
         timber: {
           50: timber(50),
           100: timber(100),
@@ -33,12 +33,12 @@ export default {
         },
         cream: '#ffffff',
         ink: '#0a0a0a',
-        // Storefront editorial palette
-        bone: '#faf7f3',
-        sand: '#efe8e0',
-        blush: '#f0dbd6',
-        nude: '#bf9990',
-        clay: '#9c5f4a',
+        // Storefront surface + accent tokens (monochrome brand palette)
+        bone: '#fafafa',
+        sand: '#f4f4f5',
+        blush: '#e4e4e7',
+        nude: '#a1a1aa',
+        clay: '#52525b',
         primary: {
           50: '#fafafa',
           100: '#f4f4f5',

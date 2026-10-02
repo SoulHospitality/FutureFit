@@ -37,7 +37,7 @@ export default function MiniCartDrawer() {
         aria-label="Close bag"
         onClick={closeDrawer}
       />
-      <aside className="ff-sheet-in absolute inset-y-0 end-0 flex w-full max-w-[440px] flex-col bg-bone shadow-[-16px_0_48px_-24px_rgba(28,24,21,0.4)]">
+      <aside className="ff-sheet-in absolute inset-y-0 end-0 flex w-full max-w-[440px] flex-col bg-bone shadow-[-16px_0_48px_-24px_rgba(9,9,11,0.4)]">
         <div className="flex items-center justify-between px-6 pb-4 pt-5">
           <div>
             <h2 className="font-display text-[1.75rem] font-light leading-none text-timber-900">Your bag</h2>

@@ -185,7 +185,7 @@ function ProductCard({ product, priority = false }) {
             type="button"
             disabled={!inStock}
             onClick={quickAdd}
-            className="absolute inset-x-3 bottom-3 z-[1] hidden translate-y-3 items-center justify-center gap-2 rounded-full bg-white/95 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-timber-900 opacity-0 shadow-[0_10px_30px_-12px_rgba(28,24,21,0.4)] backdrop-blur transition duration-300 ease-ff hover:bg-timber-900 hover:text-white group-hover:translate-y-0 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 lg:flex"
+            className="absolute inset-x-3 bottom-3 z-[1] hidden translate-y-3 items-center justify-center gap-2 rounded-full bg-white/95 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-timber-900 opacity-0 shadow-[0_10px_30px_-12px_rgba(9,9,11,0.4)] backdrop-blur transition duration-300 ease-ff hover:bg-timber-900 hover:text-white group-hover:translate-y-0 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 lg:flex"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             {needsOptions ? 'Quick add' : 'Add to bag'}
@@ -196,7 +196,7 @@ function ProductCard({ product, priority = false }) {
             aria-label={inStock ? 'Add to bag' : 'Out of stock'}
             disabled={!inStock}
             onClick={quickAdd}
-            className="absolute bottom-3 end-3 z-[1] grid h-10 w-10 place-items-center rounded-full bg-white/95 text-timber-900 shadow-[0_8px_20px_-10px_rgba(28,24,21,0.5)] transition active:scale-95 disabled:hidden lg:hidden"
+            className="absolute bottom-3 end-3 z-[1] grid h-10 w-10 place-items-center rounded-full bg-white/95 text-timber-900 shadow-[0_8px_20px_-10px_rgba(9,9,11,0.5)] transition active:scale-95 disabled:hidden lg:hidden"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
           </button>

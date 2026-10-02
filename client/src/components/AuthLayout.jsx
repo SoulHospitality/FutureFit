@@ -15,8 +15,8 @@ export default function AuthLayout({
         aria-hidden
         style={{
           background: `
-            radial-gradient(ellipse 80% 50% at 50% -15%, rgba(240, 219, 214, 0.9), transparent 60%),
-            linear-gradient(180deg, #faf7f3 0%, #efe8e0 100%)
+            radial-gradient(ellipse 80% 50% at 50% -15%, rgba(228, 228, 231, 0.9), transparent 60%),
+            linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%)
           `,
         }}
       />
@@ -44,7 +44,7 @@ export default function AuthLayout({
             )}
           </header>
 
-          <div className="rounded-3xl border border-timber-200/80 bg-white/95 p-5 shadow-[0_24px_60px_-36px_rgba(28,24,21,0.35)] backdrop-blur-sm sm:p-7">
+          <div className="rounded-3xl border border-timber-200/80 bg-white/95 p-5 shadow-[0_24px_60px_-36px_rgba(9,9,11,0.35)] backdrop-blur-sm sm:p-7">
             {children}
           </div>
 

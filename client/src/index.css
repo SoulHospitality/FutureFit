@@ -17,25 +17,13 @@
     --timber-950: 5 5 7;
     --ff-ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
-  /* Storefront: warm stone neutrals (Aesop / Polène inspired) */
   .store-shell {
-    --timber-50: 250 247 243;
-    --timber-100: 243 237 230;
-    --timber-200: 230 221 211;
-    --timber-300: 201 188 174;
-    --timber-400: 150 137 125;
-    --timber-500: 115 103 93;
-    --timber-600: 88 78 70;
-    --timber-700: 60 52 46;
-    --timber-800: 41 35 31;
-    --timber-900: 28 24 21;
-    --timber-950: 18 15 13;
-    background: #faf7f3;
+    background: #fafafa;
     color: rgb(var(--timber-700));
   }
   .store-shell ::selection {
-    background: #f0dbd6;
-    color: #1c1815;
+    background: #18181b;
+    color: #ffffff;
   }
   h1, h2, h3, .font-display {
     font-optical-sizing: auto;
@@ -295,10 +283,10 @@
       border-color 0.35s var(--ff-ease), transform 0.35s var(--ff-ease), box-shadow 0.35s var(--ff-ease);
   }
   :where(.store-shell) .btn-wheat {
-    box-shadow: 0 10px 24px -14px rgba(28, 24, 21, 0.55);
+    box-shadow: 0 10px 24px -14px rgba(9, 9, 11, 0.55);
   }
   :where(.store-shell) .btn-wheat:hover {
-    background: #3c342e;
+    background: #27272a;
   }
   :where(.store-shell) .btn-outline {
     @apply border-timber-900/25;
@@ -388,7 +376,7 @@
     @apply relative grid h-11 w-11 place-items-center rounded-full transition-colors duration-300;
   }
   .ff-glass {
-    background: rgba(250, 247, 243, 0.86);
+    background: rgba(255, 255, 255, 0.86);
     backdrop-filter: blur(18px) saturate(1.25);
     -webkit-backdrop-filter: blur(18px) saturate(1.25);
   }
@@ -415,7 +403,7 @@
     pointer-events: none;
     opacity: 0.5;
     mix-blend-mode: multiply;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.04 0 0 0 0 0.04 0 0 0 0 0.04 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   .ff-reveal {
     opacity: 0;
@@ -509,7 +497,7 @@
 
 .mega-dropdown {
   animation: megaDropIn 220ms var(--ff-ease);
-  box-shadow: 0 30px 60px -40px rgba(28, 24, 21, 0.35);
+  box-shadow: 0 30px 60px -40px rgba(9, 9, 11, 0.35);
 }
 
 @keyframes megaDropIn {

@@ -133,7 +133,7 @@ function Hero({ slides }) {
             className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
           />
         ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(191,153,144,0.35),transparent_55%),linear-gradient(160deg,#2a2420_0%,#1c1815_60%,#120f0d_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(161,161,170,0.25),transparent_55%),linear-gradient(160deg,#27272a_0%,#18181b_60%,#09090b_100%)]" />
         )}
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
@@ -162,20 +162,8 @@ function Hero({ slides }) {
           </p>
         </div>
         <div className="ff-fade-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
-          <Link to="/shop?audience=men" className="btn-lg btn bg-white text-timber-900 hover:bg-blush">
-            Shop Men
-          </Link>
-          <Link
-            to="/shop?audience=women"
-            className="btn-lg btn border border-white/50 bg-white/5 text-white backdrop-blur-sm hover:border-white hover:bg-white hover:text-timber-900"
-          >
-            Shop Women
-          </Link>
-          <Link
-            to="/shop?audience=kids"
-            className="btn-lg btn hidden border border-white/50 bg-white/5 text-white backdrop-blur-sm hover:border-white hover:bg-white hover:text-timber-900 sm:inline-flex"
-          >
-            Shop Kids
+          <Link to="/shop" className="btn-lg btn bg-white text-timber-900 hover:bg-blush">
+            Shop all
           </Link>
         </div>
       </div>
@@ -422,14 +410,14 @@ export default function HomePage() {
               return (
                 <Reveal key={dept.id} delay={i * 90} className="w-[72vw] shrink-0 snap-start sm:w-auto">
                   <Link to={href} className="group block">
-                    <div className="ff-arch relative aspect-[4/5] bg-timber-200">
+                    <div className="relative aspect-square overflow-hidden rounded-3xl bg-timber-200">
                       {photo ? (
                         <img
-                          src={getImageUrl(photo, { width: 640, aspect: '4:5' })}
-                          srcSet={getImageSrcSet(photo, [480, 640, 800, 1000], { aspect: '4:5' })}
+                          src={getImageUrl(photo, { width: 640, aspect: '1:1' })}
+                          srcSet={getImageSrcSet(photo, [480, 640, 800, 1000], { aspect: '1:1' })}
                           alt={`${dept.name} collection`}
                           width={800}
-                          height={1000}
+                          height={800}
                           loading="lazy"
                           decoding="async"
                           sizes="(min-width: 640px) 33vw, 72vw"
@@ -518,7 +506,7 @@ export default function HomePage() {
                 />
               ) : null}
             </div>
-            <div className="absolute -bottom-6 end-6 rounded-2xl bg-white px-5 py-4 shadow-[0_24px_50px_-28px_rgba(28,24,21,0.45)] sm:end-10">
+            <div className="absolute -bottom-6 end-6 rounded-2xl bg-white px-5 py-4 shadow-[0_24px_50px_-28px_rgba(9,9,11,0.45)] sm:end-10">
               <p className="font-display text-3xl font-light text-timber-900">All-day</p>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-clay">comfort, built in</p>
             </div>
@@ -643,7 +631,7 @@ export default function HomePage() {
                 </>
               );
               const cls =
-                'block h-full rounded-2xl border border-timber-200/80 bg-white p-6 transition duration-500 hover:-translate-y-1 hover:shadow-[0_24px_50px_-30px_rgba(28,24,21,0.35)]';
+                'block h-full rounded-2xl border border-timber-200/80 bg-white p-6 transition duration-500 hover:-translate-y-1 hover:shadow-[0_24px_50px_-30px_rgba(9,9,11,0.35)]';
               return (
                 <Reveal key={s.title} delay={i * 70} className="w-[70vw] shrink-0 snap-start sm:w-auto">
                   {s.to ? (

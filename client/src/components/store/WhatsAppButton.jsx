@@ -16,7 +16,7 @@ export default function WhatsAppButton() {
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
       title="Chat with us on WhatsApp"
-      className={`${hideOnMobile ? 'max-lg:hidden ' : ''}group fixed bottom-5 end-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-timber-900 text-white shadow-[0_18px_40px_-12px_rgba(28,24,21,0.6)] ring-4 ring-blush/60 transition duration-500 hover:bg-timber-700 hover:ring-blush md:bottom-7 md:end-7`}
+      className={`${hideOnMobile ? 'max-lg:hidden ' : ''}group fixed bottom-5 end-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-timber-900 text-white shadow-[0_18px_40px_-12px_rgba(9,9,11,0.6)] ring-4 ring-blush/60 transition duration-500 hover:bg-timber-700 hover:ring-blush md:bottom-7 md:end-7`}
     >
       <span
         className="absolute end-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-bone bg-[#25d366]"

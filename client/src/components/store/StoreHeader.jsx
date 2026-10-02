@@ -179,7 +179,7 @@ export default function StoreHeader() {
     <>
       <header
         className={`${overHero ? 'fixed' : 'sticky'} inset-x-0 top-0 z-50 transition-[background-color,box-shadow] duration-500 ease-ff ${
-          transparent ? 'bg-transparent' : 'ff-glass shadow-[0_1px_0_rgba(28,24,21,0.08)]'
+          transparent ? 'bg-transparent' : 'ff-glass shadow-[0_1px_0_rgba(9,9,11,0.08)]'
         }`}
         onMouseLeave={leaveMenu}
       >
