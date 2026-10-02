@@ -39,15 +39,13 @@ export default function CartPage() {
   }
 
   return (
-    <div className="bg-white">
-      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-3 border-b border-timber-100 pb-6">
+    <div className="bg-bone">
+      <div className="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+        <div className="mb-10 flex flex-wrap items-end justify-between gap-3 border-b border-timber-200/70 pb-6">
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
-              Bag
-            </p>
-            <h1 className="mt-2 font-display text-5xl font-medium tracking-tight text-timber-900">
-              Cart
+            <p className="ff-eyebrow">Bag</p>
+            <h1 className="mt-3 font-display text-5xl font-light tracking-tight text-timber-900">
+              Your <em className="italic text-clay">bag</em>
             </h1>
           </div>
           <Link
@@ -73,7 +71,7 @@ export default function CartPage() {
                     height={112}
                     loading="lazy"
                     decoding="async"
-                    className="h-28 w-24 object-cover bg-timber-100"
+                    className="h-28 w-24 rounded-xl object-cover bg-timber-100"
                   />
                 </Link>
                 <div className="flex min-w-0 flex-1 flex-col">

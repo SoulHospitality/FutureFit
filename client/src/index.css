@@ -3,8 +3,52 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --timber-50: 250 250 250;
+    --timber-100: 244 244 245;
+    --timber-200: 228 228 231;
+    --timber-300: 161 161 170;
+    --timber-400: 113 113 122;
+    --timber-500: 82 82 91;
+    --timber-600: 63 63 70;
+    --timber-700: 39 39 42;
+    --timber-800: 24 24 27;
+    --timber-900: 9 9 11;
+    --timber-950: 5 5 7;
+    --ff-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  /* Storefront: warm stone neutrals (Aesop / Polène inspired) */
+  .store-shell {
+    --timber-50: 250 247 243;
+    --timber-100: 243 237 230;
+    --timber-200: 230 221 211;
+    --timber-300: 201 188 174;
+    --timber-400: 150 137 125;
+    --timber-500: 115 103 93;
+    --timber-600: 88 78 70;
+    --timber-700: 60 52 46;
+    --timber-800: 41 35 31;
+    --timber-900: 28 24 21;
+    --timber-950: 18 15 13;
+    background: #faf7f3;
+    color: rgb(var(--timber-700));
+  }
+  .store-shell ::selection {
+    background: #f0dbd6;
+    color: #1c1815;
+  }
+  h1, h2, h3, .font-display {
+    font-optical-sizing: auto;
+  }
+  .store-shell :is(h1, h2, h3).font-display,
+  .store-shell .font-display {
+    letter-spacing: -0.02em;
+  }
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+  @media (max-width: 767px) {
+    .store-shell :is(input, select, textarea) { font-size: 16px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
     *, *::before, *::after {
@@ -238,6 +282,168 @@
     @apply border-b border-timber-100;
   }
 
+  /* ── Storefront design system ──
+     :where() keeps specificity equal to the base rules above, so per-element
+     utilities (px-*, w-full, …) still win. */
+  :where(.store-shell) :is(.btn, .btn-wheat, .btn-dark, .btn-outline, .btn-danger, .btn-ghost) {
+    border-radius: 9999px;
+    min-height: 3rem;
+    padding-inline: 1.75rem;
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    transition: background-color 0.35s var(--ff-ease), color 0.35s var(--ff-ease),
+      border-color 0.35s var(--ff-ease), transform 0.35s var(--ff-ease), box-shadow 0.35s var(--ff-ease);
+  }
+  :where(.store-shell) .btn-wheat {
+    box-shadow: 0 10px 24px -14px rgba(28, 24, 21, 0.55);
+  }
+  :where(.store-shell) .btn-wheat:hover {
+    background: #3c342e;
+  }
+  :where(.store-shell) .btn-outline {
+    @apply border-timber-900/25;
+  }
+  :where(.store-shell) .btn-outline:hover {
+    @apply border-timber-900 bg-timber-900 text-white;
+  }
+  :where(.store-shell) .btn-sm {
+    min-height: 2.5rem;
+    padding-inline: 1.1rem;
+    font-size: 10.5px;
+  }
+  :where(.store-shell) .btn-lg {
+    min-height: 3.5rem;
+    padding-inline: 2.25rem;
+    font-size: 12px;
+  }
+  :where(.store-shell) :is(.input, .auth-input) {
+    @apply rounded-xl border-timber-200 bg-white;
+  }
+  :where(.store-shell) :is(.input, .auth-input):focus {
+    @apply border-timber-700 ring-4 ring-blush/60;
+  }
+  :where(.store-shell) select.input,
+  :where(.store-shell) .select-input {
+    padding-right: 2.5rem;
+  }
+  :where(.store-shell) .label {
+    @apply text-timber-600;
+  }
+  :where(.store-shell) .card {
+    @apply rounded-2xl border-timber-200/80 shadow-none;
+  }
+  :where(.store-shell) .badge {
+    @apply rounded-full;
+  }
+  :where(.store-shell) .page-hero {
+    @apply border-timber-200/70 bg-sand/60;
+  }
+  :where(.store-shell) .brand-eyebrow {
+    @apply tracking-[0.3em] text-clay;
+  }
+
+  .ff-container {
+    @apply mx-auto w-full max-w-site px-5 sm:px-8 lg:px-12;
+  }
+  .ff-section {
+    @apply py-16 sm:py-24 lg:py-28;
+  }
+  .ff-eyebrow {
+    @apply inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.3em] text-clay;
+  }
+  .ff-eyebrow::before {
+    content: '';
+    @apply h-px w-7 bg-current opacity-60;
+  }
+  .ff-title {
+    @apply font-display text-[clamp(2rem,4.4vw,3.6rem)] font-normal leading-[1.04] tracking-tight text-timber-900;
+  }
+  .ff-title em {
+    @apply font-light italic text-clay;
+  }
+  .ff-lede {
+    @apply text-[15px] leading-[1.75] text-timber-500 sm:text-base;
+  }
+  .ff-link {
+    @apply relative inline-flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-timber-900 transition-colors duration-300 hover:text-clay;
+  }
+  .ff-link::after {
+    content: '';
+    display: inline-block;
+    width: 1.75rem;
+    height: 1px;
+    background: currentColor;
+    transition: width 0.6s var(--ff-ease);
+  }
+  .ff-link:hover::after {
+    width: 3rem;
+  }
+  .ff-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-timber-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-timber-700 transition hover:border-timber-900;
+  }
+  .ff-chip[data-active='true'] {
+    @apply border-timber-900 bg-timber-900 text-white;
+  }
+  .ff-icon-btn {
+    @apply relative grid h-11 w-11 place-items-center rounded-full transition-colors duration-300;
+  }
+  .ff-glass {
+    background: rgba(250, 247, 243, 0.86);
+    backdrop-filter: blur(18px) saturate(1.25);
+    -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  }
+  .ff-scroll-x {
+    @apply flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain;
+    scrollbar-width: none;
+  }
+  .ff-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+  .ff-arch {
+    border-radius: 999px 999px 1.25rem 1.25rem;
+    overflow: hidden;
+  }
+  .ff-grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .ff-grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.11 0 0 0 0 0.09 0 0 0 0 0.08 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .ff-reveal {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0);
+    transition: opacity 1s var(--ff-ease), transform 1.1s var(--ff-ease);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .ff-reveal.is-in {
+    opacity: 1;
+    transform: none;
+  }
+  .ff-marquee {
+    display: flex;
+    width: max-content;
+    animation: ffMarquee 40s linear infinite;
+  }
+  .ff-marquee:hover {
+    animation-play-state: paused;
+  }
+  .ff-img-zoom {
+    transition: transform 1.2s var(--ff-ease);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .ff-img-zoom {
+      transform: scale(1.045);
+    }
+  }
+
   /* Nav underline accent */
   .nav-link-accent {
     @apply relative inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.28em] transition-colors;
@@ -260,9 +466,50 @@
   }
 }
 
+@keyframes ffMarquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes ffFadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ffKenBurns {
+  from { transform: scale(1.08); }
+  to { transform: scale(1); }
+}
+
+@keyframes ffProgress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes ffSheetIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes ffFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ff-fade-up { animation: ffFadeUp 0.9s var(--ff-ease) both; }
+.ff-kenburns { animation: ffKenBurns 7s ease-out both; }
+.ff-progress { transform-origin: left; animation: ffProgress linear both; }
+.ff-sheet-in { animation: ffSheetIn 0.45s var(--ff-ease) both; }
+.ff-fade { animation: ffFade 0.3s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-marquee, .ff-fade-up, .ff-kenburns, .ff-sheet-in, .ff-fade { animation: none; }
+  .ff-reveal { opacity: 1; transform: none; transition: none; }
+}
+
 .mega-dropdown {
-  animation: megaDropIn 180ms ease-out;
-  box-shadow: 0 24px 48px -32px rgba(9, 9, 11, 0.28);
+  animation: megaDropIn 220ms var(--ff-ease);
+  box-shadow: 0 30px 60px -40px rgba(28, 24, 21, 0.35);
 }
 
 @keyframes megaDropIn {
@@ -357,10 +604,10 @@
 .Toastify__toast.ff-toast {
   background: #ffffff;
   color: #18181b;
-  border-radius: 0;
+  border-radius: 14px;
   border: 1px solid #e4e4e7;
   box-shadow: 0 18px 40px -24px rgba(9, 9, 11, 0.35);
-  font-family: "Outfit", system-ui, sans-serif;
+  font-family: "Manrope", system-ui, sans-serif;
   font-size: 0.875rem;
   font-weight: 500;
   padding: 14px 16px;

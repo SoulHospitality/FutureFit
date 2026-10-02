@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, X } from 'lucide-react';
 import api from '../api/axios';
 import ProductCard from '../components/store/ProductCard';
@@ -98,10 +98,10 @@ function formatSizeLabel(raw) {
 }
 
 function chipClass(active) {
-  return `inline-flex min-h-9 items-center justify-center border px-2.5 py-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
+  return `inline-flex min-h-9 items-center justify-center rounded-full border px-3.5 py-1.5 text-center text-[12px] font-medium transition ${
     active
       ? 'border-timber-900 bg-timber-900 text-white'
-      : 'border-timber-200 bg-white text-timber-600 hover:border-timber-900 hover:text-timber-900'
+      : 'border-timber-200 bg-white text-timber-700 hover:border-timber-900 hover:text-timber-900'
   }`;
 }
 
@@ -121,8 +121,8 @@ function matchPricePreset(minPrice, maxPrice) {
 
 function FilterSection({ title, children }) {
   return (
-    <div className="border-b border-timber-100 py-5 last:border-b-0">
-      <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-timber-800">
+    <div className="border-b border-timber-200/70 py-5 last:border-b-0">
+      <p className="mb-3 text-[13px] font-semibold text-timber-900">
         {title}
       </p>
       {children}
@@ -165,9 +165,7 @@ function FiltersPanel({
       className={`flex flex-col ${embedded ? 'h-full' : 'max-h-[calc(100vh-7rem)]'}`}
     >
       <div className="mb-2 shrink-0 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-timber-400">
-          Refine
-        </p>
+        <p className="font-display text-2xl font-light text-timber-900">Filter</p>
         {hasFilters ? (
           <button
             type="button"
@@ -302,7 +300,7 @@ function FiltersPanel({
         <button
           type="button"
           onClick={onClose}
-          className="btn-wheat mt-4 w-full shrink-0 py-3 text-[11px] uppercase tracking-[0.2em]"
+          className="btn-wheat mt-4 w-full shrink-0"
         >
           Show results
         </button>
@@ -546,104 +544,103 @@ export default function ShopPage() {
   }, [searchQuery, selectedCategory, selectedColors, selectedSizes, minPrice, maxPrice, categories]);
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white">
-      <section className="relative overflow-hidden border-b border-timber-200">
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(9,9,11,0.06),_transparent_55%),linear-gradient(135deg,#f4f4f5_0%,#ffffff_45%,#fafafa_100%)]"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute -right-8 top-6 select-none font-display text-[clamp(5rem,18vw,12rem)] font-medium leading-none tracking-tight text-timber-900/[0.04] lg:right-[8%] lg:text-timber-900/[0.06]"
-          aria-hidden
-        >
-          {(audience ? audienceLabel(audience) : 'Shop').slice(0, 8)}
-        </div>
+    <div className="min-h-[calc(100vh-4rem)] bg-bone">
+      <section className="border-b border-timber-200/70">
+        <div className="ff-container pb-8 pt-10 sm:pt-14 lg:pb-10">
+          <nav className="text-[12px] text-timber-400" aria-label="Breadcrumb">
+            <Link to="/" className="hover:text-timber-800">Home</Link>
+            <span className="mx-2">/</span>
+            <Link to="/shop" className="hover:text-timber-800">Shop</Link>
+            {audience ? (
+              <>
+                <span className="mx-2">/</span>
+                <span className="text-timber-700">{audienceLabel(audience)}</span>
+              </>
+            ) : null}
+          </nav>
 
-        <div className="relative mx-auto max-w-[1280px] px-4 pb-10 pt-12 sm:px-6 lg:px-8 lg:pb-12 lg:pt-16">
-          <div className="max-w-xl lg:max-w-2xl">
-            <p className="brand-eyebrow">FutureFit · Shop</p>
-            <h1
-              key={heading}
-              className="hero-copy-fade mt-4 font-display text-5xl font-medium tracking-tight text-timber-900 text-balance sm:text-6xl lg:text-7xl"
-            >
-              {heading}
-            </h1>
-            <p
-              key={heroStatement}
-              className="hero-copy-fade mt-4 max-w-md text-sm leading-relaxed text-timber-600 sm:text-base"
-            >
-              {heroStatement}
-            </p>
+          <div className="mt-6 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-2xl">
+              <h1
+                key={heading}
+                className="ff-fade-up font-display text-[clamp(2.6rem,6vw,5rem)] font-light leading-[0.98] tracking-tight text-timber-900 text-balance"
+              >
+                {heading}
+              </h1>
+              <p key={heroStatement} className="ff-fade-up mt-4 max-w-md text-[15px] leading-relaxed text-timber-500">
+                {heroStatement}
+              </p>
+            </div>
 
             <div
-              className="mt-8 inline-flex flex-wrap gap-1 border border-timber-900/10 bg-white/70 p-1 backdrop-blur-sm"
+              className="inline-flex w-full gap-1 self-start rounded-full bg-timber-100 p-1 sm:w-auto lg:self-auto"
               role="tablist"
               aria-label="Department"
             >
+              {[{ value: '', label: 'All' }, ...AUDIENCES].map((a) => {
+                const active = (audience || '') === a.value;
+                return (
+                  <button
+                    key={a.value || 'all'}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => patchParams({ audience: a.value || null, category: null })}
+                    className={`flex-1 rounded-full px-5 py-2.5 text-[13px] font-semibold transition duration-300 sm:flex-none ${
+                      active ? 'bg-white text-timber-900 shadow-sm' : 'text-timber-500 hover:text-timber-900'
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {audienceCategories.length > 0 && (
+            <div className="ff-scroll-x -mx-5 mt-8 gap-2 px-5 sm:mx-0 sm:flex-wrap sm:px-0">
               <button
                 type="button"
-                role="tab"
-                aria-selected={!audience}
-                onClick={() => patchParams({ audience: null, category: null })}
-                className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                  !audience
-                    ? 'bg-timber-900 text-white'
-                    : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
-                }`}
+                data-active={!selectedCategory ? 'true' : 'false'}
+                onClick={() => patchParams({ category: null })}
+                className="ff-chip shrink-0"
               >
-                All
+                All {audience ? audienceLabel(audience) : 'pieces'}
               </button>
-              {AUDIENCES.map((a) => (
+              {audienceCategories.map((c) => (
                 <button
-                  key={a.value}
+                  key={c.id}
                   type="button"
-                  role="tab"
-                  aria-selected={audience === a.value}
-                  onClick={() => patchParams({ audience: a.value, category: null })}
-                  className={`px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] transition ${
-                    audience === a.value
-                      ? 'bg-timber-900 text-white'
-                      : 'text-timber-500 hover:bg-timber-900/5 hover:text-timber-900'
-                  }`}
+                  data-active={selectedCategory === c.slug ? 'true' : 'false'}
+                  onClick={() => patchParams({ category: c.slug })}
+                  className="ff-chip shrink-0"
                 >
-                  {a.label}
+                  {c.name}
                 </button>
               ))}
             </div>
-
-            <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.2em] text-timber-400">
-              {loading
-                ? 'Loading catalog…'
-                : `${products.length} piece${products.length === 1 ? '' : 's'}${
-                    audience ? ` · ${audienceLabel(audience)}` : ''
-                  }`}
-            </p>
-          </div>
+          )}
         </div>
       </section>
 
-      <div className="mx-auto max-w-[1280px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
-        <div className="lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10 xl:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="ff-container py-8 lg:py-10">
+        <div className="lg:grid lg:grid-cols-[250px_minmax(0,1fr)] lg:gap-12">
           <aside className="hidden lg:block">
-            <div className="sticky top-28 border border-timber-200 bg-white p-1 shadow-[0_12px_32px_-24px_rgba(9,9,11,0.35)]">
-              <div className="border border-timber-100 bg-timber-50/80 px-3.5 py-1">
-                <FiltersPanel {...filterProps} />
-              </div>
+            <div className="sticky top-32 rounded-2xl border border-timber-200/70 bg-white px-5 py-4">
+              <FiltersPanel {...filterProps} />
             </div>
           </aside>
 
           <section>
-            <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-timber-100 pb-5">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-timber-400">
-                  Results
-                </p>
-                <p className="mt-1 text-sm font-medium text-timber-800">
-                  {loading
-                    ? 'Loading…'
-                    : `${products.length} piece${products.length === 1 ? '' : 's'}`}
-                </p>
-              </div>
+            <div className="sticky top-[100px] z-30 -mx-5 mb-6 flex items-center justify-between gap-3 border-b border-timber-200/70 bg-bone/90 px-5 py-3 backdrop-blur-md sm:top-[112px] sm:mx-0 sm:px-0 lg:static lg:bg-transparent lg:py-0 lg:pb-5 lg:backdrop-blur-none">
+              <p className="text-sm text-timber-500">
+                {loading ? 'Loading…' : (
+                  <>
+                    <span className="font-semibold text-timber-900">{products.length}</span>{' '}
+                    piece{products.length === 1 ? '' : 's'}
+                  </>
+                )}
+              </p>
 
               <div className="flex items-center gap-2">
                 <button
@@ -652,14 +649,19 @@ export default function ShopPage() {
                   onClick={() => setMobileFilters(true)}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Filters
+                  Filter
+                  {activeFilters.length > 0 ? (
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-clay px-1 text-[10px] text-white">
+                      {activeFilters.length}
+                    </span>
+                  ) : null}
                 </button>
                 <label className="relative inline-flex items-center">
                   <span className="sr-only">Sort</span>
                   <select
                     value={sort}
                     onChange={(e) => patchParams({ sort: e.target.value })}
-                    className="input select-input min-w-[11rem] border-timber-900/15 py-2.5 pl-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-timber-800"
+                    className="input select-input min-h-10 min-w-[10.5rem] !rounded-full py-2 pl-4 text-[13px] font-medium text-timber-800"
                   >
                     {SORT_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -674,20 +676,15 @@ export default function ShopPage() {
             {activeFilters.length > 0 && (
               <div className="mb-6 flex flex-wrap items-center gap-2">
                 {activeFilters.map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={f.clear}
-                    className="inline-flex items-center gap-1.5 border border-timber-200 bg-timber-50 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.1em] text-timber-700 transition hover:border-timber-900"
-                  >
+                  <button key={f.key} type="button" onClick={f.clear} className="ff-chip bg-timber-100">
                     {f.label}
-                    <X className="h-3 w-3" strokeWidth={1.5} />
+                    <X className="h-3 w-3" strokeWidth={1.75} />
                   </button>
                 ))}
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="text-[11px] font-medium uppercase tracking-[0.14em] text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
+                  className="px-2 text-[12px] font-semibold text-timber-500 underline-offset-4 hover:text-timber-900 hover:underline"
                 >
                   Clear all
                 </button>
@@ -703,30 +700,35 @@ export default function ShopPage() {
                 title="No pieces found"
                 subtitle="Try clearing filters or another department."
                 action={
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="btn-dark btn-sm text-[10px] uppercase tracking-[0.2em]"
-                  >
+                  <button type="button" onClick={clearFilters} className="btn-wheat btn-sm">
                     Clear filters
                   </button>
                 }
               />
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 xl:grid-cols-3 xl:gap-x-6">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 xl:grid-cols-3">
                   {products.slice(0, visibleCount).map((p, i) => (
                     <ProductCard key={p.id} product={p} priority={i < 2} />
                   ))}
                 </div>
                 {visibleCount < products.length ? (
-                  <div className="mt-12 flex justify-center">
+                  <div className="mx-auto mt-14 flex max-w-xs flex-col items-center gap-4 text-center">
+                    <p className="text-[13px] text-timber-500">
+                      Showing {Math.min(visibleCount, products.length)} of {products.length}
+                    </p>
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-timber-200">
+                      <div
+                        className="h-full rounded-full bg-timber-900 transition-[width] duration-500"
+                        style={{ width: `${(Math.min(visibleCount, products.length) / products.length) * 100}%` }}
+                      />
+                    </div>
                     <button
                       type="button"
-                      className="btn-outline px-8 text-[11px] uppercase tracking-[0.2em]"
+                      className="btn-outline w-full"
                       onClick={() => setVisibleCount((n) => n + 24)}
                     >
-                      Load more ({products.length - visibleCount} left)
+                      Load more
                     </button>
                   </div>
                 ) : null}
@@ -737,16 +739,16 @@ export default function ShopPage() {
       </div>
 
       {mobileFilters && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-timber-900/40" onClick={() => setMobileFilters(false)} />
-          <div className="absolute inset-y-0 left-0 flex w-[min(100%,320px)] flex-col bg-white p-5 shadow-2xl">
-            <div className="mb-2 flex shrink-0 items-center justify-between border-b border-timber-100 pb-4">
-              <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-timber-800">
-                Refine
-              </span>
+        <div className="fixed inset-0 z-[60] lg:hidden" role="dialog" aria-modal="true" aria-label="Filters">
+          <div
+            className="ff-fade absolute inset-0 bg-timber-950/45 backdrop-blur-[2px]"
+            onClick={() => setMobileFilters(false)}
+          />
+          <div className="ff-sheet-in absolute inset-y-0 end-0 flex w-[min(100%,380px)] flex-col bg-bone p-5">
+            <div className="mb-1 flex shrink-0 items-center justify-end">
               <button
                 type="button"
-                className="grid h-9 w-9 place-items-center hover:bg-timber-50"
+                className="ff-icon-btn h-9 w-9 text-timber-700 hover:bg-timber-100"
                 onClick={() => setMobileFilters(false)}
                 aria-label="Close filters"
               >
@@ -754,11 +756,7 @@ export default function ShopPage() {
               </button>
             </div>
             <div className="min-h-0 flex-1">
-              <FiltersPanel
-                {...filterProps}
-                embedded
-                onClose={() => setMobileFilters(false)}
-              />
+              <FiltersPanel {...filterProps} embedded onClose={() => setMobileFilters(false)} />
             </div>
           </div>
         </div>

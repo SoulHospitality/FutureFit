@@ -127,7 +127,7 @@ export default function OrderSuccessPage() {
   const isPaymob = method === 'Paymob' || method === 'Card / Wallet (Paymob)';
 
   return (
-    <div className="relative min-h-[70vh] overflow-hidden bg-white">
+    <div className="relative min-h-[70vh] overflow-hidden bg-bone">
       <div
         className="pointer-events-none absolute inset-0"
         aria-hidden

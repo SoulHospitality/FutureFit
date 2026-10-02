@@ -13,7 +13,7 @@ const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function ContactPage() {
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <section className="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
         <p className="brand-eyebrow">Contact</p>
         <h1 className="mt-3 font-display text-5xl font-medium tracking-tight text-timber-900 sm:text-6xl">
@@ -30,7 +30,7 @@ export default function ContactPage() {
               href={STORE_WHATSAPP_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
+              className="flex min-h-14 items-center gap-4 rounded-2xl border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
             >
               <MessageCircle className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
               <span>
@@ -42,7 +42,7 @@ export default function ContactPage() {
           {STORE_PHONE_TEL && (
             <a
               href={STORE_PHONE_TEL}
-              className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
+              className="flex min-h-14 items-center gap-4 rounded-2xl border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
             >
               <Phone className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
               <span>
@@ -54,7 +54,7 @@ export default function ContactPage() {
           {STORE_EMAIL && (
             <a
               href={`mailto:${STORE_EMAIL}`}
-              className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
+              className="flex min-h-14 items-center gap-4 rounded-2xl border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
             >
               <Mail className="h-5 w-5 shrink-0 text-timber-800" strokeWidth={1.5} />
               <span>
@@ -67,7 +67,7 @@ export default function ContactPage() {
             href={FACEBOOK}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-14 items-center gap-4 border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
+            className="flex min-h-14 items-center gap-4 rounded-2xl border border-timber-200 bg-white px-5 py-4 transition hover:border-timber-900"
           >
             <span className="grid h-5 w-5 place-items-center text-[11px] font-bold text-timber-800">
               f

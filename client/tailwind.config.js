@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+const timber = (step) => `rgb(var(--timber-${step}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
@@ -15,21 +17,28 @@ export default {
           500: '#262626',
           600: '#171717',
         },
-        // Neutral grey scale (kept as `timber` token)
+        // Neutral scale — cool greys in staff, warm stone on the storefront (see index.css)
         timber: {
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#a1a1aa',
-          400: '#71717a',
-          500: '#52525b',
-          600: '#3f3f46',
-          700: '#27272a',
-          800: '#18181b',
-          900: '#09090b',
+          50: timber(50),
+          100: timber(100),
+          200: timber(200),
+          300: timber(300),
+          400: timber(400),
+          500: timber(500),
+          600: timber(600),
+          700: timber(700),
+          800: timber(800),
+          900: timber(900),
+          950: timber(950),
         },
         cream: '#ffffff',
         ink: '#0a0a0a',
+        // Storefront editorial palette
+        bone: '#faf7f3',
+        sand: '#efe8e0',
+        blush: '#f0dbd6',
+        nude: '#bf9990',
+        clay: '#9c5f4a',
         primary: {
           50: '#fafafa',
           100: '#f4f4f5',
@@ -41,12 +50,18 @@ export default {
         },
       },
       fontFamily: {
-        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
-        sans: ['"Outfit"', 'system-ui', 'sans-serif'],
+        display: ['"Fraunces"', 'Georgia', 'serif'],
+        sans: ['"Manrope"', 'system-ui', 'sans-serif'],
       },
       letterSpacing: {
         brand: '0.35em',
         brandwide: '0.45em',
+      },
+      transitionTimingFunction: {
+        ff: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      },
+      maxWidth: {
+        site: '1440px',
       },
     },
   },

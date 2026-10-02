@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ChevronLeft, ChevronRight, Heart, ShoppingBag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Plus } from 'lucide-react';
 import {
   getImageUrl,
   formatMoney,
@@ -19,9 +19,10 @@ import QuickAddSheet from './QuickAddSheet';
 
 const CARD_GALLERY_LIMIT = 6;
 
-/** Lookbook-style product tile — image-led, minimal chrome. */
+/** Image-led product tile — hover reveals the second shot and a quick-add bar. */
 function ProductCard({ product, priority = false }) {
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const [photoIndex, setPhotoIndex] = useState(null);
+  const [hovered, setHovered] = useState(false);
   const [previewColor, setPreviewColor] = useState(null);
   const [warm, setWarm] = useState(priority);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -31,21 +32,24 @@ function ProductCard({ product, priority = false }) {
 
   const photos = useMemo(() => {
     const activeColor = previewColor || product.colors?.[0] || '';
-    const list = activeColor
-      ? photosForColor(product, activeColor)
-      : product.photos || [];
+    const list = activeColor ? photosForColor(product, activeColor) : product.photos || [];
     return list.filter(Boolean).slice(0, CARD_GALLERY_LIMIT);
   }, [product, previewColor]);
 
-  const urls = useMemo(
-    () => photos.map((src) => getImageUrl(src, { width: 600 })),
-    [photos]
-  );
-  const safeIndex = urls.length ? photoIndex % urls.length : 0;
-  const price =
-    product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
+  const urls = useMemo(() => photos.map((src) => getImageUrl(src, { width: 600 })), [photos]);
+  const shownIndex = urls.length
+    ? (photoIndex ?? (hovered && urls.length > 1 ? 1 : 0)) % urls.length
+    : 0;
+  const onSale = product.isSaleActive && product.salePrice != null;
+  const price = onSale ? product.salePrice : product.price;
+  const discount =
+    onSale && Number(product.price) > 0
+      ? Math.round((1 - Number(product.salePrice) / Number(product.price)) * 100)
+      : 0;
   const typeLabel = categoryLabel(product);
-  const inStock = totalStock(product) >= 1;
+  const stock = totalStock(product);
+  const inStock = stock >= 1;
+  const lowStock = inStock && stock <= 5;
   const needsOptions =
     (product.sizes && product.sizes.length > 0) ||
     (product.colors && product.colors.length > 1) ||
@@ -57,7 +61,7 @@ function ProductCard({ product, priority = false }) {
   }, [warm, urls]);
 
   useEffect(() => {
-    setPhotoIndex(0);
+    setPhotoIndex(null);
   }, [previewColor, product.id]);
 
   const quickAdd = (e) => {
@@ -70,27 +74,17 @@ function ProductCard({ product, priority = false }) {
     }
     const color = product.colors?.[0] || null;
     const size =
-      (product.sizes || []).find((s) => getSizeStock(product, s) > 0) ||
-      product.sizes?.[0] ||
-      null;
+      (product.sizes || []).find((s) => getSizeStock(product, s) > 0) || product.sizes?.[0] || null;
     addItem(product, 1, color, size);
     openDrawer();
   };
 
-  const prev = (e) => {
+  const step = (dir) => (e) => {
     e.preventDefault();
     e.stopPropagation();
     if (!urls.length) return;
     setWarm(true);
-    setPhotoIndex((i) => (i - 1 + urls.length) % urls.length);
-  };
-
-  const next = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!urls.length) return;
-    setWarm(true);
-    setPhotoIndex((i) => (i + 1) % urls.length);
+    setPhotoIndex((i) => ((i ?? shownIndex) + dir + urls.length) % urls.length);
   };
 
   return (
@@ -98,58 +92,74 @@ function ProductCard({ product, priority = false }) {
       <Link
         to={`/product/${product.id}`}
         className="product-card group flex flex-col"
-        onMouseEnter={() => setWarm(true)}
+        onMouseEnter={() => {
+          setWarm(true);
+          setHovered(true);
+        }}
+        onMouseLeave={() => {
+          setHovered(false);
+          setPhotoIndex(null);
+        }}
         onFocus={() => setWarm(true)}
         onTouchStart={() => setWarm(true)}
       >
-        <div className="relative aspect-[3/4] overflow-hidden bg-timber-100">
+        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-timber-100">
           {urls.length ? (
             urls.map((src, i) => (
               <img
                 key={`${src}-${i}`}
                 src={src}
-                alt={i === safeIndex ? product.name : ''}
+                alt={i === shownIndex ? product.name : ''}
                 width={600}
                 height={800}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 280px"
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
                 loading={i === 0 || priority || warm ? 'eager' : 'lazy'}
                 decoding="async"
                 fetchPriority={priority && i === 0 ? 'high' : 'auto'}
                 draggable={false}
-                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-                  i === safeIndex ? 'opacity-100' : 'pointer-events-none opacity-0'
+                className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 ease-ff group-hover:scale-[1.02] ${
+                  i === shownIndex ? 'opacity-100' : 'pointer-events-none opacity-0'
                 }`}
               />
             ))
           ) : (
-            <div className="grid h-full w-full place-items-center text-sm text-timber-400">
-              No photo
-            </div>
+            <div className="grid h-full w-full place-items-center text-sm text-timber-400">No photo</div>
           )}
 
-          {product.isSaleActive && (
-            <span className="absolute start-0 top-0 bg-timber-900 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white">
-              Sale
-            </span>
-          )}
+          <div className="absolute start-3 top-3 z-[1] flex flex-col items-start gap-1.5">
+            {!inStock ? (
+              <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-timber-500">
+                Sold out
+              </span>
+            ) : onSale ? (
+              <span className="rounded-full bg-clay px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                {discount > 0 ? `−${discount}%` : 'Sale'}
+              </span>
+            ) : null}
+            {lowStock && (
+              <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-timber-800">
+                Only {stock} left
+              </span>
+            )}
+          </div>
 
           {urls.length > 1 && (
             <>
               <button
                 type="button"
-                onClick={prev}
-                className="absolute start-0 top-1/2 z-[1] grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={step(-1)}
+                className="absolute start-2 top-1/2 z-[1] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-timber-800 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 sm:grid"
                 aria-label="Previous photo"
               >
-                <ChevronLeft size={16} strokeWidth={1.5} />
+                <ChevronLeft size={15} strokeWidth={1.75} />
               </button>
               <button
                 type="button"
-                onClick={next}
-                className="absolute end-0 top-1/2 z-[1] grid h-9 w-9 -translate-y-1/2 place-items-center bg-white/90 opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={step(1)}
+                className="absolute end-2 top-1/2 z-[1] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-timber-800 opacity-0 transition-opacity hover:bg-white group-hover:opacity-100 sm:grid"
                 aria-label="Next photo"
               >
-                <ChevronRight size={16} strokeWidth={1.5} />
+                <ChevronRight size={15} strokeWidth={1.75} />
               </button>
             </>
           )}
@@ -162,56 +172,70 @@ function ProductCard({ product, priority = false }) {
               e.stopPropagation();
               toggle(product);
             }}
-            className="absolute end-3 top-3 z-[1] grid h-9 w-9 place-items-center bg-white/95 opacity-100 transition-opacity sm:opacity-0 group-hover:opacity-100 hover:bg-white"
+            className="absolute end-3 top-3 z-[1] grid h-9 w-9 place-items-center rounded-full bg-white/95 text-timber-800 shadow-sm transition hover:scale-105 hover:bg-white"
           >
             <Heart
-              className={`h-4 w-4 ${liked ? 'fill-timber-900 text-timber-900' : 'text-timber-800'}`}
+              className={`h-4 w-4 ${liked ? 'fill-clay text-clay' : ''}`}
               strokeWidth={1.5}
             />
           </button>
+
+          {/* Desktop quick add */}
           <button
             type="button"
-            aria-label={inStock ? 'Add to cart' : 'Out of stock'}
             disabled={!inStock}
             onClick={quickAdd}
-            className="absolute end-3 bottom-3 z-[1] grid h-10 w-10 place-items-center bg-timber-900 text-white transition hover:bg-timber-800 disabled:cursor-not-allowed disabled:bg-timber-300"
+            className="absolute inset-x-3 bottom-3 z-[1] hidden translate-y-3 items-center justify-center gap-2 rounded-full bg-white/95 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-timber-900 opacity-0 shadow-[0_10px_30px_-12px_rgba(28,24,21,0.4)] backdrop-blur transition duration-300 ease-ff hover:bg-timber-900 hover:text-white group-hover:translate-y-0 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 lg:flex"
           >
-            <ShoppingBag className="h-4 w-4" strokeWidth={1.5} />
+            <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+            {needsOptions ? 'Quick add' : 'Add to bag'}
+          </button>
+          {/* Touch quick add */}
+          <button
+            type="button"
+            aria-label={inStock ? 'Add to bag' : 'Out of stock'}
+            disabled={!inStock}
+            onClick={quickAdd}
+            className="absolute bottom-3 end-3 z-[1] grid h-10 w-10 place-items-center rounded-full bg-white/95 text-timber-900 shadow-[0_8px_20px_-10px_rgba(28,24,21,0.5)] transition active:scale-95 disabled:hidden lg:hidden"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="flex flex-col gap-1 pt-4">
-          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-timber-400">
-            {typeLabel}
-          </p>
-          <h3 className="text-[15px] font-medium leading-snug text-timber-900 line-clamp-2 group-hover:underline group-hover:underline-offset-4 decoration-timber-300">
-            {product.name}
-          </h3>
-          {product.reviewCount > 0 && (
-            <div className="mt-1 flex items-center gap-1.5">
-              <StarRating value={product.ratingAvg} readOnly size={12} />
-              <span className="text-[11px] text-timber-400">({product.reviewCount})</span>
-            </div>
-          )}
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-sm tabular-nums text-timber-800">
+        <div className="flex flex-col gap-1 px-0.5 pt-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="text-[14px] font-semibold leading-snug text-timber-900 line-clamp-2 sm:text-[15px]">
+              {product.name}
+            </h3>
+          </div>
+          {typeLabel ? <p className="text-[12px] text-timber-400">{typeLabel}</p> : null}
+          <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
+            <span className={`text-sm font-semibold tabular-nums ${onSale ? 'text-clay' : 'text-timber-800'}`}>
               {formatMoney(price)}
             </span>
-            {product.isSaleActive && product.salePrice != null && (
-              <span className="text-xs text-timber-400 line-through">
+            {onSale && (
+              <span className="text-xs tabular-nums text-timber-400 line-through">
                 {formatMoney(product.price)}
               </span>
             )}
           </div>
+          {product.reviewCount > 0 && (
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <StarRating value={product.ratingAvg} readOnly size={12} />
+              <span className="text-[11px] text-timber-400">({product.reviewCount})</span>
+            </div>
+          )}
           {product.colors?.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {product.colors.slice(0, 5).map((c) => (
                 <button
                   key={c}
                   type="button"
                   title={c}
                   aria-label={`Preview ${c}`}
-                  className="h-3 w-3 rounded-full border border-timber-200"
+                  className={`h-4 w-4 rounded-full border transition ${
+                    previewColor === c ? 'border-timber-900 ring-1 ring-timber-900 ring-offset-1' : 'border-timber-200'
+                  }`}
                   style={colorSwatchStyle(c)}
                   onMouseEnter={() => {
                     setWarm(true);
@@ -226,10 +250,10 @@ function ProductCard({ product, priority = false }) {
                   }}
                 />
               ))}
+              {product.colors.length > 5 && (
+                <span className="text-[11px] text-timber-400">+{product.colors.length - 5}</span>
+              )}
             </div>
-          )}
-          {totalStock(product) < 1 && (
-            <p className="text-[11px] uppercase tracking-[0.16em] text-timber-500">Out of stock</p>
           )}
         </div>
       </Link>

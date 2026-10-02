@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 function Legal({ title, children }) {
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-20">
         <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
           FutureFit

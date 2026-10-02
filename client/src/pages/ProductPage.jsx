@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
+  Banknote,
   ChevronDown,
   Heart,
   Minus,
   Plus,
   RefreshCw,
-  ShieldCheck,
   Truck,
 } from 'lucide-react';
 import api from '../api/axios';
@@ -35,15 +35,14 @@ import ProductLightbox from '../components/store/ProductLightbox';
 
 function Accordion({ title, open, onToggle, children }) {
   return (
-    <div className="border-b border-timber-200">
+    <div className="border-b border-timber-200/80">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between py-5 text-left"
+        aria-expanded={open}
       >
-        <span className="text-[11px] font-medium uppercase tracking-[0.24em] text-timber-800">
-          {title}
-        </span>
+        <span className="text-[15px] font-semibold text-timber-900">{title}</span>
         <ChevronDown
           className={`h-4 w-4 text-timber-500 transition-transform ${open ? 'rotate-180' : ''}`}
           strokeWidth={1.5}
@@ -130,23 +129,29 @@ const fitTipByType = {
 };
 
 function TrustRow() {
+  const items = [
+    { icon: Truck, title: 'Fast delivery', body: `2–3 business days · free over ${formatMoney(FREE_SHIPPING_MIN)}` },
+    { icon: Banknote, title: 'Cash on delivery', body: 'Or pay by card / wallet' },
+    { icon: RefreshCw, title: '14-day returns', body: 'On unworn items', to: '/returns' },
+  ];
   return (
-    <ul className="mt-6 space-y-3 border-t border-timber-100 pt-6 text-sm text-timber-500">
-      <li className="flex items-center gap-3">
-        <Truck className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
-        Ships in 2–3 business days · Cash on delivery
-      </li>
-      <li className="flex items-center gap-3">
-        <ShieldCheck className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
-        Free shipping on orders over {formatMoney(FREE_SHIPPING_MIN)}
-      </li>
-      <li className="flex items-center gap-3">
-        <RefreshCw className="h-4 w-4 shrink-0 text-timber-400" strokeWidth={1.5} />
-        <Link to="/returns" className="underline-offset-4 hover:underline">
-          14-day returns
-        </Link>{' '}
-        on unworn items
-      </li>
+    <ul className="mt-6 grid grid-cols-3 gap-2">
+      {items.map((item) => {
+        const { title, body, to } = item;
+        const Icon = item.icon;
+        const inner = (
+          <>
+            <Icon className="h-5 w-5 text-clay" strokeWidth={1.5} />
+            <span className="mt-2.5 block text-[12.5px] font-semibold leading-tight text-timber-900">{title}</span>
+            <span className="mt-1 block text-[11.5px] leading-snug text-timber-500">{body}</span>
+          </>
+        );
+        return (
+          <li key={title} className="rounded-2xl bg-white p-3.5 sm:p-4">
+            {to ? <Link to={to}>{inner}</Link> : inner}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -168,10 +173,21 @@ export default function ProductPage() {
   const [sendingReview, setSendingReview] = useState(false);
   const [related, setRelated] = useState([]);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const railRef = useRef(null);
 
   const selectColor = (c) => {
     setColor(c);
     setActivePhoto(0);
+    railRef.current?.scrollTo({ left: 0 });
+  };
+
+  const onRailScroll = () => {
+    const rail = railRef.current;
+    const first = rail?.firstElementChild;
+    if (!rail || !first) return;
+    const step = first.getBoundingClientRect().width + 8;
+    const i = Math.round(rail.scrollLeft / step);
+    if (i !== activePhoto) setActivePhoto(i);
   };
 
   useEffect(() => {
@@ -292,15 +308,15 @@ export default function ProductPage() {
     setOpenSection((current) => (current === key ? '' : key));
 
   return (
-    <div className="bg-white pb-24 lg:pb-0">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
-        <nav className="mb-8 text-[10px] font-medium uppercase tracking-[0.24em] text-timber-400">
+    <div className="bg-bone pb-24 lg:pb-0">
+      <div className="ff-container py-6 lg:py-10">
+        <nav className="mb-6 text-[12px] text-timber-400" aria-label="Breadcrumb">
           <Link to="/shop" className="hover:text-timber-800">
             Shop
           </Link>
           {product.audience && (
             <>
-              <span className="mx-3 text-timber-200">/</span>
+              <span className="mx-2 text-timber-300">/</span>
               <Link
                 to={`/shop?audience=${product.audience}`}
                 className="hover:text-timber-800"
@@ -311,7 +327,7 @@ export default function ProductPage() {
           )}
           {product.category?.slug && (
             <>
-              <span className="mx-3 text-timber-200">/</span>
+              <span className="mx-2 text-timber-300">/</span>
               <Link
                 to={`/shop?audience=${product.audience || 'men'}&category=${product.category.slug}`}
                 className="hover:text-timber-800"
@@ -320,120 +336,155 @@ export default function ProductPage() {
               </Link>
             </>
           )}
-          <span className="mx-3 text-timber-200">/</span>
+          <span className="mx-2 text-timber-300">/</span>
           <span className="text-timber-600">{product.name}</span>
         </nav>
 
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-14">
-          <div className="space-y-3 lg:col-span-7">
-            <div className="relative aspect-[3/4] overflow-hidden bg-timber-100 sm:aspect-[4/5]">
-              {galleryUrls.length ? (
-                <button
-                  type="button"
-                  className="relative block h-full w-full cursor-zoom-in"
-                  onClick={() => setLightboxOpen(true)}
-                  aria-label="View larger image"
-                >
-                  {galleryUrls.map((src, i) => (
-                    <img
-                      key={`${src}-${i}`}
-                      src={src}
-                      alt={i === photoIdx ? product.name : ''}
-                      width={900}
-                      height={1125}
-                      loading={i === 0 ? 'eager' : 'lazy'}
-                      fetchPriority={i === 0 ? 'high' : 'auto'}
-                      decoding="async"
-                      className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-150 ${
-                        i === photoIdx ? 'opacity-100' : 'pointer-events-none opacity-0'
-                      }`}
-                    />
-                  ))}
-                </button>
-              ) : (
-                <div className="grid h-full place-items-center text-timber-400">No photo</div>
-              )}
-              {product.isSaleActive && (
-                <span className="absolute left-0 top-0 bg-timber-900 px-3 py-1.5 text-[10px] font-medium uppercase tracking-[0.22em] text-white">
-                  Sale
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => toggle(product)}
-                className="absolute right-4 top-4 grid h-10 w-10 place-items-center bg-white/95"
-                aria-label={liked ? 'Remove from wishlist' : 'Save to wishlist'}
-              >
-                <Heart
-                  className={`h-5 w-5 ${
-                    liked ? 'fill-timber-900 text-timber-900' : 'text-timber-700'
-                  }`}
-                  strokeWidth={1.5}
-                />
-              </button>
-            </div>
-
-            {photos.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {photos.map((p, i) => (
-                  <button
-                    key={`${p}-${i}`}
-                    type="button"
-                    onClick={() => setActivePhoto(i)}
-                    className={`h-20 w-16 shrink-0 overflow-hidden border transition sm:w-20 ${
-                      i === photoIdx
-                        ? 'border-timber-900'
-                        : 'border-transparent opacity-70 hover:opacity-100'
-                    }`}
+          <div className="lg:col-span-7">
+            {galleryUrls.length ? (
+              <>
+                {/* Mobile — swipe carousel */}
+                <div className="relative lg:hidden">
+                  <div
+                    ref={railRef}
+                    onScroll={onRailScroll}
+                    className="ff-scroll-x -mx-5 gap-2 scroll-px-5 px-5"
                   >
-                    <img
-                      src={getImageUrl(p, { width: 120 })}
-                      alt=""
-                      width={120}
-                      height={150}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover"
-                    />
-                  </button>
-                ))}
+                    {galleryUrls.map((src, i) => (
+                      <button
+                        key={`${src}-${i}`}
+                        type="button"
+                        onClick={() => {
+                          setActivePhoto(i);
+                          setLightboxOpen(true);
+                        }}
+                        className={`relative aspect-[4/5] shrink-0 snap-start overflow-hidden rounded-2xl bg-timber-100 ${
+                          galleryUrls.length > 1 ? 'w-[86%]' : 'w-full'
+                        }`}
+                        aria-label={`View photo ${i + 1} larger`}
+                      >
+                        <img
+                          src={src}
+                          alt={i === 0 ? product.name : ''}
+                          width={900}
+                          height={1125}
+                          loading={i === 0 ? 'eager' : 'lazy'}
+                          fetchPriority={i === 0 ? 'high' : 'auto'}
+                          decoding="async"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  {galleryUrls.length > 1 && (
+                    <div className="mt-3 flex justify-center gap-1.5">
+                      {galleryUrls.map((src, i) => (
+                        <span
+                          key={`dot-${src}-${i}`}
+                          className={`h-1.5 rounded-full transition-all duration-300 ${
+                            i === photoIdx ? 'w-6 bg-timber-900' : 'w-1.5 bg-timber-300'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop — editorial grid */}
+                <div className="hidden grid-cols-2 gap-3 lg:grid">
+                  {galleryUrls.slice(0, 6).map((src, i) => (
+                    <button
+                      key={`${src}-${i}`}
+                      type="button"
+                      onClick={() => {
+                        setActivePhoto(i);
+                        setLightboxOpen(true);
+                      }}
+                      className={`group relative cursor-zoom-in overflow-hidden rounded-2xl bg-timber-100 ${
+                        galleryUrls.length === 1 ? 'col-span-2 aspect-[4/5]' : 'aspect-[3/4]'
+                      }`}
+                      aria-label={`View photo ${i + 1} larger`}
+                    >
+                      <img
+                        src={src}
+                        alt={i === 0 ? product.name : ''}
+                        width={900}
+                        height={1200}
+                        loading={i < 2 ? 'eager' : 'lazy'}
+                        fetchPriority={i === 0 ? 'high' : 'auto'}
+                        decoding="async"
+                        className="ff-img-zoom absolute inset-0 h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="grid aspect-[4/5] place-items-center rounded-2xl bg-timber-100 text-timber-400">
+                No photo
               </div>
             )}
           </div>
 
-          <div className="lg:col-span-5 lg:sticky lg:top-28 lg:self-start">
-            <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
-              {typeLabel}
-            </p>
-            <h1 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
-              {product.name}
-            </h1>
+          <div className="lg:col-span-5 lg:sticky lg:top-32 lg:self-start">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                {typeLabel ? (
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-clay">
+                    {typeLabel}
+                  </p>
+                ) : null}
+                <h1 className="mt-3 font-display text-[clamp(2rem,4vw,3.25rem)] font-light leading-[1.02] tracking-tight text-timber-900">
+                  {product.name}
+                </h1>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(product)}
+                className="ff-icon-btn mt-1 shrink-0 border border-timber-200 bg-white text-timber-800 hover:border-timber-900"
+                aria-label={liked ? 'Remove from wishlist' : 'Save to wishlist'}
+              >
+                <Heart className={`h-5 w-5 ${liked ? 'fill-clay text-clay' : ''}`} strokeWidth={1.5} />
+              </button>
+            </div>
 
-            <div className="mt-5 flex items-baseline gap-3">
-              <span className="text-xl tabular-nums text-timber-900">{formatMoney(price)}</span>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <span
+                className={`text-2xl font-semibold tabular-nums ${
+                  product.isSaleActive && product.salePrice != null ? 'text-clay' : 'text-timber-900'
+                }`}
+              >
+                {formatMoney(price)}
+              </span>
               {product.isSaleActive && product.salePrice != null && (
-                <span className="text-sm text-timber-400 line-through">
-                  {formatMoney(product.price)}
-                </span>
+                <>
+                  <span className="text-base tabular-nums text-timber-400 line-through">
+                    {formatMoney(product.price)}
+                  </span>
+                  {Number(product.price) > 0 && (
+                    <span className="rounded-full bg-clay px-2.5 py-1 text-[11px] font-bold text-white">
+                      Save {Math.round((1 - Number(product.salePrice) / Number(product.price)) * 100)}%
+                    </span>
+                  )}
+                </>
               )}
             </div>
             {product.reviewCount > 0 && (
-              <div className="mt-3 flex items-center gap-2">
+              <a href="#reviews" className="mt-3 inline-flex items-center gap-2">
                 <StarRating value={product.ratingAvg} readOnly size={16} />
-                <span className="text-sm text-timber-500">
+                <span className="text-sm text-timber-500 underline-offset-4 hover:underline">
                   {product.ratingAvg} · {product.reviewCount} review
                   {product.reviewCount === 1 ? '' : 's'}
                 </span>
-              </div>
+              </a>
             )}
 
             {product.colors?.length > 0 && (
-              <div className="mt-10">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
-                    Colour
-                  </span>
-                  <span className="text-sm text-timber-500">{color}</span>
+              <div className="mt-8 border-t border-timber-200/80 pt-6">
+                <div className="mb-3 flex items-center gap-2 text-sm">
+                  <span className="font-semibold text-timber-900">Colour</span>
+                  <span className="text-timber-500">{color}</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.colors.map((c) => {
@@ -463,20 +514,20 @@ export default function ProductPage() {
             )}
 
             {product.sizes?.length > 0 && (
-              <div className="mt-8">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
-                    Size
+              <div className="mt-7">
+                <div className="mb-3 flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold text-timber-900">Size</span>
+                    {size ? <span className="text-timber-500">{size}</span> : null}
                   </span>
                   <button
                     type="button"
-                    className="text-[10px] uppercase tracking-[0.18em] text-timber-500 underline-offset-4 hover:underline"
+                    className="text-[13px] font-medium text-timber-600 underline underline-offset-4 hover:text-timber-900"
                     onClick={() => setOpenSection('size')}
                   >
-                    Size chart
+                    Size guide
                   </button>
                 </div>
-                <p className="mb-3 text-sm text-timber-500">{fitTip}</p>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes.map((s) => {
                     const sizeQty = getSizeStock(product, s);
@@ -490,7 +541,7 @@ export default function ProductPage() {
                           setSize(s);
                           setQty(1);
                         }}
-                        className={`min-w-[3rem] border px-3 py-2.5 text-sm font-medium transition ${
+                        className={`min-w-[3.5rem] rounded-full border px-4 py-3 text-sm font-semibold transition ${
                           soldOut
                             ? 'cursor-not-allowed border-timber-100 text-timber-300 line-through'
                             : size === s
@@ -503,69 +554,56 @@ export default function ProductPage() {
                     );
                   })}
                 </div>
+                <p className="mt-3 text-[13px] text-timber-500">{fitTip}</p>
               </div>
             )}
 
-            <div className="mt-8">
-              <span className="mb-3 block text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
-                Quantity
-              </span>
-              <div className="inline-flex items-center border border-timber-200 bg-white">
+            <div className="mt-7 flex flex-wrap items-center gap-4">
+              <div className="inline-flex items-center rounded-full border border-timber-200 bg-white">
                 <button
                   type="button"
-                  className="px-3 py-2.5 text-timber-700 hover:bg-timber-50"
+                  className="grid h-11 w-11 place-items-center rounded-full text-timber-700 hover:bg-timber-50"
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
                 >
                   <Minus className="h-4 w-4" strokeWidth={1.5} />
                 </button>
-                <span className="min-w-[2.5rem] text-center text-sm font-medium tabular-nums">
-                  {qty}
-                </span>
+                <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums">{qty}</span>
                 <button
                   type="button"
-                  className="px-3 py-2.5 text-timber-700 hover:bg-timber-50"
+                  className="grid h-11 w-11 place-items-center rounded-full text-timber-700 hover:bg-timber-50 disabled:opacity-40"
                   onClick={() => setQty((q) => Math.min(available || 1, q + 1))}
                   disabled={qty >= available}
+                  aria-label="Increase quantity"
                 >
                   <Plus className="h-4 w-4" strokeWidth={1.5} />
                 </button>
               </div>
+
+              <div className="text-[13px]">
+                {productStock < 1 ? (
+                  <span className="font-semibold text-red-600">Out of stock</span>
+                ) : available < 1 && size ? (
+                  <span className="font-semibold text-red-600">Size {size} is out of stock</span>
+                ) : lowStock ? (
+                  <span className="inline-flex items-center gap-2 font-semibold text-clay">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-clay" />
+                    Only {available} left{size ? ` in ${size}` : ''}
+                  </span>
+                ) : available > 5 ? (
+                  <span className="inline-flex items-center gap-2 text-timber-600">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    In stock, ready to ship
+                  </span>
+                ) : null}
+              </div>
             </div>
 
-            {lowStock && (
-              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-timber-600">
-                Low stock — only {available} left{size ? ` in ${size}` : ''}
-              </p>
-            )}
-            {productStock < 1 && (
-              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-red-600">
-                Out of stock
-              </p>
-            )}
-            {available < 1 && productStock >= 1 && size && (
-              <p className="mt-5 text-[11px] font-medium uppercase tracking-[0.18em] text-red-600">
-                Size {size} is out of stock
-              </p>
-            )}
-            {available > 5 && (
-              <p className="mt-5 text-sm text-timber-500">In stock</p>
-            )}
-
-            <div className="mt-8 hidden gap-3 lg:flex">
-              <button
-                type="button"
-                className="btn-outline flex-1 py-4 text-[11px] font-medium uppercase tracking-[0.22em]"
-                onClick={add}
-                disabled={!canAdd}
-              >
-                Add to cart
+            <div className="mt-6 hidden gap-3 lg:flex">
+              <button type="button" className="btn-outline btn-lg flex-1" onClick={add} disabled={!canAdd}>
+                Add to bag
               </button>
-              <button
-                type="button"
-                className="btn-wheat flex-1 py-4 text-[11px] font-medium uppercase tracking-[0.22em]"
-                onClick={buyNow}
-                disabled={!canAdd}
-              >
+              <button type="button" className="btn-wheat btn-lg flex-1" onClick={buyNow} disabled={!canAdd}>
                 Buy now
               </button>
             </div>
@@ -666,31 +704,44 @@ export default function ProductPage() {
           </div>
         </div>
 
-        <section className="mt-16 border-t border-timber-100 pt-12">
-          <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-timber-400">
-            Reviews
-          </p>
-          <h2 className="mt-2 font-display text-3xl font-medium tracking-tight text-timber-900">
-            What customers say
+        <section id="reviews" className="mt-20 scroll-mt-32 border-t border-timber-200/80 pt-14">
+          <p className="ff-eyebrow">Reviews</p>
+          <h2 className="ff-title mt-4">
+            What customers <em>say</em>
           </h2>
+          {product.reviewCount > 0 && (
+            <div className="mt-6 flex items-center gap-3">
+              <span className="font-display text-5xl font-light text-timber-900">
+                {Number(product.ratingAvg || 0).toFixed(1)}
+              </span>
+              <div>
+                <StarRating value={product.ratingAvg} readOnly size={16} />
+                <p className="mt-1 text-sm text-timber-500">
+                  Based on {product.reviewCount} review{product.reviewCount === 1 ? '' : 's'}
+                </p>
+              </div>
+            </div>
+          )}
           <div className="mt-10 grid gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-7 space-y-8">
+            <div className="space-y-4 lg:col-span-7">
               {(product.reviews || []).length === 0 ? (
-                <p className="text-sm text-timber-500">No reviews yet — be the first.</p>
+                <p className="rounded-2xl border border-dashed border-timber-300 p-8 text-center text-sm text-timber-500">
+                  No reviews yet — be the first to share how it fits.
+                </p>
               ) : (
                 (product.reviews || []).map((r) => (
-                  <article key={r.id} className="border-b border-timber-100 pb-6">
+                  <article key={r.id} className="rounded-2xl bg-white p-6">
                     <div className="flex items-center justify-between gap-3">
-                      <p className="font-medium text-timber-900">{r.name}</p>
+                      <p className="font-semibold text-timber-900">{r.name}</p>
                       <StarRating value={r.rating} readOnly size={14} />
                     </div>
-                    <p className="mt-2 text-sm leading-relaxed text-timber-600">{r.comment}</p>
+                    <p className="mt-3 text-[15px] leading-relaxed text-timber-600">{r.comment}</p>
                   </article>
                 ))
               )}
             </div>
             <form
-              className="lg:col-span-5 space-y-4 border border-timber-200 p-6"
+              className="space-y-4 self-start rounded-2xl border border-timber-200/80 bg-white p-6 lg:col-span-5"
               onSubmit={async (e) => {
                 e.preventDefault();
                 setSendingReview(true);
@@ -713,9 +764,7 @@ export default function ProductPage() {
                 }
               }}
             >
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-timber-700">
-                Write a review
-              </p>
+              <p className="font-display text-2xl font-light text-timber-900">Write a review</p>
               <div>
                 <label className="label">Name</label>
                 <input
@@ -748,15 +797,15 @@ export default function ProductPage() {
       </div>
 
       {related.length > 0 && (
-        <section className="border-t border-timber-100 bg-timber-50/50">
-          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20">
-            <div className="mb-10 border-b border-timber-100 pb-6">
-              <p className="brand-eyebrow">Continue browsing</p>
-              <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900 sm:text-4xl">
-                You may also like
+        <section className="mt-20 bg-white">
+          <div className="ff-container py-16 lg:py-24">
+            <div className="mb-10">
+              <p className="ff-eyebrow">Continue browsing</p>
+              <h2 className="ff-title mt-4">
+                You may <em>also like</em>
               </h2>
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 lg:grid-cols-4">
               {related.map((p, i) => (
                 <ProductCard key={p.id} product={p} priority={i < 2} />
               ))}
@@ -774,19 +823,23 @@ export default function ProductPage() {
         onIndexChange={setActivePhoto}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-timber-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex max-w-7xl items-center gap-2">
+      <div className="ff-glass fixed inset-x-0 bottom-0 z-40 border-t border-timber-200/70 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:hidden">
+        <div className="mx-auto flex max-w-xl items-center gap-2">
+          <div className="me-1 min-w-0 shrink">
+            <p className="truncate text-[11px] text-timber-500">{size ? `Size ${size}` : product.name}</p>
+            <p className="text-sm font-semibold tabular-nums text-timber-900">{formatMoney(price)}</p>
+          </div>
           <button
             type="button"
-            className="btn-outline min-h-12 flex-1 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.16em]"
+            className="btn-outline min-h-12 flex-1 px-3 text-[10.5px]"
             onClick={add}
             disabled={!canAdd}
           >
-            Add to cart
+            Add to bag
           </button>
           <button
             type="button"
-            className="btn-wheat min-h-12 flex-1 px-3 py-3 text-[10px] font-medium uppercase tracking-[0.16em]"
+            className="btn-wheat min-h-12 flex-1 px-3 text-[10.5px]"
             onClick={buyNow}
             disabled={!canAdd}
           >

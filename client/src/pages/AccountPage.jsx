@@ -60,7 +60,7 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <div className="mx-auto max-w-5xl space-y-12 px-4 py-12 sm:px-6 sm:py-16">
         <div className="border-b border-timber-100 pb-6">
           <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">

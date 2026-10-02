@@ -299,7 +299,7 @@ export default function CheckoutPage() {
   if (!items.length && !orderPlacedRef.current) return null;
 
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-8 border-b border-timber-100 pb-6">
           <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">

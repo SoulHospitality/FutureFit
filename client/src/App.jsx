@@ -10,6 +10,7 @@ import StoreHeader from './components/store/StoreHeader';
 import StoreFooter from './components/store/StoreFooter';
 import MiniCartDrawer from './components/store/MiniCartDrawer';
 import PresenceBeacon from './components/store/PresenceBeacon';
+import WhatsAppButton from './components/store/WhatsAppButton';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
 import MetaPixelTracker from './components/MetaPixelTracker';
@@ -140,13 +141,18 @@ function StoreShell({ children }) {
     isStaffRoute;
 
   return (
-    <div className={`min-h-screen flex flex-col ${isComingSoon ? 'bg-white' : ''}`}>
+    <div
+      className={`min-h-screen flex flex-col ${isStaffRoute ? '' : 'store-shell'} ${
+        isComingSoon ? 'bg-white' : ''
+      }`}
+    >
       {!hideChrome && <StoreHeader />}
       <div className="flex-1">
         <Suspense fallback={<PageLoader />}>{children}</Suspense>
       </div>
       {!hideChrome && <StoreFooter />}
       {!hideChrome && <MiniCartDrawer />}
+      {!hideChrome && <WhatsAppButton />}
       {!hideChrome && <PresenceBeacon />}
     </div>
   );

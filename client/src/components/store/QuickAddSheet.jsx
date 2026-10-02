@@ -90,19 +90,19 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
     <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Choose options">
       <button
         type="button"
-        className="absolute inset-0 bg-timber-900/40"
+        className="ff-fade absolute inset-0 bg-timber-950/45 backdrop-blur-[2px]"
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="absolute inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto border-t border-timber-200 bg-white shadow-[0_-16px_48px_-24px_rgba(9,9,11,0.35)] sm:inset-x-auto sm:bottom-8 sm:left-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:border sm:shadow-xl">
+      <div className="ff-fade absolute inset-x-0 bottom-0 max-h-[90vh] overflow-y-auto rounded-t-3xl bg-white shadow-[0_-16px_48px_-24px_rgba(9,9,11,0.35)] sm:inset-x-auto sm:bottom-8 sm:left-1/2 sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:rounded-3xl sm:shadow-xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-timber-100 bg-white px-5 py-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-700">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-timber-700">
             Select options
           </p>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center text-timber-600 hover:bg-timber-50"
+            className="ff-icon-btn h-9 w-9 text-timber-600 hover:bg-timber-100"
             aria-label="Close"
           >
             <X className="h-5 w-5" strokeWidth={1.5} />
@@ -111,7 +111,7 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
 
         <div className="px-5 py-5">
           <div className="flex gap-4">
-            <div className="h-24 w-20 shrink-0 overflow-hidden bg-timber-100">
+            <div className="h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-timber-100">
               {photo ? (
                 <img
                   src={getImageUrl(photo, { width: 200 })}
@@ -184,7 +184,7 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
                           type="button"
                           disabled={soldOut}
                           onClick={() => setSize(s)}
-                          className={`min-w-[3rem] border px-3 py-2.5 text-sm font-medium transition ${
+                          className={`min-w-[3.25rem] rounded-full border px-4 py-2.5 text-sm font-medium transition ${
                             soldOut
                               ? 'cursor-not-allowed border-timber-100 text-timber-300 line-through'
                               : size === s

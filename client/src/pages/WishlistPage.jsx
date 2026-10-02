@@ -27,7 +27,7 @@ export default function WishlistPage() {
   }
 
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4 border-b border-timber-100 pb-6">
           <div>

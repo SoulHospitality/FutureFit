@@ -38,7 +38,7 @@ export default function AboutPage() {
   const hero = gallery[0];
 
   return (
-    <div className="bg-white">
+    <div className="bg-bone">
       <section className="relative min-h-[70svh] overflow-hidden bg-timber-900">
         {hero && (
           <img

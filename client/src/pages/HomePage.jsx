@@ -1,11 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Banknote,
+  CreditCard,
+  MessageCircle,
+  RefreshCw,
+  Truck,
+} from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../api/axios';
 import BrandLoader from '../components/ui/BrandLoader';
 import ProductCard from '../components/store/ProductCard';
 import StarRating from '../components/store/StarRating';
+import Reveal from '../components/store/Reveal';
+import SectionHeading from '../components/store/SectionHeading';
 import { useCategories } from '../context/CategoriesContext';
 import {
   getImageUrl,
@@ -15,6 +26,7 @@ import {
   asArray,
   FREE_SHIPPING_MIN,
   formatMoney,
+  STORE_WHATSAPP_URL,
 } from '../utils/helpers';
 
 const FALLBACK_COPY = {
@@ -23,6 +35,276 @@ const FALLBACK_COPY = {
   kids: 'Soft staples sized for growing days.',
 };
 
+const SLIDE_MS = 6500;
+
+const TRUST_ITEMS = [
+  `Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}`,
+  'Cash on delivery',
+  'Card & wallet via Paymob',
+  '14-day returns',
+  'Delivered across Egypt',
+];
+
+const SERVICES = [
+  {
+    icon: Truck,
+    title: 'Free delivery',
+    body: `On every order over ${formatMoney(FREE_SHIPPING_MIN)}, shipped in 2–3 business days.`,
+  },
+  {
+    icon: Banknote,
+    title: 'Pay on delivery',
+    body: 'Cash on delivery anywhere in Egypt — pay when it reaches your door.',
+  },
+  {
+    icon: CreditCard,
+    title: 'Card or wallet',
+    body: 'Prefer to prepay? Checkout securely by card or mobile wallet with Paymob.',
+  },
+  {
+    icon: RefreshCw,
+    title: 'Easy returns',
+    body: '14 days to return or exchange unworn pieces.',
+    to: '/returns',
+  },
+  {
+    icon: MessageCircle,
+    title: 'Real help',
+    body: 'Sizing doubts? Message us on WhatsApp and a real person replies.',
+    href: STORE_WHATSAPP_URL,
+  },
+];
+
+function Hero({ slides }) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const touchStartX = useRef(null);
+  const count = slides.length;
+  const slide = slides[index];
+
+  useEffect(() => {
+    if (count < 2 || paused) return undefined;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setTimeout(() => setIndex((i) => (i + 1) % count), SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [count, paused, index]);
+
+  useEffect(() => {
+    if (count < 2) return;
+    const next = slides[(index + 1) % count];
+    if (!next?.cloudinaryUrl) return;
+    const img = new Image();
+    img.src = getImageUrl(next.cloudinaryUrl, { width: 1400 });
+  }, [index, slides, count]);
+
+  const go = (dir) => count && setIndex((i) => (i + dir + count) % count);
+
+  return (
+    <section
+      className="home-hero relative w-full overflow-hidden bg-timber-900 text-white"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={(e) => {
+        touchStartX.current = e.changedTouches[0]?.clientX ?? null;
+      }}
+      onTouchEnd={(e) => {
+        const start = touchStartX.current;
+        touchStartX.current = null;
+        if (start == null || count < 2) return;
+        const dx = (e.changedTouches[0]?.clientX ?? start) - start;
+        if (Math.abs(dx) >= 48) go(dx < 0 ? 1 : -1);
+      }}
+      aria-roledescription="carousel"
+      aria-label="Homepage slideshow"
+    >
+      <div className="absolute inset-0">
+        {slide?.cloudinaryUrl ? (
+          <img
+            key={slide.id}
+            src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
+            srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000])}
+            alt={slide.title || 'FutureFit'}
+            width={1600}
+            height={900}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            sizes="100vw"
+            className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(191,153,144,0.35),transparent_55%),linear-gradient(160deg,#2a2420_0%,#1c1815_60%,#120f0d_100%)]" />
+        )}
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
+
+      <div className="ff-container relative flex h-full flex-col justify-end pb-24 pt-32 sm:pb-28">
+        <div key={slide?.id || 'fallback'} className="max-w-3xl">
+          <p className="ff-fade-up text-[11px] font-semibold uppercase tracking-[0.36em] text-blush">
+            FutureFit · From Cairo
+          </p>
+          <h1
+            className="ff-fade-up mt-5 font-display text-[clamp(2.6rem,8vw,6.5rem)] font-light leading-[0.95] tracking-[-0.03em] text-balance"
+            style={{ animationDelay: '80ms' }}
+          >
+            {slide?.title || (
+              <>
+                Setting trends with <em className="italic text-blush">every stitch.</em>
+              </>
+            )}
+          </h1>
+          <p
+            className="ff-fade-up mt-5 max-w-lg text-[15px] leading-relaxed text-white/80 sm:text-lg"
+            style={{ animationDelay: '160ms' }}
+          >
+            {slide?.description ||
+              'Classic cuts. Modern presence. Essentials made to move with you — from Cairo streets to every occasion.'}
+          </p>
+        </div>
+        <div className="ff-fade-up mt-8 flex flex-wrap gap-3" style={{ animationDelay: '240ms' }}>
+          <Link to="/shop?audience=men" className="btn-lg btn bg-white text-timber-900 hover:bg-blush">
+            Shop Men
+          </Link>
+          <Link
+            to="/shop?audience=women"
+            className="btn-lg btn border border-white/50 bg-white/5 text-white backdrop-blur-sm hover:border-white hover:bg-white hover:text-timber-900"
+          >
+            Shop Women
+          </Link>
+          <Link
+            to="/shop?audience=kids"
+            className="btn-lg btn hidden border border-white/50 bg-white/5 text-white backdrop-blur-sm hover:border-white hover:bg-white hover:text-timber-900 sm:inline-flex"
+          >
+            Shop Kids
+          </Link>
+        </div>
+      </div>
+
+      {count > 1 && (
+        <div className="ff-container absolute inset-x-0 bottom-6 flex items-center gap-4 sm:bottom-8">
+          <span className="text-[11px] font-semibold tabular-nums tracking-[0.2em] text-white/80">
+            {String(index + 1).padStart(2, '0')} / {String(count).padStart(2, '0')}
+          </span>
+          <div className="flex flex-1 gap-2">
+            {slides.map((s, i) => (
+              <button
+                key={s.id}
+                type="button"
+                aria-label={`Slide ${i + 1}`}
+                aria-current={i === index ? 'true' : undefined}
+                onClick={() => setIndex(i)}
+                className="group relative h-6 flex-1 touch-manipulation"
+              >
+                <span className="absolute inset-x-0 top-1/2 h-[2px] -translate-y-1/2 overflow-hidden rounded-full bg-white/25">
+                  {i < index && <span className="absolute inset-0 bg-white" />}
+                  {i === index && (
+                    <span
+                      key={`${s.id}-${paused}`}
+                      className="ff-progress absolute inset-0 bg-white"
+                      style={{
+                        animationDuration: `${SLIDE_MS}ms`,
+                        animationPlayState: paused ? 'paused' : 'running',
+                      }}
+                    />
+                  )}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="hidden gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              className="ff-icon-btn border border-white/30 text-white hover:bg-white hover:text-timber-900"
+              aria-label="Previous slide"
+            >
+              <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              className="ff-icon-btn border border-white/30 text-white hover:bg-white hover:text-timber-900"
+              aria-label="Next slide"
+            >
+              <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TrustMarquee() {
+  const row = [...TRUST_ITEMS, ...TRUST_ITEMS];
+  return (
+    <div className="overflow-hidden border-b border-timber-200/70 bg-sand py-4" aria-label="Store benefits">
+      <div className="ff-marquee items-center">
+        {[0, 1].map((copy) => (
+          <div key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1}>
+            {row.map((t, i) => (
+              <span key={`${copy}-${i}`} className="flex items-center">
+                <span
+                  className={`px-6 text-[13px] font-medium sm:px-8 sm:text-sm ${
+                    i % 2 ? 'font-display italic text-clay' : 'text-timber-800'
+                  }`}
+                >
+                  {t}
+                </span>
+                <span className="h-1.5 w-1.5 rounded-full bg-nude" />
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductRail({ products }) {
+  const railRef = useRef(null);
+  const scrollBy = (dir) => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const card = rail.firstElementChild;
+    rail.scrollBy({ left: dir * ((card?.offsetWidth || 300) + 20) * 2, behavior: 'smooth' });
+  };
+  return (
+    <div className="relative">
+      <div
+        ref={railRef}
+        className="ff-scroll-x -mx-5 gap-4 scroll-px-5 px-5 pb-2 sm:-mx-8 sm:gap-5 sm:scroll-px-8 sm:px-8 lg:-mx-12 lg:scroll-px-12 lg:px-12"
+      >
+        {products.map((p, i) => (
+          <div key={p.id} className="w-[46vw] shrink-0 snap-start sm:w-[30vw] lg:w-[23%]">
+            <ProductCard product={p} priority={i < 2} />
+          </div>
+        ))}
+      </div>
+      {products.length > 4 && (
+        <div className="mt-8 hidden justify-end gap-2 sm:flex">
+          <button
+            type="button"
+            onClick={() => scrollBy(-1)}
+            aria-label="Previous"
+            className="ff-icon-btn border border-timber-900/20 text-timber-900 hover:border-timber-900 hover:bg-timber-900 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollBy(1)}
+            aria-label="Next"
+            className="ff-icon-btn border border-timber-900/20 text-timber-900 hover:border-timber-900 hover:bg-timber-900 hover:text-white"
+          >
+            <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { tree } = useCategories();
   const [slides, setSlides] = useState([]);
@@ -30,11 +312,10 @@ export default function HomePage() {
   const [packs, setPacks] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [fallbackPhotos, setFallbackPhotos] = useState({});
-  const [index, setIndex] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [bestFilter, setBestFilter] = useState('all');
   const [email, setEmail] = useState('');
-  const [paused, setPaused] = useState(false);
-  const touchStartX = useRef(null);
+  const [sending, setSending] = useState(false);
 
   const departments = (tree?.length
     ? tree
@@ -47,7 +328,9 @@ export default function HomePage() {
         imageUrl: null,
         sortOrder: 0,
       }))
-  ).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  )
+    .slice()
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
   useEffect(() => {
     Promise.all([
@@ -55,13 +338,11 @@ export default function HomePage() {
       api.get('/homepage').then((r) => r.data || {}).catch(() => ({})),
       api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
     ]).then(([slideData, homeData, reviewData]) => {
-      setSlides(slideData);
+      const sortedSlides = [...slideData].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      setSlides(sortedSlides);
       setProducts(asArray(homeData.bestSellers));
       setPacks(asArray(homeData.packs));
       setReviews(reviewData);
-      const sortedSlides = [...slideData].sort(
-        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-      );
       const productPhotoByAudience = {};
       asArray(homeData.bestSellers).forEach((p) => {
         const key = p.audience || 'men';
@@ -82,389 +363,343 @@ export default function HomePage() {
     });
   }, []);
 
-  useEffect(() => {
-    if (slides.length < 2 || paused) return undefined;
-    const reduceMotion =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) return undefined;
-    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 6000);
-    return () => clearInterval(t);
-  }, [slides.length, paused]);
+  const bestAudiences = useMemo(() => {
+    const set = new Set(products.map((p) => p.audience).filter(Boolean));
+    return AUDIENCES.filter((a) => set.has(a.value));
+  }, [products]);
 
-  useEffect(() => {
-    if (slides.length < 2) return;
-    const next = slides[(index + 1) % slides.length];
-    if (!next?.cloudinaryUrl) return;
-    const img = new Image();
-    img.src = getImageUrl(next.cloudinaryUrl, { width: 1400 });
-  }, [index, slides]);
+  const visibleBest = useMemo(
+    () => (bestFilter === 'all' ? products : products.filter((p) => p.audience === bestFilter)),
+    [products, bestFilter]
+  );
 
-  const slide = slides[index];
-  const fallbackTitle = 'Setting trends with every stitch.';
-  const fallbackDescription =
-    'Classic cuts. Modern presence. Apparel made to move with you — from Cairo streets to every occasion.';
+  const ratingSummary = useMemo(() => {
+    if (!reviews.length) return null;
+    const avg = reviews.reduce((s, r) => s + Number(r.rating || 0), 0) / reviews.length;
+    return { avg: Math.round(avg * 10) / 10, count: reviews.length };
+  }, [reviews]);
 
-  const go = (dir) => {
-    if (!slides.length) return;
-    setIndex((i) => (i + dir + slides.length) % slides.length);
-  };
+  const editorialImage =
+    slides[1]?.cloudinaryUrl || slides[0]?.cloudinaryUrl || fallbackPhotos.men || DEPT_IMAGES.men;
 
-  const onTouchStart = (e) => {
-    touchStartX.current = e.changedTouches[0]?.clientX ?? null;
-  };
-
-  const onTouchEnd = (e) => {
-    const start = touchStartX.current;
-    touchStartX.current = null;
-    if (start == null || slides.length < 2) return;
-    const dx = (e.changedTouches[0]?.clientX ?? start) - start;
-    if (Math.abs(dx) < 48) return;
-    go(dx < 0 ? 1 : -1);
+  const subscribe = async (e) => {
+    e.preventDefault();
+    setSending(true);
+    try {
+      await api.post('/newsletter', { email, source: 'home' });
+      toast.success('You’re on the list — thanks for signing up');
+      setEmail('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save email');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
-    <div className="bg-white">
-      <section
-        className="home-hero relative w-full overflow-hidden bg-timber-900"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        onFocusCapture={() => setPaused(true)}
-        onBlurCapture={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setPaused(false);
-        }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        aria-roledescription="carousel"
-        aria-label="Homepage slideshow"
-      >
-        <div className="absolute inset-0">
-          {slide?.cloudinaryUrl ? (
-            <img
-              key={slide.id}
-              src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
-              srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000])}
-              alt={slide.title || 'FutureFit'}
-              width={1600}
-              height={900}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover object-center"
-              sizes="100vw"
-            />
-          ) : (
-            <div className="absolute inset-0 bg-timber-900" />
-          )}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/20 sm:bg-gradient-to-r sm:from-black/55 sm:via-black/20 sm:to-transparent" />
-        <div className="relative mx-auto flex h-full max-w-7xl items-end px-4 pb-[max(4.5rem,env(safe-area-inset-bottom))] pt-28 sm:px-8 sm:pb-24 sm:pt-36">
-          <div className="max-w-xl text-white">
-            <p className="text-[10px] font-medium uppercase tracking-[0.4em] text-white/70 sm:text-[11px]">
-              FutureFit
-            </p>
-            <div key={slide?.id || 'fallback'} className="hero-copy-fade">
-              <h1 className="mt-4 font-display text-[clamp(2rem,6vw,4.5rem)] font-medium leading-[0.95] tracking-tight sm:mt-5">
-                {slide?.title || fallbackTitle}
-              </h1>
-              <p className="mt-4 max-w-md text-balance text-[clamp(0.9rem,2.2vw,1.125rem)] leading-relaxed text-white/80 sm:mt-6">
-                {slide?.description || fallbackDescription}
-              </p>
-            </div>
-            <Link
-              to="/shop"
-              className="btn-wheat btn-lg mt-8 min-h-12 w-full max-w-xs touch-manipulation sm:mt-10 sm:w-auto"
-            >
-              Shop collection
-            </Link>
+    <div className="bg-bone">
+      <Hero slides={slides} />
+      <TrustMarquee />
+
+      {/* Departments */}
+      <section className="ff-section">
+        <div className="ff-container">
+          <SectionHeading
+            eyebrow="Shop by department"
+            title="The best way to shop"
+            titleEm="the essentials you love."
+            link="/shop"
+            linkLabel="Shop all"
+          />
+          <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0">
+            {departments.map((dept, i) => {
+              const key = dept.audience || dept.slug;
+              const photo = dept.imageUrl || fallbackPhotos[key] || DEPT_IMAGES[key] || null;
+              const statement = dept.statement || FALLBACK_COPY[key] || '';
+              const href = ['men', 'women', 'kids'].includes(dept.slug)
+                ? `/shop?audience=${dept.slug}`
+                : `/shop?category=${dept.slug}`;
+              return (
+                <Reveal key={dept.id} delay={i * 90} className="w-[72vw] shrink-0 snap-start sm:w-auto">
+                  <Link to={href} className="group block">
+                    <div className="ff-arch relative aspect-[4/5] bg-timber-200">
+                      {photo ? (
+                        <img
+                          src={getImageUrl(photo, { width: 640, aspect: '4:5' })}
+                          srcSet={getImageSrcSet(photo, [480, 640, 800, 1000], { aspect: '4:5' })}
+                          alt={`${dept.name} collection`}
+                          width={800}
+                          height={1000}
+                          loading="lazy"
+                          decoding="async"
+                          sizes="(min-width: 640px) 33vw, 72vw"
+                          className="ff-img-zoom absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+                      <span className="absolute bottom-5 end-5 grid h-12 w-12 place-items-center rounded-full bg-white/90 text-timber-900 backdrop-blur transition duration-500 group-hover:bg-timber-900 group-hover:text-white">
+                        <ArrowUpRight className="h-5 w-5" strokeWidth={1.5} />
+                      </span>
+                    </div>
+                    <div className="mt-5 px-1">
+                      <h3 className="font-display text-[1.9rem] font-light leading-none text-timber-900">
+                        {dept.name}
+                      </h3>
+                      {statement ? (
+                        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-timber-500">{statement}</p>
+                      ) : null}
+                    </div>
+                  </Link>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
-        {slides.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={() => go(-1)}
-              className="absolute start-2 top-1/2 z-[1] grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-white hover:text-timber-900 sm:start-4 sm:h-12 sm:w-12"
-              aria-label="Previous slide"
-            >
-              <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              className="absolute end-2 top-1/2 z-[1] grid h-11 w-11 -translate-y-1/2 place-items-center border border-white/30 bg-black/25 text-white backdrop-blur-sm transition hover:bg-white hover:text-timber-900 sm:end-4 sm:h-12 sm:w-12"
-              aria-label="Next slide"
-            >
-              <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
-            </button>
-            <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-[1] flex -translate-x-1/2 gap-2">
-              {slides.map((s, i) => (
+      </section>
+
+      {/* Best sellers */}
+      <section className="ff-section bg-white">
+        <div className="ff-container">
+          <SectionHeading
+            eyebrow="Top picks"
+            title="Best"
+            titleEm="sellers"
+            body="Customer favourites, selected by the house."
+            link="/shop"
+          />
+          {bestAudiences.length > 1 && (
+            <div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Filter best sellers">
+              {[{ value: 'all', label: 'All' }, ...bestAudiences].map((a) => (
                 <button
-                  key={s.id}
+                  key={a.value}
                   type="button"
-                  aria-label={`Slide ${i + 1}`}
-                  aria-current={i === index ? 'true' : undefined}
-                  onClick={() => setIndex(i)}
-                  className="flex h-10 items-center px-1 touch-manipulation"
+                  role="tab"
+                  aria-selected={bestFilter === a.value}
+                  data-active={bestFilter === a.value ? 'true' : 'false'}
+                  onClick={() => setBestFilter(a.value)}
+                  className="ff-chip"
                 >
-                  <span
-                    className={`block h-1 rounded-full transition-all duration-500 ease-out ${
-                      i === index ? 'w-10 bg-white' : 'w-5 bg-white/40'
-                    }`}
-                  />
+                  {a.label}
                 </button>
               ))}
             </div>
-          </>
-        )}
+          )}
+          <div className="mt-10">
+            {loadingProducts ? (
+              <div className="grid min-h-[20rem] place-items-center py-12">
+                <BrandLoader size="md" label="Loading pieces" />
+              </div>
+            ) : visibleBest.length === 0 ? (
+              <p className="text-sm text-timber-500">Best sellers coming soon.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-5 lg:grid-cols-4">
+                {visibleBest.map((p, i) => (
+                  <ProductCard key={p.id} product={p} priority={i < 2} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-20">
-        <div className="mb-8 flex items-end justify-between gap-4 border-b border-timber-100 pb-5 sm:mb-10 sm:pb-6">
+      {/* Editorial — fabric & fit */}
+      <section className="ff-section">
+        <div className="ff-container grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
+          <Reveal className="relative">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] bg-timber-200">
+              {editorialImage ? (
+                <img
+                  src={getImageUrl(editorialImage, { width: 900, aspect: '4:5' })}
+                  srcSet={getImageSrcSet(editorialImage, [600, 900, 1200], { aspect: '4:5' })}
+                  sizes="(min-width: 1024px) 45vw, 100vw"
+                  alt=""
+                  loading="lazy"
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : null}
+            </div>
+            <div className="absolute -bottom-6 end-6 rounded-2xl bg-white px-5 py-4 shadow-[0_24px_50px_-28px_rgba(28,24,21,0.45)] sm:end-10">
+              <p className="font-display text-3xl font-light text-timber-900">All-day</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-clay">comfort, built in</p>
+            </div>
+          </Reveal>
           <div>
-            <p className="brand-eyebrow">Shop</p>
-            <h2 className="mt-3 font-display text-[clamp(1.75rem,4vw,3rem)] font-medium tracking-tight text-timber-900">
-              Departments
-            </h2>
-          </div>
-          <Link
-            to="/shop"
-            className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
-          >
-            Shop all
-          </Link>
-        </div>
-        <div className="home-depts-track -mx-4 px-4 sm:mx-0 sm:px-0">
-          {departments.map((dept) => {
-            const photo =
-              dept.imageUrl ||
-              fallbackPhotos[dept.audience || dept.slug] ||
-              DEPT_IMAGES[dept.audience || dept.slug] ||
-              null;
-            const statement =
-              dept.statement ||
-              FALLBACK_COPY[dept.audience || dept.slug] ||
-              '';
-            const href = ['men', 'women', 'kids'].includes(dept.slug)
-              ? `/shop?audience=${dept.slug}`
-              : `/shop?category=${dept.slug}`;
-            return (
-              <Link
-                key={dept.id}
-                to={href}
-                className="group relative aspect-[4/5] max-h-[28rem] overflow-hidden bg-timber-900 sm:max-h-none"
-              >
-                {photo ? (
-                  <img
-                    src={getImageUrl(photo, { width: 640, aspect: '4:5' })}
-                    srcSet={getImageSrcSet(photo, [480, 640, 800, 1000], { aspect: '4:5' })}
-                    alt={`${dept.name} collection`}
-                    width={800}
-                    height={1000}
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover object-center transition duration-500 group-hover:scale-[1.03]"
-                    sizes="(min-width: 640px) 33vw, 80vw"
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-timber-800" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-black/15" />
-                <div className="relative flex h-full flex-col justify-end p-6 text-white sm:p-8">
-                  <h3 className="font-display text-[clamp(1.5rem,3vw,2.25rem)] font-medium text-white drop-shadow-sm">
-                    {dept.name}
-                  </h3>
-                  {statement ? (
-                    <p className="mt-2 line-clamp-3 max-w-xs text-sm text-white/95 drop-shadow-sm">
-                      {statement}
-                    </p>
-                  ) : null}
-                  <span className="mt-5 text-[10px] font-medium uppercase tracking-[0.24em] text-white underline underline-offset-8 sm:mt-6">
-                    Shop {dept.name}
-                  </span>
+            <SectionHeading
+              eyebrow="Fabric & fit"
+              title="Soft hand. Clean lines."
+              titleEm="All-day hold."
+              body="Considered fabrics and precise cuts — underwear and essentials made to stay comfortable from morning through late."
+            />
+            <Reveal delay={120} className="mt-10 divide-y divide-timber-200/80 border-y border-timber-200/80">
+              {[
+                ['01', 'Considered fabrics', 'Soft against the skin for comfortable, all-day wear.'],
+                ['02', 'Precise cuts', 'Clean lines and waistbands that hold without digging in.'],
+                ['03', 'Made to keep shape', 'Fits that hold their shape from morning through late.'],
+              ].map(([n, t, d]) => (
+                <div key={n} className="flex gap-6 py-5">
+                  <span className="font-display text-xl italic text-clay">{n}</span>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-timber-900">{t}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-timber-500">{d}</p>
+                  </div>
                 </div>
+              ))}
+            </Reveal>
+            <Reveal delay={200} className="mt-10 flex flex-wrap gap-4">
+              <Link to="/shop" className="btn-wheat">
+                Shop the essentials
               </Link>
-            );
-          })}
+              <Link to="/about" className="ff-link self-center">
+                Our story
+              </Link>
+            </Reveal>
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-        <div className="mb-12 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
+      {/* Packs */}
+      {packs.length > 0 && (
+        <section className="ff-section ff-grain overflow-hidden bg-blush/50">
+          <div className="ff-container">
+            <SectionHeading
+              eyebrow="Keep exploring"
+              title="Packs &"
+              titleEm="bundles"
+              body="Stock up on the pieces you wear most."
+              link="/shop"
+              linkLabel="Shop all"
+            />
+            <div className="mt-12">
+              <ProductRail products={packs} />
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Reviews */}
+      {reviews.length > 0 && (
+        <section className="ff-section bg-white">
+          <div className="ff-container">
+            <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+              <div>
+                <SectionHeading eyebrow="Reviews" title="From the" titleEm="fitting room" />
+                {ratingSummary && (
+                  <Reveal delay={120} className="mt-8 flex items-end gap-4">
+                    <span className="font-display text-7xl font-light leading-none text-timber-900">
+                      {ratingSummary.avg.toFixed(1)}
+                    </span>
+                    <div className="pb-2">
+                      <StarRating value={ratingSummary.avg} readOnly size={16} />
+                      <p className="mt-1 text-sm text-timber-500">
+                        Average from recent customer reviews
+                      </p>
+                    </div>
+                  </Reveal>
+                )}
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {reviews.slice(0, 4).map((r, i) => (
+                  <Reveal
+                    key={r.id}
+                    delay={i * 80}
+                    as="article"
+                    className="flex flex-col rounded-2xl border border-timber-200/80 bg-bone p-6"
+                  >
+                    <StarRating value={r.rating} readOnly size={14} />
+                    <p className="mt-4 flex-1 font-display text-lg font-light leading-snug text-timber-800 line-clamp-5">
+                      “{r.comment}”
+                    </p>
+                    <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-timber-400">
+                      {r.name}
+                      {r.product?.name ? <span className="text-clay"> · {r.product.name}</span> : null}
+                    </p>
+                  </Reveal>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Services */}
+      <section className="ff-section">
+        <div className="ff-container">
+          <SectionHeading
+            eyebrow="Why FutureFit"
+            title="Shopping made"
+            titleEm="effortless."
+            align="center"
+          />
+          <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-5">
+            {SERVICES.map((s, i) => {
+              const Icon = s.icon;
+              const inner = (
+                <>
+                  <span className="grid h-11 w-11 place-items-center rounded-full bg-blush text-clay">
+                    <Icon className="h-5 w-5" strokeWidth={1.5} />
+                  </span>
+                  <h3 className="mt-6 text-[15px] font-semibold text-timber-900">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-timber-500">{s.body}</p>
+                </>
+              );
+              const cls =
+                'block h-full rounded-2xl border border-timber-200/80 bg-white p-6 transition duration-500 hover:-translate-y-1 hover:shadow-[0_24px_50px_-30px_rgba(28,24,21,0.35)]';
+              return (
+                <Reveal key={s.title} delay={i * 70} className="w-[70vw] shrink-0 snap-start sm:w-auto">
+                  {s.to ? (
+                    <Link to={s.to} className={cls}>
+                      {inner}
+                    </Link>
+                  ) : s.href ? (
+                    <a href={s.href} target="_blank" rel="noreferrer" className={cls}>
+                      {inner}
+                    </a>
+                  ) : (
+                    <div className={cls}>{inner}</div>
+                  )}
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter */}
+      <section className="relative overflow-hidden bg-timber-900 text-bone">
+        <div
+          className="pointer-events-none absolute -bottom-[0.18em] left-1/2 -translate-x-1/2 select-none whitespace-nowrap font-display text-[clamp(6rem,22vw,20rem)] font-light leading-none tracking-tight text-white/[0.04]"
+          aria-hidden
+        >
+          FutureFit
+        </div>
+        <div className="ff-container relative grid gap-10 py-20 sm:py-28 lg:grid-cols-2 lg:items-end">
           <div>
-            <p className="brand-eyebrow">Top picks</p>
-            <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
-              Best sellers
+            <p className="ff-eyebrow !text-blush">Newsletter</p>
+            <h2 className="mt-4 font-display text-[clamp(2.4rem,5vw,4.5rem)] font-light leading-[1] tracking-tight">
+              First to know. <em className="italic text-blush">First to wear.</em>
             </h2>
-            <p className="mt-2 text-sm text-timber-500">Customer favourites, selected by the house</p>
-          </div>
-          <Link
-            to="/shop"
-            className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
-          >
-            View all
-          </Link>
-        </div>
-        {loadingProducts ? (
-          <div className="grid min-h-[20rem] place-items-center py-12">
-            <BrandLoader size="md" label="Loading pieces" />
-          </div>
-        ) : products.length === 0 ? (
-          <p className="text-sm text-timber-500">Best sellers coming soon.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
-            {products.map((p, i) => (
-              <ProductCard key={p.id} product={p} priority={i < 2} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="border-y border-timber-100 bg-white py-16 sm:py-20">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-4 sm:flex-row sm:items-end sm:px-6">
-          <div className="max-w-xl">
-            <p className="brand-eyebrow">Fabric &amp; fit</p>
-            <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900 sm:text-4xl">
-              Soft hand. Clean lines. All-day hold.
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-timber-500 sm:text-base">
-              Considered fabrics and precise cuts — underwear and essentials made to stay
-              comfortable from morning through late.
+            <p className="mt-4 max-w-md text-[15px] leading-relaxed text-bone/65">
+              New drops and restocks — straight to your inbox. No spam, ever.
             </p>
           </div>
-          <Link
-            to="/about"
-            className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-700 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
-          >
-            How we make it
-          </Link>
-        </div>
-      </section>
-
-      {packs.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
-          <div className="mb-12 flex items-end justify-between gap-4 border-b border-timber-100 pb-6">
-            <div>
-              <p className="brand-eyebrow">Keep exploring</p>
-              <h2 className="mt-3 font-display text-4xl font-medium tracking-tight text-timber-900 sm:text-5xl">
-                Packs &amp; bundles
-              </h2>
-              <p className="mt-2 text-sm text-timber-500">
-                Stock up on the pieces you wear most
-              </p>
-            </div>
-            <Link
-              to="/shop"
-              className="mb-1 shrink-0 text-[10px] font-semibold uppercase tracking-[0.24em] text-timber-500 underline decoration-timber-300 underline-offset-8 transition hover:text-timber-900 hover:decoration-timber-900"
-            >
-              Shop all
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-6">
-            {packs.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="bg-timber-900 py-24 text-white">
-        <div className="mx-auto max-w-3xl px-5 text-center sm:px-8">
-          <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-white/50">
-            The house
-          </p>
-          <h2 className="mt-4 font-display text-4xl font-medium tracking-tight sm:text-5xl">
-            Setting trends with every stitch
-          </h2>
-          <p className="mx-auto mt-5 max-w-lg text-sm leading-relaxed text-white/65 sm:text-base">
-            Refined apparel designed for presence — clean lines, considered fabrics, and fits that
-            hold their shape through the day.
-          </p>
-          <Link
-            to="/about"
-            className="btn-outline mt-8 border-white text-white hover:bg-white hover:text-timber-900"
-          >
-            Read our story
-          </Link>
-        </div>
-      </section>
-
-      {reviews.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6">
-          <p className="brand-eyebrow">Reviews</p>
-          <h2 className="mt-2 font-display text-4xl font-medium tracking-tight text-timber-900">
-            From the fitting room
-          </h2>
-          <div className="mt-10 grid gap-8 md:grid-cols-3">
-            {reviews.slice(0, 6).map((r) => (
-              <article key={r.id} className="border border-timber-100 p-6">
-                <StarRating value={r.rating} readOnly size={14} />
-                <p className="mt-4 text-sm leading-relaxed text-timber-600 line-clamp-4">
-                  {r.comment}
-                </p>
-                <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-timber-400">
-                  {r.name}
-                  {r.product?.name ? ` · ${r.product.name}` : ''}
-                </p>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="border-y border-timber-100 bg-timber-50 py-16">
-        <div className="mx-auto max-w-xl px-4 text-center">
-          <p className="text-[10px] font-medium uppercase tracking-[0.32em] text-timber-400">
-            Newsletter
-          </p>
-          <h2 className="mt-3 font-display text-3xl font-medium tracking-tight text-timber-900">
-            Stay in the loop
-          </h2>
-          <p className="mt-2 text-sm text-timber-500">
-            Leave your email and we&apos;ll save your interest for drops and restocks.
-          </p>
-          <form
-            className="mt-6 flex flex-col gap-2 sm:flex-row"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await api.post('/newsletter', { email, source: 'home' });
-                toast.success('Interest saved — thanks for signing up');
-                setEmail('');
-              } catch (err) {
-                toast.error(err.response?.data?.message || 'Could not save email');
-              }
-            }}
-          >
+          <form onSubmit={subscribe} className="flex w-full flex-col gap-3 sm:flex-row lg:justify-self-end lg:max-w-lg">
             <input
               type="email"
               required
-              className="input flex-1"
-              placeholder="E-mail"
+              className="min-h-[3.25rem] flex-1 rounded-full border border-white/20 bg-white/5 px-6 text-[15px] text-white outline-none transition placeholder:text-white/40 focus:border-white/60"
+              placeholder="Your email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-label="Email address"
             />
-            <button type="submit" className="btn-wheat px-6">
-              Subscribe
+            <button
+              type="submit"
+              disabled={sending}
+              className="btn min-h-[3.25rem] rounded-full bg-bone px-8 text-timber-900 hover:bg-blush"
+            >
+              {sending ? 'Saving…' : 'Subscribe'}
             </button>
           </form>
-        </div>
-      </section>
-
-      <section className="bg-white py-16">
-        <div className="mx-auto grid max-w-7xl gap-12 px-4 text-center sm:px-6 md:grid-cols-3">
-          {[
-            ['Free shipping', `On orders over ${formatMoney(FREE_SHIPPING_MIN)}`],
-            ['Cash on delivery', 'Pay when your order arrives'],
-            ['14-day returns', 'Unworn items, easy exchange'],
-          ].map(([t, d]) => (
-            <div key={t}>
-              <h3 className="font-display text-2xl font-medium tracking-tight text-timber-900">
-                {t}
-              </h3>
-              <p className="mt-3 text-sm leading-relaxed text-timber-500">{d}</p>
-            </div>
-          ))}
         </div>
       </section>
     </div>
