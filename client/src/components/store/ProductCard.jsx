@@ -117,8 +117,12 @@ function ProductCard({ product, priority = false }) {
                 decoding="async"
                 fetchPriority={priority && i === 0 ? 'high' : 'auto'}
                 draggable={false}
-                className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-500 ease-ff group-hover:scale-[1.02] ${
-                  i === shownIndex ? 'opacity-100' : 'pointer-events-none opacity-0'
+                className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-500 ease-ff group-hover:scale-[1.02] ${
+                  i === shownIndex
+                    ? inStock
+                      ? 'opacity-100'
+                      : 'opacity-60 grayscale group-hover:opacity-75'
+                    : 'pointer-events-none opacity-0'
                 }`}
               />
             ))
@@ -126,12 +130,16 @@ function ProductCard({ product, priority = false }) {
             <div className="grid h-full w-full place-items-center text-sm text-timber-400">No photo</div>
           )}
 
-          <div className="absolute start-3 top-3 z-[1] flex flex-col items-start gap-1.5">
-            {!inStock ? (
-              <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-timber-500">
-                Sold out
+          {!inStock && (
+            <div className="pointer-events-none absolute inset-0 z-[1] grid place-items-center bg-white/20">
+              <span className="rounded-full bg-timber-900/85 px-4 py-2 text-[10.5px] font-bold uppercase tracking-[0.2em] text-white shadow-[0_10px_30px_-12px_rgba(9,9,11,0.5)] backdrop-blur-sm sm:text-[11px]">
+                Out of stock
               </span>
-            ) : onSale ? (
+            </div>
+          )}
+
+          <div className="absolute start-3 top-3 z-[1] flex flex-col items-start gap-1.5">
+            {!inStock ? null : onSale ? (
               <span className="rounded-full bg-clay px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
                 {discount > 0 ? `−${discount}%` : 'Sale'}
               </span>
@@ -202,7 +210,7 @@ function ProductCard({ product, priority = false }) {
           </button>
         </div>
 
-        <div className="flex flex-col gap-1 px-0.5 pt-3.5">
+        <div className={`flex flex-col gap-1 px-0.5 pt-3.5 ${inStock ? '' : 'opacity-60'}`}>
           <div className="flex items-start justify-between gap-3">
             <h3 className="text-[14px] font-semibold leading-snug text-timber-900 line-clamp-2 sm:text-[15px]">
               {product.name}
@@ -210,10 +218,19 @@ function ProductCard({ product, priority = false }) {
           </div>
           {typeLabel ? <p className="text-[12px] text-timber-400">{typeLabel}</p> : null}
           <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
-            <span className={`text-sm font-semibold tabular-nums ${onSale ? 'text-clay' : 'text-timber-800'}`}>
+            <span
+              className={`text-sm font-semibold tabular-nums ${
+                !inStock ? 'text-timber-500' : onSale ? 'text-clay' : 'text-timber-800'
+              }`}
+            >
               {formatMoney(price)}
             </span>
-            {onSale && (
+            {!inStock && (
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-timber-500">
+                · Out of stock
+              </span>
+            )}
+            {inStock && onSale && (
               <span className="text-xs tabular-nums text-timber-400 line-through">
                 {formatMoney(product.price)}
               </span>
