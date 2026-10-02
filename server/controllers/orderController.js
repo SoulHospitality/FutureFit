@@ -5,6 +5,7 @@ const { fulfillOrderWithBosta, isCodMethod, isInstaPayMethod } = require('./bost
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
 const { calcShipping } = require('../utils/shipping');
+const { sendMetaPurchase } = require('../utils/metaCapi');
 
 const isPaymobMethod = (method) =>
   method === PAYMOB_METHOD || method === 'Card / Wallet (Paymob)';
@@ -125,6 +126,7 @@ const persistOrder = async ({
   totalPrice,
   couponId,
   savedCouponCode,
+  attribution = null,
 }) => {
   const order = await prisma.$transaction(async (tx) => {
     for (const item of itemsData) {
@@ -169,6 +171,7 @@ const persistOrder = async ({
         totalPrice,
         couponId,
         couponCode: savedCouponCode,
+        ...(attribution ? { attribution } : {}),
         items: { create: itemsData },
       },
       include: {
@@ -181,6 +184,41 @@ const persistOrder = async ({
   cache.invalidate('products');
   cache.invalidate('product');
   return order;
+};
+
+const ATTRIBUTION_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'gclid',
+  'fbclid',
+  'ttclid',
+  'referrer',
+  'landingUrl',
+  'fbp',
+  'fbc',
+  'capturedAt',
+];
+
+/** Campaign source from the storefront plus request context Meta's Conversions API needs for matching. */
+const buildAttribution = (req) => {
+  const raw = req.body?.attribution;
+  const a = {};
+  if (raw && typeof raw === 'object') {
+    for (const key of ATTRIBUTION_KEYS) {
+      if (raw[key]) a[key] = String(raw[key]).slice(0, 500);
+    }
+  }
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress;
+  if (ip) a.clientIp = String(ip).slice(0, 64);
+  if (req.headers['user-agent']) a.userAgent = String(req.headers['user-agent']).slice(0, 400);
+  return Object.keys(a).length ? a : null;
+};
+
+const reportPurchase = (orderId) => {
+  sendMetaPurchase(orderId).catch(() => {});
 };
 
 const createOrder = async (req, res) => {
@@ -221,6 +259,7 @@ const createOrder = async (req, res) => {
       totalPrice,
       couponId,
       savedCouponCode,
+      attribution: buildAttribution(req),
     });
 
     if (isPaymobMethod(paymentMethod)) {
@@ -232,6 +271,9 @@ const createOrder = async (req, res) => {
     }
 
     // COD → confirm + auto Bosta. InstaPay → confirm only; ship after mark paid.
+    // Card / wallet orders report their purchase from the Paymob webhook once paid
+    reportPurchase(order.id);
+
     if (isCodMethod(paymentMethod)) {
       const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });
       return res.status(201).json(serializeOrder(fulfilled.order));
@@ -301,6 +343,7 @@ const createGuestOrder = async (req, res) => {
       totalPrice,
       couponId,
       savedCouponCode,
+      attribution: buildAttribution(req),
     });
 
     if (isPaymobMethod(paymentMethod)) {
@@ -310,6 +353,9 @@ const createGuestOrder = async (req, res) => {
         ...(payload.paymobCheckoutUrl ? { paymobCheckoutUrl: payload.paymobCheckoutUrl } : {}),
       });
     }
+
+    // Card / wallet orders report their purchase from the Paymob webhook once paid
+    reportPurchase(order.id);
 
     if (isCodMethod(paymentMethod)) {
       const fulfilled = await fulfillOrderWithBosta(order, { confirm: true });

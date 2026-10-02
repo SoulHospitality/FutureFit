@@ -5,7 +5,7 @@ import {
 } from '../utils/helpers';
 import api from '../api/axios';
 import BrandLoader from '../components/ui/BrandLoader';
-import { trackPurchase } from '../utils/metaPixel';
+import { trackPurchase } from '../utils/tracking';
 
 function SuccessMark() {
   return (

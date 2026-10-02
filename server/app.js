@@ -20,6 +20,7 @@ const newsletterRoutes = require('./routes/newsletterRoutes');
 const paymobRoutes = require('./routes/paymobRoutes');
 const bostaRoutes = require('./routes/bostaRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const marketingRoutes = require('./routes/marketingRoutes');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/paymob', paymobRoutes);
 app.use('/api/bosta', bostaRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/marketing', marketingRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ ok: true });

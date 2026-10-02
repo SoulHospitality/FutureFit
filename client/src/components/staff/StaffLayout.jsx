@@ -23,6 +23,7 @@ const PAGE_TITLES = {
   '/staff/homepage': 'Homepage',
   '/staff/shop-control': 'Shop Control',
   '/staff/promotions': 'Promotions',
+  '/staff/marketing': 'Marketing',
   '/staff/categories': 'Categories',
   '/staff/finance': 'Finance',
   '/staff/newsletter': 'Newsletter',

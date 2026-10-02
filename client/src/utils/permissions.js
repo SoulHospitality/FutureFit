@@ -19,6 +19,7 @@ const ADMIN_PAGES = [
   'homepage',
   'shop-control',
   'promotions',
+  'marketing',
   'finance',
 ];
 

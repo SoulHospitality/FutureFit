@@ -2,8 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import { getImageUrl } from '../utils/helpers';
+import { usePageMeta } from '../utils/seo';
 
 export default function AboutPage() {
+  usePageMeta({
+    title: 'About us',
+    description:
+      'FutureFit makes premium underwear and everyday essentials in Egypt — classic cuts with a modern presence.',
+  });
   const [products, setProducts] = useState([]);
   const [slides, setSlides] = useState([]);
 

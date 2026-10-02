@@ -225,6 +225,8 @@ model Order {
   bostaTrackingNumber String?
   shippingCarrier     String?
   shippingStatus      String?
+  /// Marketing source captured at checkout (UTM params, click IDs, referrer, landing page).
+  attribution     Json?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -267,6 +269,13 @@ model ProblemRequest {
   order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customer  User  @relation("CustomerProblems", fields: [customerId], references: [id])
   createdBy User  @relation("CreatedProblems", fields: [createdById], references: [id])
+}
+
+/// Staff-editable store configuration blobs (e.g. key "marketing").
+model StoreSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
 
 model SiteAsset {

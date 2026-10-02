@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { getSizeStock } from '../utils/helpers';
-import { trackAddToCart } from '../utils/metaPixel';
+import { trackAddToCart } from '../utils/tracking';
 
 const CartContext = createContext(null);
 

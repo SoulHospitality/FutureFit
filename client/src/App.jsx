@@ -13,7 +13,7 @@ import PresenceBeacon from './components/store/PresenceBeacon';
 import WhatsAppButton from './components/store/WhatsAppButton';
 import StaffLayout from './components/staff/StaffLayout';
 import ScrollToTop from './components/ScrollToTop';
-import MetaPixelTracker from './components/MetaPixelTracker';
+import MarketingTracker from './components/MarketingTracker';
 import BrandLoader from './components/ui/BrandLoader';
 import { defaultStaffPage, isStaff } from './utils/permissions';
 
@@ -54,6 +54,7 @@ const StaffSlides = lazy(() => import('./pages/staff/Slides'));
 const StaffHomepage = lazy(() => import('./pages/staff/Homepage'));
 const StaffShopControl = lazy(() => import('./pages/staff/ShopControl'));
 const StaffPromotions = lazy(() => import('./pages/staff/Promotions'));
+const StaffMarketing = lazy(() => import('./pages/staff/Marketing'));
 const StaffFinance = lazy(() => import('./pages/staff/Finance'));
 const StaffCategories = lazy(() => import('./pages/staff/Categories'));
 const StaffReviews = lazy(() => import('./pages/staff/Reviews'));
@@ -77,6 +78,7 @@ const STAFF_PREFETCH = [
   () => import('./pages/staff/Homepage'),
   () => import('./pages/staff/ShopControl'),
   () => import('./pages/staff/Promotions'),
+  () => import('./pages/staff/Marketing'),
   () => import('./pages/staff/Finance'),
   () => import('./pages/staff/Categories'),
   () => import('./pages/staff/Reviews'),
@@ -178,7 +180,7 @@ function AppRoutes() {
   return (
     <StoreShell>
       <ScrollToTop />
-      <MetaPixelTracker />
+      <MarketingTracker />
       <PrefetchStaffChunks />
       <Routes>
         {COMING_SOON ? (
@@ -207,6 +209,7 @@ function AppRoutes() {
             <Route path="/staff/homepage" element={<StaffRoute page="homepage"><StaffHomepage /></StaffRoute>} />
             <Route path="/staff/shop-control" element={<StaffRoute page="shop-control"><StaffShopControl /></StaffRoute>} />
             <Route path="/staff/promotions" element={<StaffRoute page="promotions"><StaffPromotions /></StaffRoute>} />
+            <Route path="/staff/marketing" element={<StaffRoute page="marketing"><StaffMarketing /></StaffRoute>} />
             <Route path="/staff/finance" element={<StaffRoute page="finance"><StaffFinance /></StaffRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
@@ -254,6 +257,7 @@ function AppRoutes() {
             <Route path="/staff/homepage" element={<StaffRoute page="homepage"><StaffHomepage /></StaffRoute>} />
             <Route path="/staff/shop-control" element={<StaffRoute page="shop-control"><StaffShopControl /></StaffRoute>} />
             <Route path="/staff/promotions" element={<StaffRoute page="promotions"><StaffPromotions /></StaffRoute>} />
+            <Route path="/staff/marketing" element={<StaffRoute page="marketing"><StaffMarketing /></StaffRoute>} />
             <Route path="/staff/finance" element={<StaffRoute page="finance"><StaffFinance /></StaffRoute>} />
 
             <Route path="*" element={<Navigate to="/" replace />} />

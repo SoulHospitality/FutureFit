@@ -24,6 +24,7 @@ import {
   PackageSearch,
   Settings2,
   LayoutGrid,
+  Megaphone,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess } from '../../utils/permissions';
@@ -48,10 +49,16 @@ const NAV_GROUPS = [
       { path: '/staff/inventory', label: 'Inventory', icon: PackageSearch, page: 'inventory' },
       { path: '/staff/categories', label: 'Categories', icon: Layers, page: 'categories' },
       { path: '/staff/reviews', label: 'Reviews', icon: Star, page: 'reviews' },
-      { path: '/staff/newsletter', label: 'Newsletter', icon: Mail, page: 'newsletter' },
       { path: '/staff/slides', label: 'Slideshow', icon: Images, page: 'slides' },
       { path: '/staff/homepage', label: 'Homepage', icon: Store, page: 'homepage' },
+    ],
+  },
+  {
+    label: 'Marketing',
+    items: [
+      { path: '/staff/marketing', label: 'Marketing', icon: Megaphone, page: 'marketing' },
       { path: '/staff/promotions', label: 'Promotions', icon: Tag, page: 'promotions' },
+      { path: '/staff/newsletter', label: 'Newsletter', icon: Mail, page: 'newsletter' },
     ],
   },
   {

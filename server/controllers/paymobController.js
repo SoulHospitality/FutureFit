@@ -120,6 +120,9 @@ const handleWebhook = async (req, res) => {
       // After successful card/wallet payment → confirm + auto-sync Bosta
       const { fulfillOrderWithBosta } = require('./bostaController');
       await fulfillOrderWithBosta(orderId, { confirm: true });
+      require('../utils/metaCapi')
+        .sendMetaPurchase(orderId)
+        .catch(() => {});
     } else if (transactionId && !existing.paymobTransactionId) {
       await prisma.order.update({
         where: { id: orderId },

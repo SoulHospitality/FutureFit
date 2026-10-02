@@ -22,6 +22,7 @@ export default function DragSortList({
   const [position, setPosition] = useState('');
   const dragIdsRef = useRef(null);
   const anchorRef = useRef(null);
+  const fieldPressRef = useRef(false);
 
   const keys = useMemo(() => items.map((item) => getKey(item)), [items, getKey]);
   const selectedKeys = useMemo(() => keys.filter((k) => selected.has(k)), [keys, selected]);
@@ -202,8 +203,16 @@ export default function DragSortList({
                 if (e.shiftKey) toggle(id, { range: true });
                 else if (e.metaKey || e.ctrlKey) toggle(id);
               }}
+              onPointerDown={(e) => {
+                fieldPressRef.current = Boolean(e.target.closest?.('input, textarea, select'));
+              }}
               onDragStart={(e) => {
                 if (disabled) return;
+                if (fieldPressRef.current) {
+                  // Selecting text inside an input shouldn't pick up the whole row
+                  e.preventDefault();
+                  return;
+                }
                 const group = isSelected && selectedCount > 1 ? selectedKeys : [id];
                 dragIdsRef.current = group;
                 setDragIds(group);

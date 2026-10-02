@@ -11,6 +11,7 @@ import {
 } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
 import BrandLoader from '../components/ui/BrandLoader';
+import { usePageMeta } from '../utils/seo';
 
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Recommended' },
@@ -329,6 +330,28 @@ export default function ShopPage() {
     [params]
   );
   const sort = params.get('sort') || 'recommended';
+
+  const deptLabel = audience ? audienceLabel(audience) : '';
+  const categoryName =
+    (categories || []).find(
+      (c) => c.slug === selectedCategory && (!audience || c.audience === audience)
+    )?.name || '';
+  const seoQuery = new URLSearchParams();
+  if (audience) seoQuery.set('audience', audience);
+  if (selectedCategory) seoQuery.set('category', selectedCategory);
+  usePageMeta({
+    title: searchQuery
+      ? `Search: ${searchQuery}`
+      : [deptLabel, categoryName].filter(Boolean).join(' ') || 'Shop all',
+    description: categoryName
+      ? `Shop ${deptLabel ? `${deptLabel.toLowerCase()}'s ` : ''}${categoryName.toLowerCase()} at FutureFit — premium everyday essentials with cash on delivery across Egypt.`
+      : deptLabel
+        ? `Shop FutureFit ${deptLabel.toLowerCase()} — underwear, undershirts, socks and everyday essentials. Cash on delivery across Egypt.`
+        : undefined,
+    path: `/shop${seoQuery.toString() ? `?${seoQuery}` : ''}`,
+    noindex: Boolean(searchQuery),
+  });
+
   const minPrice = parseBound(params.get('minPrice'));
   const maxPrice = parseBound(params.get('maxPrice'));
   const [minInput, setMinInput] = useState(params.get('minPrice') || '');

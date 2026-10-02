@@ -15,7 +15,8 @@ import {
   citiesForGovernorate,
 } from '../utils/helpers';
 import { getStoreSessionKey } from '../utils/sessionKey';
-import { trackInitiateCheckout } from '../utils/metaPixel';
+import { getAttribution } from '../utils/attribution';
+import { trackInitiateCheckout } from '../utils/tracking';
 
 const ADDRESS_FIELDS = [
   { key: 'state', label: 'Governorate' },
@@ -258,6 +259,7 @@ export default function CheckoutPage() {
           paymentMethod: form.paymentMethod,
           shippingAddress,
           couponCode: form.couponCode || undefined,
+          attribution: getAttribution(),
         }));
       } else {
         ({ data } = await api.post('/orders/guest', {
@@ -268,6 +270,7 @@ export default function CheckoutPage() {
           guestName: form.name.trim(),
           guestPhone: form.phone.trim(),
           guestEmail: form.email.trim() || undefined,
+          attribution: getAttribution(),
         }));
       }
 

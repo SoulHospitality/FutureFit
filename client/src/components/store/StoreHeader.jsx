@@ -26,6 +26,7 @@ import {
   getImageUrl,
 } from '../../utils/helpers';
 import BrandLogo from '../BrandLogo';
+import { useMarketingConfig } from '../../utils/marketingConfig';
 
 const DEPT_COPY = {
   men: 'Underwear, undershirts and the everyday essentials.',
@@ -33,11 +34,11 @@ const DEPT_COPY = {
   kids: 'Soft staples sized for growing days.',
 };
 
-const ANNOUNCEMENTS = [
-  `Free shipping on orders over ${formatMoney(FREE_SHIPPING_MIN)}`,
-  'Cash on delivery across Egypt',
-  'Pay by card or wallet — secured by Paymob',
-  '14-day easy returns on unworn pieces',
+const DEFAULT_ANNOUNCEMENTS = [
+  { text: `Free shipping on orders over ${formatMoney(FREE_SHIPPING_MIN)}`, link: '/shop' },
+  { text: 'Cash on delivery across Egypt', link: '/shop' },
+  { text: 'Pay by card or wallet — secured by Paymob', link: '/shop' },
+  { text: '14-day easy returns on unworn pieces', link: '/returns' },
 ];
 
 const QUICK_LINKS = [
@@ -48,22 +49,32 @@ const QUICK_LINKS = [
 ];
 
 function AnnouncementBar() {
+  const config = useMarketingConfig();
+  const configured = config?.campaigns?.announcements;
+  const list = Array.isArray(configured) ? configured.filter((a) => a?.text) : DEFAULT_ANNOUNCEMENTS;
   const [i, setI] = useState(0);
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduce) return undefined;
-    const t = setInterval(() => setI((n) => (n + 1) % ANNOUNCEMENTS.length), 4200);
+    if (reduce || list.length < 2) return undefined;
+    const t = setInterval(() => setI((n) => n + 1), 4200);
     return () => clearInterval(t);
-  }, []);
+  }, [list.length]);
+  if (!list.length) return null;
+  const current = list[i % list.length];
+  const link = current.link || '/shop';
+  const className =
+    'ff-fade absolute inset-0 flex items-center justify-center px-4 text-center text-[10.5px] font-semibold uppercase tracking-[0.26em] text-bone/90 hover:text-white';
   return (
     <div className="relative h-9 overflow-hidden bg-timber-900 text-bone">
-      <Link
-        to="/shop"
-        key={i}
-        className="ff-fade absolute inset-0 flex items-center justify-center px-4 text-center text-[10.5px] font-semibold uppercase tracking-[0.26em] text-bone/90 hover:text-white"
-      >
-        {ANNOUNCEMENTS[i]}
-      </Link>
+      {/^https?:\/\//i.test(link) ? (
+        <a key={i} href={link} target="_blank" rel="noopener noreferrer" className={className}>
+          {current.text}
+        </a>
+      ) : (
+        <Link key={i} to={link} className={className}>
+          {current.text}
+        </Link>
+      )}
     </div>
   );
 }

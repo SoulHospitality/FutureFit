@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { useCart } from '../context/CartContext';
-import { trackViewContent } from '../utils/metaPixel';
+import { trackViewContent } from '../utils/tracking';
+import { snippet, usePageMeta } from '../utils/seo';
 import BrandLoader from '../components/ui/BrandLoader';
 import { useWishlist } from '../context/WishlistContext';
 import {
@@ -156,6 +157,57 @@ function TrustRow() {
   );
 }
 
+/** Page title/description + schema.org Product so Google can show price, stock and stars. */
+const productMeta = (product) => {
+  const origin = window.location.origin;
+  const url = `${origin}/product/${product.id}`;
+  const onSale = product.isSaleActive && product.salePrice != null;
+  const price = Number(onSale ? product.salePrice : product.price) || 0;
+  const images = (product.photos || [])
+    .filter(Boolean)
+    .slice(0, 6)
+    .map((src) => {
+      const u = getImageUrl(src, { width: 1200 });
+      return /^https?:\/\//i.test(u) ? u : `${origin}${u.startsWith('/') ? '' : '/'}${u}`;
+    });
+  const description = snippet(product.description || product.name, 300);
+  return {
+    title: product.name,
+    description: `${snippet(product.description || product.name, 120)} — EGP ${price.toLocaleString('en-EG')} · Cash on delivery across Egypt.`,
+    image: images[0],
+    path: `/product/${product.id}`,
+    type: 'product',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: product.name,
+      description,
+      image: images,
+      sku: String(product.id),
+      brand: { '@type': 'Brand', name: 'FutureFit' },
+      ...(product.category?.name ? { category: product.category.name } : {}),
+      offers: {
+        '@type': 'Offer',
+        url,
+        priceCurrency: 'EGP',
+        price: price.toFixed(2),
+        availability:
+          totalStock(product) > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        itemCondition: 'https://schema.org/NewCondition',
+      },
+      ...(product.reviewCount > 0 && product.ratingAvg
+        ? {
+            aggregateRating: {
+              '@type': 'AggregateRating',
+              ratingValue: Number(product.ratingAvg).toFixed(1),
+              reviewCount: product.reviewCount,
+            },
+          }
+        : {}),
+    },
+  };
+};
+
 export default function ProductPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -257,6 +309,8 @@ export default function ProductPage() {
     }, 600);
     return () => window.clearTimeout(t);
   }, [galleryUrls, photos]);
+
+  usePageMeta(product ? productMeta(product) : { path: `/product/${id}` });
 
   if (!product) {
     return <BrandLoader fullPage size="lg" label="Loading product" />;

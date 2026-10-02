@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { usePageMeta } from '../utils/seo';
 
-function Legal({ title, children }) {
+function Legal({ title, description, children }) {
+  usePageMeta({ title, description });
   return (
     <div className="bg-bone">
       <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6 sm:py-20">
@@ -26,9 +28,13 @@ function Legal({ title, children }) {
 
 export function PrivacyPage() {
   return (
-    <Legal title="Privacy">
+    <Legal title="Privacy" description="How FutureFit collects and uses your information.">
       <p>
         We collect your name, email, phone, and address to fulfill orders. We do not sell your data.
+      </p>
+      <p>
+        We use cookies and similar technologies from analytics and advertising partners (such as
+        Google, Meta and TikTok) to understand how the store is used and to measure our ads.
       </p>
     </Legal>
   );
@@ -36,7 +42,7 @@ export function PrivacyPage() {
 
 export function TermsPage() {
   return (
-    <Legal title="Terms">
+    <Legal title="Terms" description="Terms for shopping at FutureFit.">
       <p>
         By shopping at FutureFit you agree to our checkout terms, product availability, and delivery
         timelines.
@@ -47,7 +53,7 @@ export function TermsPage() {
 
 export function ReturnsPage() {
   return (
-    <Legal title="Returns">
+    <Legal title="Returns" description="Return or exchange unworn FutureFit pieces within 14 days.">
       <p>
         Unworn items may be returned within 14 days. Contact Ops via your order if there is a
         delivery issue.

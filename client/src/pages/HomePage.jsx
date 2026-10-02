@@ -26,8 +26,10 @@ import {
   asArray,
   FREE_SHIPPING_MIN,
   formatMoney,
+  STORE_EMAIL,
   STORE_WHATSAPP_URL,
 } from '../utils/helpers';
+import { usePageMeta } from '../utils/seo';
 
 const FALLBACK_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
@@ -310,7 +312,35 @@ function ProductRail({ products }) {
   );
 }
 
+const homeJsonLd = () => {
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'FutureFit',
+        url: origin,
+        logo: `${origin}/images/logo.png`,
+        email: STORE_EMAIL || undefined,
+        sameAs: ['https://www.facebook.com/FutureFit.eg'],
+      },
+      {
+        '@type': 'WebSite',
+        name: 'FutureFit',
+        url: origin,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${origin}/shop?q={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  };
+};
+
 export default function HomePage() {
+  usePageMeta({ path: '/', jsonLd: homeJsonLd() });
   const { tree } = useCategories();
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);

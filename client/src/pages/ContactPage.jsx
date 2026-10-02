@@ -8,10 +8,15 @@ import {
   STORE_PHONE_TEL,
   STORE_WHATSAPP_URL,
 } from '../utils/helpers';
+import { usePageMeta } from '../utils/seo';
 
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function ContactPage() {
+  usePageMeta({
+    title: 'Contact us',
+    description: `Questions about sizing, orders or delivery? Reach FutureFit on WhatsApp, phone or email — ${STORE_PHONE_DISPLAY}.`,
+  });
   return (
     <div className="bg-bone">
       <section className="mx-auto max-w-3xl px-5 py-14 sm:px-8 sm:py-20">
