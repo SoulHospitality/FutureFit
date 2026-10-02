@@ -209,31 +209,11 @@
     @apply mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16;
   }
 
-  /* Flexible homepage hero — tall frame so 16:9 slide photos fit cleanly */
+  /* Homepage hero fills the first screen; the header floats over it */
   .home-hero {
-    height: clamp(30rem, 92svh, 72rem);
-    min-height: min(30rem, 100svh);
-  }
-  @media (orientation: landscape) and (max-height: 520px) {
-    .home-hero {
-      height: clamp(18rem, 96svh, 32rem);
-    }
-  }
-  @media (min-width: 768px) {
-    .home-hero {
-      /* Prefer ~16:9 of the viewport width, capped to almost full screen height */
-      height: min(92svh, max(42rem, calc(100vw * 9 / 16)));
-    }
-  }
-  @media (min-width: 1280px) {
-    .home-hero {
-      height: min(94svh, max(48rem, calc(100vw * 9 / 16)));
-    }
-  }
-  @media (min-width: 1920px) {
-    .home-hero {
-      height: min(94svh, max(52rem, calc(100vw * 9 / 16)));
-    }
+    height: 100vh;
+    height: 100svh;
+    min-height: 22rem;
   }
 
   .home-depts-track {
