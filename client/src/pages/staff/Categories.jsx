@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import DragSortList from '../../components/staff/DragSortList';
 import { asArray, getImageUrl, AUDIENCES } from '../../utils/helpers';
 
 const emptyCategory = {
@@ -60,6 +61,24 @@ export default function StaffCategories() {
     setEditing(null);
     setForm({ ...emptySub, parentId: parentId || roots[0]?.id || '' });
     setOpen(true);
+  };
+
+  const saveOrder = async (ordered) => {
+    const indexById = new Map(ordered.map((c, i) => [c.id, i]));
+    const changed = ordered.filter((c, i) => c.sortOrder !== i);
+    if (!changed.length) return;
+    setCategories((prev) =>
+      prev.map((c) => (indexById.has(c.id) ? { ...c, sortOrder: indexById.get(c.id) } : c))
+    );
+    try {
+      await Promise.all(
+        changed.map((c) => api.put(`/categories/${c.id}`, { sortOrder: indexById.get(c.id) }))
+      );
+      toast.success('Order saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save order');
+      load();
+    }
   };
 
   const openEditSub = (c) => {
@@ -127,11 +146,12 @@ export default function StaffCategories() {
           toast.error('Choose a category');
           return;
         }
+        const movedParent = !editing || editing.parentId !== form.parentId;
         const payload = {
           name: form.name,
           slug: form.slug || undefined,
           parentId: form.parentId,
-          sortOrder: Number(form.sortOrder) || 0,
+          sortOrder: movedParent ? childrenOf(form.parentId).length : Number(form.sortOrder) || 0,
         };
         if (editing) await api.put(`/categories/${editing.id}`, payload);
         else await api.post('/categories', payload);
@@ -187,6 +207,39 @@ export default function StaffCategories() {
         </div>
       </div>
 
+      {roots.length > 1 && (
+        <div className="mb-6 overflow-clip rounded-xl border border-timber-100 bg-white">
+          <div className="border-b border-timber-50 bg-timber-50/60 px-4 py-3">
+            <h2 className="text-sm font-semibold text-timber-900">Category order</h2>
+            <p className="mt-0.5 text-xs text-timber-500">
+              Drag to set the order of departments on the storefront. Saves automatically.
+            </p>
+          </div>
+          <DragSortList
+            items={roots}
+            onReorder={saveOrder}
+            itemLabel="category"
+            className="px-4"
+            renderItem={(c) => (
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-8 shrink-0 overflow-hidden rounded bg-timber-100">
+                  {c.imageUrl ? (
+                    <img
+                      src={getImageUrl(c.imageUrl, { width: 64, aspect: '4:5' })}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  ) : null}
+                </div>
+                <p className="truncate text-sm font-medium text-timber-900">{c.name}</p>
+                <span className="text-xs text-timber-400">{c.audience}</span>
+              </div>
+            )}
+          />
+        </div>
+      )}
+
       <div className="space-y-4">
         {roots.map((parent) => {
           const kids = childrenOf(parent.id);
@@ -194,7 +247,7 @@ export default function StaffCategories() {
           return (
             <div
               key={parent.id}
-              className="overflow-hidden rounded-xl border border-timber-100 bg-white"
+              className="overflow-clip rounded-xl border border-timber-100 bg-white"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-timber-50 bg-timber-50/60 px-4 py-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -260,45 +313,41 @@ export default function StaffCategories() {
               </div>
 
               {kids.length > 0 ? (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Subcategory</th>
-                      <th>Slug</th>
-                      <th>Order</th>
-                      <th>Products</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {kids.map((c) => (
-                      <tr key={c.id}>
-                        <td className="font-medium">{c.name}</td>
-                        <td className="font-mono text-xs text-timber-500">{c.slug}</td>
-                        <td>{c.sortOrder}</td>
-                        <td>{c.productCount ?? 0}</td>
-                        <td>
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm"
-                              onClick={() => openEditSub(c)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm text-red-600"
-                              onClick={() => remove(c)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <DragSortList
+                  items={kids}
+                  onReorder={saveOrder}
+                  itemLabel="subcategory"
+                  className="px-4"
+                  renderItem={(c) => (
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-timber-900">{c.name}</p>
+                        <p className="mt-0.5 text-xs text-timber-500">
+                          <span className="font-mono">{c.slug}</span> · {c.productCount ?? 0} product
+                          {(c.productCount ?? 0) === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          onClick={() => openEditSub(c)}
+                          title="Edit subcategory"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm text-red-600"
+                          onClick={() => remove(c)}
+                          title="Delete subcategory"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                />
               ) : (
                 <p className="px-4 py-3 text-sm text-timber-400">
                   No subcategories yet — add Boxers, Dresses, Hoodies, etc.
@@ -419,15 +468,6 @@ export default function StaffCategories() {
                   </div>
                 </div>
               </div>
-              <div>
-                <label className="label">Sort order</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
-                />
-              </div>
             </>
           ) : (
             <>
@@ -464,15 +504,6 @@ export default function StaffCategories() {
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
                   placeholder="boxers"
-                />
-              </div>
-              <div>
-                <label className="label">Sort order</label>
-                <input
-                  type="number"
-                  className="input"
-                  value={form.sortOrder}
-                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
                 />
               </div>
             </>

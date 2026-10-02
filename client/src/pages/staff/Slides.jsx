@@ -120,7 +120,7 @@ export default function StaffSlides() {
         </button>
       </div>
 
-      <div className="sp-card overflow-hidden">
+      <div className="sp-card overflow-clip">
         {slides.length === 0 ? (
           <p className="px-4 py-12 text-center text-sm text-zinc-400">No slides yet</p>
         ) : (
@@ -128,6 +128,7 @@ export default function StaffSlides() {
             items={slides}
             onReorder={onReorder}
             disabled={savingOrder}
+            itemLabel="slide"
             className="px-4"
             renderItem={(s) => (
               <div className="flex items-center gap-3">

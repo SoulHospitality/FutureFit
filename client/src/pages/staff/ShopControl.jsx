@@ -98,7 +98,7 @@ export default function StaffShopControl() {
         ))}
       </div>
 
-      <div className="sp-card overflow-hidden">
+      <div className="sp-card overflow-clip">
         {loading ? (
           <div className="px-4 py-16 text-center text-sm text-zinc-400">Loading products…</div>
         ) : products.length === 0 ? (
@@ -108,13 +108,14 @@ export default function StaffShopControl() {
         ) : (
           <>
             <div className="border-b border-zinc-100 px-4 py-2.5 text-xs text-zinc-500">
-              {products.length} product{products.length === 1 ? '' : 's'} · drag the handle to
-              reorder · save when done
+              {products.length} product{products.length === 1 ? '' : 's'} · drag to reorder, or
+              tick several and move them together · save when done
               {dirty ? <span className="ml-2 font-medium text-amber-700">Unsaved changes</span> : null}
             </div>
             <DragSortList
               items={products}
               onReorder={onReorder}
+              itemLabel="product"
               className="px-4"
               renderItem={(p) => (
                 <div className="flex items-center gap-3">

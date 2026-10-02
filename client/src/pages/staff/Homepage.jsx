@@ -138,7 +138,7 @@ export default function StaffHomepage() {
             return (
               <section
                 key={section.key}
-                className="overflow-hidden rounded-xl border border-timber-100 bg-white"
+                className="overflow-clip rounded-xl border border-timber-100 bg-white"
               >
                 <div className="flex items-start justify-between gap-3 border-b border-timber-50 bg-timber-50/60 px-4 py-3">
                   <div>
@@ -164,6 +164,7 @@ export default function StaffHomepage() {
                   <DragSortList
                     items={items}
                     onReorder={(next) => setters[section.key](next)}
+                    itemLabel="product"
                     className="px-4"
                     renderItem={(p, i) => (
                       <div className="flex items-center gap-3">
