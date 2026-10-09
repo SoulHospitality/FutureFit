@@ -17,6 +17,7 @@ import {
 import { getStoreSessionKey } from '../utils/sessionKey';
 import { getAttribution } from '../utils/attribution';
 import { trackInitiateCheckout } from '../utils/tracking';
+import { useBagOffers } from '../utils/offers';
 
 const ADDRESS_FIELDS = [
   { key: 'state', label: 'Governorate' },
@@ -79,13 +80,70 @@ export default function CheckoutPage() {
   const step = stepFromPath(pathname);
   const [form, setForm] = useState(() => loadSavedForm(user));
   const [loading, setLoading] = useState(false);
-  const shipping = calcShipping(subtotal, form.state);
+  const [appliedCoupon, setAppliedCoupon] = useState(() =>
+    String(loadSavedForm(user).couponCode || '').trim().toUpperCase()
+  );
+  const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState('');
+  const bagOffers = useBagOffers(items);
+
+  const itemsTotal = quote?.itemsPrice ?? subtotal;
+  const offerLines = quote?.appliedOffers ?? bagOffers.applied;
+  const offerTotal = quote?.offerDiscount ?? bagOffers.discount;
+  const couponDiscount = quote?.couponDiscount || 0;
+  const couponError = appliedCoupon ? quote?.couponError || '' : '';
+  const shipping = calcShipping(itemsTotal, form.state);
   const shippingAmount = shipping ?? 0;
-  const total = subtotal + shippingAmount;
+  const total = Math.max(0, itemsTotal + shippingAmount - offerTotal - couponDiscount);
+  const pricesChanged = quote != null && Math.abs(quote.itemsPrice - subtotal) > 0.009;
 
   useEffect(() => {
     sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  // Server price check: sale caps, automatic offers and the promo code
+  useEffect(() => {
+    if (!items.length) return undefined;
+    let alive = true;
+    const t = setTimeout(() => {
+      api
+        .post('/orders/quote', {
+          orderItems: items.map((i) => ({
+            productId: i.productId,
+            qty: i.qty,
+            color: i.color,
+            size: i.size,
+          })),
+          couponCode: appliedCoupon || undefined,
+          state: form.state || undefined,
+        })
+        .then(({ data }) => {
+          if (!alive) return;
+          setQuote(data);
+          setQuoteError('');
+        })
+        .catch((err) => {
+          if (!alive) return;
+          setQuote(null);
+          setQuoteError(err.response?.data?.message || '');
+        });
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [items, appliedCoupon, form.state]);
+
+  const applyCoupon = () => {
+    const code = String(form.couponCode || '').trim().toUpperCase();
+    setAppliedCoupon(code);
+    if (!code) toast.info('Promo code removed');
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon('');
+    setForm((prev) => ({ ...prev, couponCode: '' }));
+  };
 
   useEffect(() => {
     if (!items.length) return;
@@ -243,6 +301,8 @@ export default function CheckoutPage() {
       size: i.size,
     }));
 
+    const couponCode = appliedCoupon || String(form.couponCode || '').trim() || undefined;
+
     setLoading(true);
     try {
       let data;
@@ -258,7 +318,7 @@ export default function CheckoutPage() {
           orderItems,
           paymentMethod: form.paymentMethod,
           shippingAddress,
-          couponCode: form.couponCode || undefined,
+          couponCode,
           attribution: getAttribution(),
         }));
       } else {
@@ -266,7 +326,7 @@ export default function CheckoutPage() {
           orderItems,
           paymentMethod: form.paymentMethod,
           shippingAddress,
-          couponCode: form.couponCode || undefined,
+          couponCode,
           guestName: form.name.trim(),
           guestPhone: form.phone.trim(),
           guestEmail: form.email.trim() || undefined,
@@ -503,13 +563,39 @@ export default function CheckoutPage() {
                   )}
                 </div>
                 <div>
-                  <label className="label">Promo code</label>
-                  <input
-                    className="input"
-                    value={form.couponCode}
-                    onChange={set('couponCode')}
-                    placeholder="Optional"
-                  />
+                  <label className="label" htmlFor="checkout-promo">Promo code</label>
+                  <div className="flex gap-2">
+                    <input
+                      id="checkout-promo"
+                      className="input uppercase"
+                      value={form.couponCode}
+                      onChange={set('couponCode')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          applyCoupon();
+                        }
+                      }}
+                      placeholder="Optional"
+                      autoComplete="off"
+                    />
+                    {appliedCoupon && appliedCoupon === String(form.couponCode || '').trim().toUpperCase() ? (
+                      <button type="button" className="btn-outline shrink-0 px-5" onClick={removeCoupon}>
+                        Remove
+                      </button>
+                    ) : (
+                      <button type="button" className="btn-outline shrink-0 px-5" onClick={applyCoupon}>
+                        Apply
+                      </button>
+                    )}
+                  </div>
+                  {couponError ? (
+                    <p className="mt-1.5 text-xs text-red-600">{couponError}</p>
+                  ) : couponDiscount > 0 ? (
+                    <p className="mt-1.5 text-xs font-medium text-clay">
+                      {quote?.couponCode} applied — you save {formatMoney(couponDiscount)}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap justify-between gap-3 pt-2">
                   <button type="button" className="btn-outline min-h-12 px-6" onClick={goBack}>
@@ -570,8 +656,20 @@ export default function CheckoutPage() {
               <div className="space-y-2 border-t border-timber-100 pt-4 text-sm">
                 <div className="flex justify-between">
                   <span className="text-timber-500">Subtotal</span>
-                  <span className="tabular-nums">{formatMoney(subtotal)}</span>
+                  <span className="tabular-nums">{formatMoney(itemsTotal)}</span>
                 </div>
+                {offerLines.map((o) => (
+                  <div key={o.offerId} className="flex justify-between gap-3">
+                    <span className="font-medium text-clay">{o.name}</span>
+                    <span className="tabular-nums font-medium text-clay">−{formatMoney(o.discount)}</span>
+                  </div>
+                ))}
+                {couponDiscount > 0 && (
+                  <div className="flex justify-between gap-3">
+                    <span className="font-medium text-clay">Promo {quote?.couponCode}</span>
+                    <span className="tabular-nums font-medium text-clay">−{formatMoney(couponDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-timber-500">Shipping</span>
                   <span className="tabular-nums">
@@ -586,6 +684,12 @@ export default function CheckoutPage() {
                   <span>Total</span>
                   <span className="tabular-nums">{formatMoney(total)}</span>
                 </div>
+                {pricesChanged && (
+                  <p className="text-xs text-timber-500">
+                    Some prices in your bag changed (a sale ended or sold out) — the total above is up to date.
+                  </p>
+                )}
+                {quoteError && <p className="text-xs text-red-600">{quoteError}</p>}
               </div>
 
               <div className="space-y-2 text-xs text-timber-500">

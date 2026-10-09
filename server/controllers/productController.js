@@ -78,6 +78,8 @@ const PRODUCT_SELECT = {
   stock: true,
   isSaleActive: true,
   salePrice: true,
+  saleQtyLimit: true,
+  saleQtySold: true,
   shopSortAll: true,
   shopSortMen: true,
   shopSortWomen: true,
@@ -179,6 +181,14 @@ const normalizePhotoByColor = (raw, colors = []) => {
   return Object.keys(out).length ? out : null;
 };
 
+/** undefined = not sent, null = no cap, otherwise a positive unit count. */
+const parseSaleQtyLimit = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
 const buildProductCreateData = async (body) => {
   const { name, description, price, photos, colors, isSaleActive, salePrice } = body;
   if (!name || !description || price == null) {
@@ -240,6 +250,7 @@ const buildProductCreateData = async (body) => {
     stock: sizeRows.reduce((n, r) => n + r.stock, 0),
     isSaleActive: Boolean(isSaleActive),
     salePrice: salePrice || null,
+    saleQtyLimit: parseSaleQtyLimit(body.saleQtyLimit) ?? null,
     shopSortAll: nextAll,
     shopSortMen: audience === 'men' ? nextAudience : 0,
     shopSortWomen: audience === 'women' ? nextAudience : 0,
@@ -442,6 +453,16 @@ const updateProduct = async (req, res) => {
     if (data.status != null) {
       data.status = String(data.status).toLowerCase() === 'draft' ? 'draft' : 'active';
     }
+    const saleQtyLimit = parseSaleQtyLimit(req.body.saleQtyLimit);
+    if (saleQtyLimit !== undefined) data.saleQtyLimit = saleQtyLimit;
+    if (data.isSaleActive === true || req.body.resetSaleCount === true) {
+      const current = await prisma.product.findUnique({
+        where: { id: req.params.id },
+        select: { isSaleActive: true },
+      });
+      // Switching a sale on starts a fresh count toward its stock cap
+      if (!current?.isSaleActive || req.body.resetSaleCount === true) data.saleQtySold = 0;
+    }
     if (data.photos) {
       data.photos = await resolvePhotoLinks(data.photos);
     }
@@ -484,11 +505,22 @@ const updateProduct = async (req, res) => {
       }
       Object.assign(data, applySizeStocks(sizeRows));
     }
-    const product = await prisma.product.update({
+    let product = await prisma.product.update({
       where: { id: req.params.id },
       data,
       select: PRODUCT_SELECT,
     });
+    if (
+      product.isSaleActive &&
+      product.saleQtyLimit != null &&
+      product.saleQtySold >= product.saleQtyLimit
+    ) {
+      product = await prisma.product.update({
+        where: { id: req.params.id },
+        data: { isSaleActive: false },
+        select: PRODUCT_SELECT,
+      });
+    }
     bustProductCache();
     res.json(serializeProduct(product));
   } catch (error) {

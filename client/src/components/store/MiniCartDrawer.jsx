@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { formatMoney, getImageUrl, calcShipping, FREE_SHIPPING_MIN, AUDIENCES } from '../../utils/helpers';
+import { useBagOffers } from '../../utils/offers';
 
 export default function MiniCartDrawer() {
   const { items, updateQty, removeItem, subtotal, drawerOpen, closeDrawer } = useCart();
+  const offers = useBagOffers(items);
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
@@ -170,6 +172,12 @@ export default function MiniCartDrawer() {
                 <span className="text-timber-500">Subtotal</span>
                 <span className="tabular-nums text-timber-900">{formatMoney(subtotal)}</span>
               </div>
+              {offers.applied.map((o) => (
+                <div key={o.offerId} className="flex justify-between gap-3">
+                  <span className="font-medium text-clay">{o.name}</span>
+                  <span className="tabular-nums font-medium text-clay">−{formatMoney(o.discount)}</span>
+                </div>
+              ))}
               <div className="flex justify-between">
                 <span className="text-timber-500">Shipping</span>
                 <span className={`tabular-nums ${shipping === 0 ? 'font-semibold text-clay' : 'text-timber-900'}`}>

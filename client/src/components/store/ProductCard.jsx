@@ -16,6 +16,7 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
 import QuickAddSheet from './QuickAddSheet';
+import { OFFER_TYPES, offerForProduct, useActiveOffers } from '../../utils/offers';
 
 const CARD_GALLERY_LIMIT = 6;
 
@@ -29,6 +30,7 @@ function ProductCard({ product, priority = false }) {
   const { isSaved, toggle } = useWishlist();
   const { addItem, openDrawer } = useCart();
   const liked = isSaved(product.id);
+  const offer = offerForProduct(useActiveOffers(), product.id);
 
   const photos = useMemo(() => {
     const activeColor = previewColor || product.colors?.[0] || '';
@@ -144,6 +146,11 @@ function ProductCard({ product, priority = false }) {
                 {discount > 0 ? `−${discount}%` : 'Sale'}
               </span>
             ) : null}
+            {inStock && offer && (
+              <span className="rounded-full bg-timber-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
+                {OFFER_TYPES[offer.type].label}
+              </span>
+            )}
             {lowStock && (
               <span className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold text-timber-800">
                 Only {stock} left

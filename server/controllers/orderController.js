@@ -6,6 +6,8 @@ const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
 const { calcShipping } = require('../utils/shipping');
 const { sendMetaPurchase } = require('../utils/metaCapi');
+const { applyOffers, getActiveOffers, round2 } = require('../utils/offers');
+const { findUsableCoupon, couponUseCount } = require('./couponController');
 
 const isPaymobMethod = (method) =>
   method === PAYMOB_METHOD || method === 'Card / Wallet (Paymob)';
@@ -22,11 +24,13 @@ const confirmOrderOnly = async (order) => {
   });
 };
 
-const effectivePrice = (product) => {
-  if (product.isSaleActive && product.salePrice != null) {
-    return Number(product.salePrice);
-  }
-  return Number(product.price);
+const onSale = (product) => product.isSaleActive && product.salePrice != null;
+
+/** Units still available at the sale price (Infinity when the sale has no stock cap). */
+const saleUnitsLeft = (product) => {
+  if (!onSale(product)) return 0;
+  if (product.saleQtyLimit == null) return Infinity;
+  return Math.max(0, product.saleQtyLimit - (product.saleQtySold || 0));
 };
 
 const normalizePhone = (phone) => String(phone || '').replace(/\s+/g, '').trim();
@@ -44,9 +48,12 @@ const buildOrderItems = async (orderItems) => {
     include: { sizeStocks: true },
   });
   const byId = Object.fromEntries(products.map((p) => [p.id, p]));
+  const saleLeft = Object.fromEntries(products.map((p) => [p.id, saleUnitsLeft(p)]));
 
   let itemsPrice = 0;
   const itemsData = [];
+  /** productId → units sold at the sale price in this order */
+  const saleUsage = {};
 
   for (const item of orderItems) {
     const product = byId[item.productId];
@@ -74,42 +81,141 @@ const buildOrderItems = async (orderItems) => {
       err.status = 400;
       throw err;
     }
-    const price = effectivePrice(product);
-    itemsPrice += price * qty;
-    itemsData.push({
+    // A capped sale only covers the units left; the rest of the line is full price
+    const saleQty = Math.min(qty, saleLeft[product.id]);
+    const base = {
       productId: product.id,
       name: product.name,
-      qty,
       image: product.photos[0] || '',
-      price,
       color: item.color || null,
       size: item.size || null,
-    });
+    };
+    if (saleQty > 0) {
+      const price = Number(product.salePrice);
+      saleLeft[product.id] -= saleQty;
+      saleUsage[product.id] = (saleUsage[product.id] || 0) + saleQty;
+      itemsPrice += price * saleQty;
+      itemsData.push({ ...base, qty: saleQty, price });
+    }
+    if (qty - saleQty > 0) {
+      const price = Number(product.price);
+      itemsPrice += price * (qty - saleQty);
+      itemsData.push({ ...base, qty: qty - saleQty, price });
+    }
   }
 
-  return { itemsPrice, itemsData };
+  return { itemsPrice: round2(itemsPrice), itemsData, saleUsage };
 };
 
-const resolveCoupon = async (couponCode, itemsPrice) => {
-  let discountAmount = 0;
+/**
+ * Server-side price of a cart: sale prices (respecting sale stock caps), automatic
+ * offers, then the promo code on what is left. With strictCoupon off, a bad code is
+ * reported in couponError instead of failing (used by the checkout quote).
+ */
+const priceOrder = async ({ orderItems, couponCode, state, strictCoupon = true }) => {
+  const { itemsPrice, itemsData, saleUsage } = await buildOrderItems(orderItems);
+  const offers = await getActiveOffers();
+  const { discount: offerDiscount, applied: appliedOffers } = applyOffers(itemsData, offers);
+
+  let couponDiscount = 0;
   let couponId = null;
   let savedCouponCode = null;
-  if (!couponCode) {
-    return { discountAmount, couponId, savedCouponCode };
+  let couponError = null;
+  if (couponCode && String(couponCode).trim()) {
+    try {
+      const coupon = await findUsableCoupon(couponCode);
+      couponDiscount = round2(((itemsPrice - offerDiscount) * coupon.discountPercentage) / 100);
+      couponId = coupon.id;
+      savedCouponCode = coupon.code;
+    } catch (err) {
+      if (strictCoupon) throw err;
+      couponError = err.message;
+    }
   }
 
-  const coupon = await prisma.coupon.findUnique({
-    where: { code: String(couponCode).toUpperCase() },
-  });
-  if (!coupon || !coupon.isActive) {
-    const err = new Error('Invalid coupon');
-    err.status = 400;
-    throw err;
+  const discountAmount = round2(offerDiscount + couponDiscount);
+  const shippingPrice = state ? calcShipping(itemsPrice, state) : null;
+  const totalPrice = round2(Math.max(0, itemsPrice + (shippingPrice || 0) - discountAmount));
+  return {
+    itemsPrice,
+    itemsData,
+    saleUsage,
+    offerDiscount,
+    appliedOffers,
+    couponDiscount,
+    couponId,
+    savedCouponCode,
+    couponError,
+    discountAmount,
+    shippingPrice,
+    totalPrice,
+  };
+};
+
+const quoteOrder = async (req, res) => {
+  try {
+    const { orderItems, couponCode, state } = req.body || {};
+    const q = await priceOrder({ orderItems, couponCode, state, strictCoupon: false });
+    res.json({
+      itemsPrice: q.itemsPrice,
+      offerDiscount: q.offerDiscount,
+      appliedOffers: q.appliedOffers,
+      couponCode: q.savedCouponCode,
+      couponDiscount: q.couponDiscount,
+      couponError: q.couponError,
+      discountAmount: q.discountAmount,
+      shippingPrice: q.shippingPrice,
+      totalPrice: q.totalPrice,
+      lines: q.itemsData.map(({ productId, qty, price, color, size }) => ({
+        productId,
+        qty,
+        price,
+        color,
+        size,
+      })),
+    });
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
-  discountAmount = (itemsPrice * coupon.discountPercentage) / 100;
-  couponId = coupon.id;
-  savedCouponCode = coupon.code;
-  return { discountAmount, couponId, savedCouponCode };
+};
+
+/** Inside the order transaction: count sale units / promo uses and switch them off at their caps. */
+const consumeLimits = async (tx, { saleUsage, couponId }) => {
+  for (const [productId, units] of Object.entries(saleUsage || {})) {
+    const p = await tx.product.update({
+      where: { id: productId },
+      data: { saleQtySold: { increment: units } },
+      select: { name: true, saleQtyLimit: true, saleQtySold: true },
+    });
+    if (p.saleQtyLimit == null) continue;
+    if (p.saleQtySold > p.saleQtyLimit) {
+      const err = new Error(`The sale on ${p.name} just sold out — refresh your bag to see the new price`);
+      err.status = 409;
+      throw err;
+    }
+    if (p.saleQtySold >= p.saleQtyLimit) {
+      await tx.product.update({ where: { id: productId }, data: { isSaleActive: false } });
+    }
+  }
+
+  if (couponId) {
+    const coupon = await tx.coupon.findUnique({
+      where: { id: couponId },
+      select: { maxUses: true },
+    });
+    if (coupon?.maxUses != null) {
+      const used = await couponUseCount(couponId, tx);
+      if (used >= coupon.maxUses) {
+        const err = new Error('This promo code has reached its usage limit');
+        err.status = 400;
+        throw err;
+      }
+      if (used + 1 >= coupon.maxUses) {
+        await tx.coupon.update({ where: { id: couponId }, data: { isActive: false } });
+      }
+    }
+  }
 };
 
 const persistOrder = async ({
@@ -123,12 +229,17 @@ const persistOrder = async ({
   itemsPrice,
   shippingPrice,
   discountAmount,
+  offerDiscount = 0,
+  appliedOffers = [],
+  saleUsage = {},
   totalPrice,
   couponId,
   savedCouponCode,
   attribution = null,
 }) => {
   const order = await prisma.$transaction(async (tx) => {
+    await consumeLimits(tx, { saleUsage, couponId });
+
     for (const item of itemsData) {
       if (item.size) {
         const variantCount = await tx.productSize.count({
@@ -168,6 +279,8 @@ const persistOrder = async ({
         itemsPrice,
         shippingPrice,
         discountAmount,
+        offerDiscount,
+        ...(appliedOffers.length ? { appliedOffers } : {}),
         totalPrice,
         couponId,
         couponCode: savedCouponCode,
@@ -179,7 +292,7 @@ const persistOrder = async ({
         user: { select: { id: true, name: true, email: true, phone: true } },
       },
     });
-  });
+  }, { maxWait: 10_000, timeout: 20_000 });
 
   cache.invalidate('products');
   cache.invalidate('product');
@@ -237,28 +350,13 @@ const createOrder = async (req, res) => {
       });
     }
 
-    const { itemsPrice, itemsData } = await buildOrderItems(orderItems);
-    const { discountAmount, couponId, savedCouponCode } = await resolveCoupon(
-      couponCode,
-      itemsPrice
-    );
-    if (!shippingAddress.state) {
-      return res.status(400).json({ message: 'Governorate is required' });
-    }
-    const shippingPrice = calcShipping(itemsPrice, shippingAddress.state);
-    const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
+    const pricing = await priceOrder({ orderItems, couponCode, state: shippingAddress.state });
 
     let order = await persistOrder({
       userId: req.user.id,
       paymentMethod,
       shippingAddress,
-      itemsData,
-      itemsPrice,
-      shippingPrice,
-      discountAmount,
-      totalPrice,
-      couponId,
-      savedCouponCode,
+      ...pricing,
       attribution: buildAttribution(req),
     });
 
@@ -321,13 +419,7 @@ const createGuestOrder = async (req, res) => {
       return res.status(400).json({ message: 'Street, city, and governorate are required' });
     }
 
-    const { itemsPrice, itemsData } = await buildOrderItems(orderItems);
-    const { discountAmount, couponId, savedCouponCode } = await resolveCoupon(
-      couponCode,
-      itemsPrice
-    );
-    const shippingPrice = calcShipping(itemsPrice, shippingAddress.state);
-    const totalPrice = Math.max(0, itemsPrice + shippingPrice - discountAmount);
+    const pricing = await priceOrder({ orderItems, couponCode, state: shippingAddress.state });
 
     let order = await persistOrder({
       userId: null,
@@ -336,13 +428,7 @@ const createGuestOrder = async (req, res) => {
       guestEmail: email,
       paymentMethod,
       shippingAddress,
-      itemsData,
-      itemsPrice,
-      shippingPrice,
-      discountAmount,
-      totalPrice,
-      couponId,
-      savedCouponCode,
+      ...pricing,
       attribution: buildAttribution(req),
     });
 
@@ -383,6 +469,7 @@ const serializeOrder = (order) => ({
   itemsPrice: Number(order.itemsPrice),
   shippingPrice: Number(order.shippingPrice),
   discountAmount: Number(order.discountAmount),
+  offerDiscount: Number(order.offerDiscount || 0),
   totalPrice: Number(order.totalPrice),
   items: order.items?.map((i) => ({ ...i, price: Number(i.price) })),
   customerName: order.user?.name || order.guestName || null,
@@ -711,6 +798,7 @@ const financeSummary = async (req, res) => {
 module.exports = {
   createOrder,
   createGuestOrder,
+  quoteOrder,
   myOrders,
   getOrder,
   getOrderReceipt,

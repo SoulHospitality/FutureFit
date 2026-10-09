@@ -2,6 +2,7 @@ const express = require('express');
 const {
   createOrder,
   createGuestOrder,
+  quoteOrder,
   myOrders,
   getOrder,
   getOrderReceipt,
@@ -15,6 +16,7 @@ const { protect, adminOnly, opsOrAdmin } = require('../middleware/authMiddleware
 
 const router = express.Router();
 
+router.post('/quote', quoteOrder);
 router.post('/guest', createGuestOrder);
 router.post('/', protect, createOrder);
 router.get('/mine', protect, myOrders);

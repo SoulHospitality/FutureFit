@@ -29,6 +29,7 @@ const empty = {
   sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
   isSaleActive: false,
   salePrice: '',
+  saleQtyLimit: '',
 };
 
 const sizeRowsFromProduct = (p) => {
@@ -204,6 +205,7 @@ export default function StaffProducts() {
       sizeRows: sizeRowsFromProduct(p),
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
+      saleQtyLimit: p.saleQtyLimit ?? '',
     });
     setOpen(true);
   };
@@ -282,6 +284,7 @@ export default function StaffProducts() {
       sizeStocks,
       isSaleActive: Boolean(form.isSaleActive),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
+      saleQtyLimit: form.saleQtyLimit === '' ? null : Number(form.saleQtyLimit),
     };
     try {
       if (editing) await api.put(`/products/${editing.id}`, payload);
@@ -440,7 +443,14 @@ export default function StaffProducts() {
                       )}
                     </div>
                   </td>
-                  <td>{p.isSaleActive ? formatMoney(p.salePrice) : '—'}</td>
+                  <td>
+                    {p.isSaleActive ? formatMoney(p.salePrice) : '—'}
+                    {p.isSaleActive && p.saleQtyLimit != null && (
+                      <span className="block text-[10px] uppercase tracking-wide text-timber-400">
+                        {p.saleQtySold || 0}/{p.saleQtyLimit} sold
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <div className="flex gap-1">
                       <button
@@ -728,15 +738,40 @@ export default function StaffProducts() {
                 Sale active
               </label>
             </div>
-            <div>
-              <label className="label">Sale price</label>
-              <input
-                type="number"
-                className="input"
-                value={form.salePrice}
-                onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
-              />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label">Sale price</label>
+                <input
+                  type="number"
+                  className="input"
+                  value={form.salePrice}
+                  onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="label">Sale stock (optional)</label>
+                <input
+                  type="number"
+                  min={1}
+                  className="input"
+                  placeholder="No limit"
+                  value={form.saleQtyLimit}
+                  onChange={(e) => setForm({ ...form, saleQtyLimit: e.target.value })}
+                />
+              </div>
             </div>
+            <p className="text-xs text-timber-500">
+              Sale stock: only this many units sell at the sale price — after that the sale switches
+              off automatically. The count restarts each time you switch the sale on.
+              {editing && editing.saleQtyLimit != null && (
+                <span className="mt-1 block font-medium text-timber-700">
+                  {editing.saleQtySold || 0} of {editing.saleQtyLimit} sold at the sale price
+                  {!editing.isSaleActive && (editing.saleQtySold || 0) >= editing.saleQtyLimit
+                    ? ' — sale ended automatically'
+                    : ''}
+                </span>
+              )}
+            </p>
           </div>
           <button type="submit" className="btn-wheat w-full" disabled={saving || loadingFolder}>
             {saving ? 'Saving…' : 'Save product'}

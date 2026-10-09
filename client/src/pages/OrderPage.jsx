@@ -44,10 +44,16 @@ export default function OrderPage() {
         <div className="border-t border-timber-100 pt-4 space-y-1 text-sm">
           <div className="flex justify-between"><span>Items</span><span>{formatMoney(order.itemsPrice)}</span></div>
           <div className="flex justify-between"><span>Shipping</span><span>{formatMoney(order.shippingPrice)}</span></div>
-          {Number(order.discountAmount) > 0 && (
+          {(Array.isArray(order.appliedOffers) ? order.appliedOffers : []).map((o) => (
+            <div key={o.offerId} className="flex justify-between text-green-700">
+              <span>{o.name}</span>
+              <span>-{formatMoney(o.discount)}</span>
+            </div>
+          ))}
+          {Number(order.discountAmount) - Number(order.offerDiscount || 0) > 0.009 && (
             <div className="flex justify-between text-green-700">
               <span>Discount {order.couponCode && `(${order.couponCode})`}</span>
-              <span>-{formatMoney(order.discountAmount)}</span>
+              <span>-{formatMoney(Number(order.discountAmount) - Number(order.offerDiscount || 0))}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-base pt-2">
