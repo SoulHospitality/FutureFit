@@ -20,8 +20,7 @@ const defaults = () => ({
     ga4Id: '',
     googleAdsId: '',
     googleAdsPurchaseLabel: '',
-    // Pixel that was previously baked into the storefront build
-    metaPixelId: process.env.META_PIXEL_ID || '484242591335280',
+    metaPixelId: process.env.META_PIXEL_ID || '1438304991608229',
     metaCapiToken: '',
     metaTestEventCode: '',
     tiktokPixelId: '',
