@@ -2,6 +2,20 @@ const prisma = require('../lib/prisma');
 
 const CODE_RE = /^FF-(\d+)$/;
 const CODE_FLOOR = 10000;
+const CUSTOM_RE = /^[A-Z0-9][A-Z0-9_-]{0,31}$/;
+
+/** Empty means “assign one”. Otherwise letters, numbers, and hyphens, stored uppercase. */
+const cleanItemCode = (value) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const code = raw.toUpperCase().replace(/\s+/g, '-');
+  if (!CUSTOM_RE.test(code)) {
+    const err = new Error('Item ID can use letters, numbers, and hyphens (up to 32 characters)');
+    err.status = 400;
+    throw err;
+  }
+  return code;
+};
 
 /** Next staff-only item code. Codes are FF-10001, FF-10002, … */
 const nextItemCode = async (db = prisma) => {
@@ -50,4 +64,4 @@ const backfillItemCodes = async () => {
   return missing.length;
 };
 
-module.exports = { nextItemCode, backfillItemCodes };
+module.exports = { nextItemCode, backfillItemCodes, cleanItemCode };

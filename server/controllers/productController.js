@@ -6,7 +6,7 @@ const {
   sizeStockWrites,
 } = require('../utils/sizeStock');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
-const { nextItemCode } = require('../utils/itemCode');
+const { nextItemCode, cleanItemCode } = require('../utils/itemCode');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
 const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
@@ -376,15 +376,26 @@ const resolvePhotos = async (req, res) => {
   }
 };
 
+const duplicateItemCode = () => {
+  const err = new Error('That item ID is already used');
+  err.status = 400;
+  return err;
+};
+
 const insertProduct = async (data) => {
-  for (let attempt = 0; attempt < 5; attempt += 1) {
+  const requested = data.itemCode || null;
+  const rest = { ...data };
+  delete rest.itemCode;
+  const attempts = requested ? 1 : 5;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       return await prisma.product.create({
-        data: { ...data, itemCode: await nextItemCode() },
+        data: { ...rest, itemCode: requested || (await nextItemCode()) },
         select: PRODUCT_SELECT,
       });
     } catch (err) {
-      if (err.code !== 'P2002' || attempt === 4) throw err;
+      if (err.code !== 'P2002') throw err;
+      if (requested || attempt === attempts - 1) throw duplicateItemCode();
     }
   }
   return null;
@@ -393,6 +404,7 @@ const insertProduct = async (data) => {
 const createProduct = async (req, res) => {
   try {
     const data = await buildProductCreateData(req.body);
+    data.itemCode = cleanItemCode(req.body.itemCode);
     const product = await insertProduct(data);
     bustProductCache();
     res.status(201).json(serializeProduct(product, { staff: true }));
@@ -419,6 +431,7 @@ const bulkCreateProducts = async (req, res) => {
       const row = items[i];
       try {
         const data = await buildProductCreateData(row);
+        data.itemCode = cleanItemCode(row.itemCode ?? row.item_id);
         const product = await insertProduct(data);
         created.push(serializeProduct(product, { staff: true }));
       } catch (err) {
@@ -463,6 +476,18 @@ const updateProduct = async (req, res) => {
     }
     if (data.status != null) {
       data.status = String(data.status).toLowerCase() === 'draft' ? 'draft' : 'active';
+    }
+    if (req.body.itemCode !== undefined) {
+      const code = cleanItemCode(req.body.itemCode);
+      if (!code) {
+        return res.status(400).json({ message: 'Item ID is required' });
+      }
+      const taken = await prisma.product.findUnique({
+        where: { itemCode: code },
+        select: { id: true },
+      });
+      if (taken && taken.id !== req.params.id) throw duplicateItemCode();
+      data.itemCode = code;
     }
     const saleQtyLimit = parseSaleQtyLimit(req.body.saleQtyLimit);
     if (saleQtyLimit !== undefined) data.saleQtyLimit = saleQtyLimit;
@@ -535,6 +560,7 @@ const updateProduct = async (req, res) => {
     bustProductCache();
     res.json(serializeProduct(product, { staff: true }));
   } catch (error) {
+    if (error.code === 'P2002') return res.status(400).json({ message: 'That item ID is already used' });
     if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
   }

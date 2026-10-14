@@ -31,6 +31,7 @@ const empty = {
   isSaleActive: false,
   salePrice: '',
   saleQtyLimit: '',
+  itemCode: '',
 };
 
 const sizeRowsFromProduct = (p) => {
@@ -209,6 +210,7 @@ export default function StaffProducts() {
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
       saleQtyLimit: p.saleQtyLimit ?? '',
+      itemCode: p.itemCode || '',
     });
     setOpen(true);
   };
@@ -288,6 +290,7 @@ export default function StaffProducts() {
       isSaleActive: Boolean(form.isSaleActive),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
       saleQtyLimit: form.saleQtyLimit === '' ? null : Number(form.saleQtyLimit),
+      itemCode: form.itemCode.trim(),
     };
     try {
       if (editing) await api.put(`/products/${editing.id}`, payload);
@@ -508,16 +511,23 @@ export default function StaffProducts() {
         wide
       >
         <form onSubmit={save} className="space-y-4">
-          {editing?.itemCode ? (
-            <p className="font-mono text-xs tracking-wide text-timber-500">
-              {editing.itemCode}
-              <span className="ml-2 font-sans tracking-normal text-timber-400">
-                Item ID · not shown on the website
-              </span>
-            </p>
-          ) : null}
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+            <div>
+              <label className="label" htmlFor="item-code">Item ID</label>
+              <input
+                id="item-code"
+                className="input font-mono uppercase"
+                placeholder={editing ? 'FF-10001' : 'Leave blank to assign one'}
+                required={Boolean(editing)}
+                maxLength={32}
+                value={form.itemCode}
+                onChange={(e) => setForm({ ...form, itemCode: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-timber-500">
+                Letters, numbers, and hyphens. Not shown on the website.
+              </p>
+            </div>
+            <div>
               <label className="label">Name</label>
               <input
                 required
