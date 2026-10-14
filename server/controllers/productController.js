@@ -39,6 +39,7 @@ const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => 
     ...p,
     price: Number(p.price),
     salePrice: p.salePrice != null ? Number(p.salePrice) : null,
+    cost: p.cost != null ? Number(p.cost) : null,
     sizes,
     sizeStocks,
     stock,
@@ -49,7 +50,10 @@ const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => 
     reviewCount,
   };
   delete out.reviews;
-  if (!staff) delete out.itemCode;
+  if (!staff) {
+    delete out.itemCode;
+    delete out.cost;
+  }
   if (includeReviews) {
     out.reviews = (p.reviews || [])
       .filter((r) => r.isVisible !== false)
@@ -70,6 +74,7 @@ const PRODUCT_SELECT = {
   name: true,
   description: true,
   price: true,
+  cost: true,
   type: true,
   audience: true,
   status: true,
@@ -185,6 +190,18 @@ const normalizePhotoByColor = (raw, colors = []) => {
 };
 
 /** undefined = not sent, null = no cap, otherwise a positive unit count. */
+const parseCost = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Math.round(Number(value) * 100) / 100;
+  if (!Number.isFinite(n) || n < 0) {
+    const err = new Error('Cost must be zero or more');
+    err.status = 400;
+    throw err;
+  }
+  return n;
+};
+
 const parseSaleQtyLimit = (value) => {
   if (value === undefined) return undefined;
   if (value === null || value === '') return null;
@@ -242,6 +259,7 @@ const buildProductCreateData = async (body) => {
     name: String(name).trim(),
     description: String(description).trim(),
     price,
+    cost: parseCost(body.cost) ?? null,
     type,
     audience,
     status,
@@ -477,6 +495,7 @@ const updateProduct = async (req, res) => {
     if (data.status != null) {
       data.status = String(data.status).toLowerCase() === 'draft' ? 'draft' : 'active';
     }
+    if (req.body.cost !== undefined) data.cost = parseCost(req.body.cost);
     if (req.body.itemCode !== undefined) {
       const code = cleanItemCode(req.body.itemCode);
       if (!code) {

@@ -96,6 +96,8 @@ model Product {
   name         String
   description  String
   price        Decimal       @db.Decimal(10, 2)
+  /// What the item costs the store. Staff only; never sent to the storefront.
+  cost         Decimal?      @db.Decimal(10, 2)
   type         ProductType
   audience     Audience      @default(men)
   status       ProductStatus @default(active)

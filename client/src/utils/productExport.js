@@ -119,6 +119,7 @@ export async function downloadProductWorkbook(products) {
     'Department',
     'Category',
     'Price (EGP)',
+    'Cost (EGP)',
     'Sale price (EGP)',
     'Colors',
     'Stock by size',
@@ -144,6 +145,7 @@ export async function downloadProductWorkbook(products) {
       audienceLabel(product.audience),
       categoryLabel(product) || '',
       money(product.price),
+      money(product.cost),
       onSale ? money(product.salePrice) : null,
       (product.colors || []).join(', '),
       sizeLabel(product),
@@ -153,22 +155,24 @@ export async function downloadProductWorkbook(products) {
     row.getCell(1).font = { name: 'Consolas', bold: true, size: 11, color: { argb: INK } };
     row.getCell(6).numFmt = '#,##0.00';
     row.getCell(7).numFmt = '#,##0.00';
-    if (onSale) row.getCell(7).font = { name: 'Calibri', bold: true, size: 11, color: { argb: SALE } };
+    row.getCell(8).numFmt = '#,##0.00';
+    if (onSale) row.getCell(8).font = { name: 'Calibri', bold: true, size: 11, color: { argb: SALE } };
     if (product.status === 'draft') {
       row.getCell(3).font = { name: 'Calibri', bold: true, size: 11, color: { argb: DRAFT } };
     }
     if (stock === 0) {
-      row.getCell(10).font = { name: 'Calibri', bold: true, size: 11, color: { argb: OUT } };
+      row.getCell(11).font = { name: 'Calibri', bold: true, size: 11, color: { argb: OUT } };
     }
   });
 
-  finishSheet(catalog, 5, [16, 36, 12, 14, 22, 14, 16, 28, 36, 14]);
+  finishSheet(catalog, 5, [16, 36, 12, 14, 22, 14, 14, 16, 28, 36, 14]);
   catalog.getColumn(6).alignment = { vertical: 'middle', horizontal: 'right' };
   catalog.getColumn(7).alignment = { vertical: 'middle', horizontal: 'right' };
-  catalog.getColumn(10).alignment = { vertical: 'middle', horizontal: 'right' };
+  catalog.getColumn(8).alignment = { vertical: 'middle', horizontal: 'right' };
+  catalog.getColumn(11).alignment = { vertical: 'middle', horizontal: 'right' };
 
   const sizes = workbook.addWorksheet('Stock by size');
-  const sizeHeaders = ['Item ID', 'Product', 'Department', 'Category', 'Size', 'Stock', 'Price (EGP)', 'Status'];
+  const sizeHeaders = ['Item ID', 'Product', 'Department', 'Category', 'Size', 'Stock', 'Price (EGP)', 'Cost (EGP)', 'Status'];
   addBanner(sizes, sizeHeaders.length, 'FutureFit  ·  Stock by size', products);
   const sizeHeader = sizes.getRow(5);
   sizeHeader.values = sizeHeaders;
@@ -190,11 +194,13 @@ export async function downloadProductWorkbook(products) {
         sizeRow.size || '—',
         stock,
         money(product.price),
+        money(product.cost),
         product.status === 'draft' ? 'Draft' : 'Active',
       ];
       paintBody(row, line);
       row.getCell(1).font = { name: 'Consolas', bold: true, size: 11, color: { argb: INK } };
       row.getCell(7).numFmt = '#,##0.00';
+      row.getCell(8).numFmt = '#,##0.00';
       if (stock === 0) {
         row.getCell(6).font = { name: 'Calibri', bold: true, size: 11, color: { argb: OUT } };
       }
@@ -202,9 +208,10 @@ export async function downloadProductWorkbook(products) {
     });
   });
 
-  finishSheet(sizes, 5, [16, 36, 14, 22, 12, 12, 14, 12]);
+  finishSheet(sizes, 5, [16, 36, 14, 22, 12, 12, 14, 14, 12]);
   sizes.getColumn(6).alignment = { vertical: 'middle', horizontal: 'right' };
   sizes.getColumn(7).alignment = { vertical: 'middle', horizontal: 'right' };
+  sizes.getColumn(8).alignment = { vertical: 'middle', horizontal: 'right' };
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {

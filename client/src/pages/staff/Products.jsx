@@ -32,6 +32,7 @@ const empty = {
   salePrice: '',
   saleQtyLimit: '',
   itemCode: '',
+  cost: '',
 };
 
 const sizeRowsFromProduct = (p) => {
@@ -211,6 +212,7 @@ export default function StaffProducts() {
       salePrice: p.salePrice ?? '',
       saleQtyLimit: p.saleQtyLimit ?? '',
       itemCode: p.itemCode || '',
+      cost: p.cost ?? '',
     });
     setOpen(true);
   };
@@ -291,6 +293,7 @@ export default function StaffProducts() {
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
       saleQtyLimit: form.saleQtyLimit === '' ? null : Number(form.saleQtyLimit),
       itemCode: form.itemCode.trim(),
+      cost: form.cost === '' ? null : Number(form.cost),
     };
     try {
       if (editing) await api.put(`/products/${editing.id}`, payload);
@@ -383,6 +386,7 @@ export default function StaffProducts() {
               <th>Status</th>
               <th>Dept</th>
               <th>Price</th>
+              <th>Cost</th>
               <th>Stock by size</th>
               <th>Sale</th>
               <th></th>
@@ -391,7 +395,7 @@ export default function StaffProducts() {
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-10 text-center text-sm text-timber-500">
+                <td colSpan={8} className="py-10 text-center text-sm text-timber-500">
                   {q.trim() ? 'No products match your search.' : 'No products yet.'}
                 </td>
               </tr>
@@ -436,6 +440,7 @@ export default function StaffProducts() {
                   {categoryLabel(p) ? ` · ${categoryLabel(p)}` : ''}
                 </td>
                   <td>{formatMoney(p.price)}</td>
+                  <td>{p.cost != null && p.cost !== '' ? formatMoney(p.cost) : '—'}</td>
                   <td>
                     <div className="space-y-1">
                       {rows.map((row) => (
@@ -551,10 +556,26 @@ export default function StaffProducts() {
               <input
                 required
                 type="number"
+                min="0"
+                step="0.01"
                 className="input"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
               />
+            </div>
+            <div>
+              <label className="label" htmlFor="item-cost">Cost (EGP)</label>
+              <input
+                id="item-cost"
+                type="number"
+                min="0"
+                step="0.01"
+                className="input"
+                placeholder="Optional"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-timber-500">What this item costs you. Not shown on the website.</p>
             </div>
             <div>
               <label className="label">Status</label>
