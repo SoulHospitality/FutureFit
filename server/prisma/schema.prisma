@@ -91,6 +91,8 @@ model Category {
 
 model Product {
   id           String        @id @default(uuid())
+  /// Staff-only code (FF-10001). Never sent on the public storefront.
+  itemCode     String?       @unique
   name         String
   description  String
   price        Decimal       @db.Decimal(10, 2)

@@ -6,9 +6,10 @@ const {
   sizeStockWrites,
 } = require('../utils/sizeStock');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
+const { nextItemCode } = require('../utils/itemCode');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
-const serializeProduct = (p, { includeReviews = false } = {}) => {
+const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
   const variants = Array.isArray(p.sizeStocks)
     ? [...p.sizeStocks].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     : [];
@@ -48,6 +49,7 @@ const serializeProduct = (p, { includeReviews = false } = {}) => {
     reviewCount,
   };
   delete out.reviews;
+  if (!staff) delete out.itemCode;
   if (includeReviews) {
     out.reviews = (p.reviews || [])
       .filter((r) => r.isVisible !== false)
@@ -64,6 +66,7 @@ const serializeProduct = (p, { includeReviews = false } = {}) => {
 
 const PRODUCT_SELECT = {
   id: true,
+  itemCode: true,
   name: true,
   description: true,
   price: true,
@@ -263,7 +266,7 @@ const listProducts = async (req, res) => {
   try {
     const { type, q, limit, audience, category, status } = req.query;
     const take = Math.min(Number(limit) || 500, 2000);
-    const isStaff = Boolean(req.headers.authorization);
+    const isStaff = req.user?.role === 'admin';
     const useCache = !isStaff;
     const statusKey = isStaff ? String(status || 'all') : 'active';
     const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${statusKey}:${take}`;
@@ -315,7 +318,7 @@ const listProducts = async (req, res) => {
         orderBy: [{ [sortField]: 'asc' }, { createdAt: 'desc' }],
         take,
       });
-      return rows.map((row) => serializeProduct(row));
+      return rows.map((row) => serializeProduct(row, { staff: isStaff }));
     };
 
     const products = useCache
@@ -336,7 +339,7 @@ const listProducts = async (req, res) => {
 
 const getProduct = async (req, res) => {
   try {
-    const isStaff = Boolean(req.headers.authorization);
+    const isStaff = req.user?.role === 'admin';
     const { data: product } = await cache.wrap(
       `product:${req.params.id}:${isStaff ? 'staff' : 'public'}`,
       ITEM_TTL_MS,
@@ -347,7 +350,7 @@ const getProduct = async (req, res) => {
         });
         if (!row) return null;
         if (!isStaff && row.status !== 'active') return null;
-        return serializeProduct(row, { includeReviews: true });
+        return serializeProduct(row, { includeReviews: true, staff: isStaff });
       }
     );
     if (!product) return res.status(404).json({ message: 'Product not found' });
@@ -373,15 +376,26 @@ const resolvePhotos = async (req, res) => {
   }
 };
 
+const insertProduct = async (data) => {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await prisma.product.create({
+        data: { ...data, itemCode: await nextItemCode() },
+        select: PRODUCT_SELECT,
+      });
+    } catch (err) {
+      if (err.code !== 'P2002' || attempt === 4) throw err;
+    }
+  }
+  return null;
+};
+
 const createProduct = async (req, res) => {
   try {
     const data = await buildProductCreateData(req.body);
-    const product = await prisma.product.create({
-      data,
-      select: PRODUCT_SELECT,
-    });
+    const product = await insertProduct(data);
     bustProductCache();
-    res.status(201).json(serializeProduct(product));
+    res.status(201).json(serializeProduct(product, { staff: true }));
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
@@ -405,11 +419,8 @@ const bulkCreateProducts = async (req, res) => {
       const row = items[i];
       try {
         const data = await buildProductCreateData(row);
-        const product = await prisma.product.create({
-          data,
-          select: PRODUCT_SELECT,
-        });
-        created.push(serializeProduct(product));
+        const product = await insertProduct(data);
+        created.push(serializeProduct(product, { staff: true }));
       } catch (err) {
         errors.push({
           row: i + 1,
@@ -522,7 +533,7 @@ const updateProduct = async (req, res) => {
       });
     }
     bustProductCache();
-    res.json(serializeProduct(product));
+    res.json(serializeProduct(product, { staff: true }));
   } catch (error) {
     if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });

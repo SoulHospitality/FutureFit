@@ -12,18 +12,18 @@ const {
   createProductReview,
 } = require('../controllers/productController');
 const { getShopOrder, saveShopOrder } = require('../controllers/shopControlController');
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+const { protect, adminOnly, optionalProtect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.get('/', listProducts);
+router.get('/', optionalProtect, listProducts);
 router.get('/shop-order', protect, adminOnly, getShopOrder);
 router.put('/shop-order', protect, adminOnly, saveShopOrder);
 router.post('/resolve-photos', protect, adminOnly, resolvePhotos);
 router.post('/bulk', protect, adminOnly, bulkCreateProducts);
 router.get('/:id/reviews', listProductReviews);
 router.post('/:id/reviews', createProductReview);
-router.get('/:id', getProduct);
+router.get('/:id', optionalProtect, getProduct);
 router.post('/', protect, adminOnly, createProduct);
 router.put('/:id', protect, adminOnly, updateProduct);
 router.patch('/:id/stock', protect, adminOnly, adjustStock);

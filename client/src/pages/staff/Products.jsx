@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
+import { Download, FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
 import { AUDIENCES, formatMoney, getImageUrl, asArray, totalStock, audienceLabel, categoryLabel } from '../../utils/helpers';
+import { downloadProductWorkbook } from '../../utils/productExport';
 
 const DEFAULT_SIZE_ROWS = [
   { size: 'S', stock: 0 },
@@ -59,6 +60,7 @@ export default function StaffProducts() {
   const [loadingFolder, setLoadingFolder] = useState(false);
   const [categories, setCategories] = useState([]);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const stockQueue = useRef({});
 
   const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
@@ -73,6 +75,7 @@ export default function StaffProducts() {
     return products.filter((p) =>
       [
         p.name,
+        p.itemCode,
         p.description,
         p.type,
         p.status,
@@ -306,6 +309,17 @@ export default function StaffProducts() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const exportSheet = async () => {
+    setExporting(true);
+    try {
+      await downloadProductWorkbook(products);
+    } catch {
+      toast.error('Could not export the sheet');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const previewPhotos = form.photos
     .split(/[\n,]/)
     .map((s) => s.trim())
@@ -328,6 +342,10 @@ export default function StaffProducts() {
             <LayoutGrid className="h-4 w-4" />
             Shop Control
           </Link>
+          <button type="button" className="btn-outline" onClick={exportSheet} disabled={exporting || !products.length}>
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? 'Exporting…' : 'Export Excel'}
+          </button>
           <button type="button" className="btn-outline" onClick={() => setBulkOpen(true)}>
             <Upload className="h-4 w-4" />
             Bulk upload
@@ -344,7 +362,7 @@ export default function StaffProducts() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-timber-400" />
             <input
               className="w-full rounded-lg border border-timber-200 bg-white py-2 pl-9 pr-3 text-sm"
-              placeholder="Search products"
+              placeholder="Search name or item ID"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               aria-label="Search products"
@@ -389,7 +407,14 @@ export default function StaffProducts() {
                         alt=""
                         className="w-10 h-10 rounded object-cover bg-timber-100"
                       />
-                      <span className="font-medium">{p.name}</span>
+                      <span>
+                        <span className="block font-medium">{p.name}</span>
+                        {p.itemCode ? (
+                          <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
+                            {p.itemCode}
+                          </span>
+                        ) : null}
+                      </span>
                     </div>
                   </td>
                   <td>
@@ -483,6 +508,14 @@ export default function StaffProducts() {
         wide
       >
         <form onSubmit={save} className="space-y-4">
+          {editing?.itemCode ? (
+            <p className="font-mono text-xs tracking-wide text-timber-500">
+              {editing.itemCode}
+              <span className="ml-2 font-sans tracking-normal text-timber-400">
+                Item ID · not shown on the website
+              </span>
+            </p>
+          ) : null}
           <div className="grid md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="label">Name</label>
