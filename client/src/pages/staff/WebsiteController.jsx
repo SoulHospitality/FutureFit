@@ -147,6 +147,73 @@ function withIds(list) {
   }));
 }
 
+const EDITOR_WIDTH_KEY = 'ff_website_editor_width';
+const EDITOR_MIN = 320;
+const EDITOR_MAX = 720;
+const EDITOR_DEFAULT = 420;
+
+function readEditorWidth() {
+  try {
+    const n = Number(localStorage.getItem(EDITOR_WIDTH_KEY));
+    if (Number.isFinite(n) && n >= EDITOR_MIN && n <= EDITOR_MAX) return n;
+  } catch {
+    /* ignore */
+  }
+  return EDITOR_DEFAULT;
+}
+
+/** Drag handle between editor and preview. */
+function ResizeHandle({ onDrag, onReset }) {
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+      onDrag(e.clientX);
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.classList.remove('ff-resizing-preview');
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [onDrag]);
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize preview"
+      title="Drag to resize · double-click to reset"
+      onPointerDown={(e) => {
+        e.preventDefault();
+        dragging.current = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.body.classList.add('ff-resizing-preview');
+      }}
+      onDoubleClick={() => onReset?.()}
+      className="group relative z-20 hidden w-1.5 shrink-0 cursor-col-resize touch-none bg-transparent md:block"
+    >
+      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-zinc-200 transition group-hover:w-0.5 group-hover:bg-zinc-900 group-active:bg-zinc-900" />
+      <div className="absolute left-1/2 top-1/2 flex h-12 w-3.5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white opacity-0 shadow-md ring-1 ring-zinc-200 transition group-hover:opacity-100 group-active:opacity-100">
+        <span className="flex gap-0.5">
+          <span className="h-3.5 w-0.5 rounded-full bg-zinc-400" />
+          <span className="h-3.5 w-0.5 rounded-full bg-zinc-400" />
+        </span>
+      </div>
+      <style>{`.ff-resizing-preview iframe { pointer-events: none !important; }`}</style>
+    </div>
+  );
+}
+
 /** Storefront at real device width, CSS-scaled to fit — soft canvas, no chrome clutter. */
 function LivePreview({ path, refreshKey, device, zoom = 'fit', className = '' }) {
   const shellRef = useRef(null);
@@ -608,9 +675,44 @@ export default function StaffWebsiteController() {
   const [mobileTab, setMobileTab] = useState('edit'); // edit | preview
   const [expanded, setExpanded] = useState(false);
   const [zoom, setZoom] = useState('fit');
+  const [editorWidth, setEditorWidth] = useState(readEditorWidth);
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  );
   const [policyPreview, setPolicyPreview] = useState('/returns');
   const draftTimer = useRef(null);
+  const layoutRef = useRef(null);
   const backTo = defaultStaffPage(user?.role);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+
+  const persistEditorWidth = useCallback((next) => {
+    setEditorWidth(next);
+    try {
+      localStorage.setItem(EDITOR_WIDTH_KEY, String(next));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const onResizeEditor = useCallback(
+    (clientX) => {
+      const root = layoutRef.current;
+      if (!root) return;
+      const left = root.getBoundingClientRect().left;
+      const next = Math.min(EDITOR_MAX, Math.max(EDITOR_MIN, clientX - left));
+      persistEditorWidth(next);
+    },
+    [persistEditorWidth]
+  );
+
+  const resetEditorWidth = useCallback(() => persistEditorWidth(EDITOR_DEFAULT), [persistEditorWidth]);
 
   const activePath = pathname.replace(/^\/staff\/website\/?/, '').split('/')[0] || 'homepage';
   const section = SECTIONS.find((s) => s.path === activePath) || SECTIONS[0];
@@ -831,14 +933,15 @@ export default function StaffWebsiteController() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        {/* Section rail + editor */}
+      <div ref={layoutRef} className="flex min-h-0 flex-1">
+        {/* Section rail + editor — drag the handle to grow/shrink the preview */}
         <div
           className={`${
             mobileTab === 'edit' ? 'flex' : 'hidden'
-          } w-full min-h-0 shrink-0 flex-col border-r border-zinc-200/80 bg-white md:flex md:w-[420px] xl:w-[440px]`}
+          } min-h-0 shrink-0 flex-col border-r border-zinc-200/80 bg-white md:flex`}
+          style={isDesktop ? { width: editorWidth } : { width: '100%' }}
         >
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 w-full flex-1">
             <nav className="flex w-14 shrink-0 flex-col gap-0.5 border-r border-zinc-100 bg-zinc-50/80 py-2 sm:w-[200px] sm:px-2">
               {SECTIONS.map((s) => (
                 <NavLink
@@ -868,6 +971,8 @@ export default function StaffWebsiteController() {
             </div>
           </div>
         </div>
+
+        <ResizeHandle onDrag={onResizeEditor} onReset={resetEditorWidth} />
 
         {/* Preview stage */}
         <div
