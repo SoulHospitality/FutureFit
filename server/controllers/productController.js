@@ -5,19 +5,66 @@ const {
   normalizeSizeStocks,
   sizeStockWrites,
 } = require('../utils/sizeStock');
+const {
+  normalizeVariants,
+  variantWrites,
+  colorsFromVariants,
+  sizesFromVariants,
+  photoByColorFromVariants,
+  totalVariantStock,
+} = require('../utils/variants');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
 const { nextItemCode, cleanItemCode } = require('../utils/itemCode');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
 const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
-  const variants = Array.isArray(p.sizeStocks)
+  const childVariants = Array.isArray(p.variants)
+    ? [...p.variants].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    : [];
+  const legacySizes = Array.isArray(p.sizeStocks)
     ? [...p.sizeStocks].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
     : [];
-  const sizeStocks = variants.map((v) => ({ size: v.size, stock: v.stock }));
-  const sizes = p.sizes?.length ? p.sizes : sizeStocks.map((s) => s.size);
-  const stock = sizeStocks.length
-    ? sizeStocks.reduce((n, s) => n + s.stock, 0)
-    : p.stock;
+  const variants = childVariants.map((v) => ({
+    id: v.id,
+    color: v.color,
+    size: v.size,
+    stock: v.stock,
+    price: v.price != null ? Number(v.price) : null,
+    photos: v.photos || [],
+    ...(staff
+      ? {
+          itemCode: v.itemCode,
+          cost: v.cost != null ? Number(v.cost) : null,
+        }
+      : {}),
+  }));
+  const colors = childVariants.length
+    ? colorsFromVariants(childVariants)
+    : p.colors || [];
+  const sizes = childVariants.length
+    ? sizesFromVariants(childVariants)
+    : p.sizes?.length
+      ? p.sizes
+      : legacySizes.map((s) => s.size);
+  const sizeStocks = childVariants.length
+    ? sizes.map((size) => ({
+        size,
+        stock: childVariants
+          .filter((v) => String(v.size).toLowerCase() === String(size).toLowerCase())
+          .reduce((n, v) => n + (Number(v.stock) || 0), 0),
+      }))
+    : legacySizes.map((v) => ({ size: v.size, stock: v.stock }));
+  const stock = childVariants.length
+    ? totalVariantStock({ variants: childVariants })
+    : sizeStocks.length
+      ? sizeStocks.reduce((n, s) => n + s.stock, 0)
+      : p.stock;
+  const photoByColor =
+    photoByColorFromVariants(childVariants) || p.photoByColor || null;
+  const parentPhotos =
+    (p.photos || []).length
+      ? p.photos
+      : variants.flatMap((v) => v.photos || []).filter(Boolean).slice(0, 12);
   const { ratingAvg, reviewCount } = ratingSummary(p.reviews || []);
   const category = p.category
     ? {
@@ -40,8 +87,12 @@ const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => 
     price: Number(p.price),
     salePrice: p.salePrice != null ? Number(p.salePrice) : null,
     cost: p.cost != null ? Number(p.cost) : null,
+    colors,
     sizes,
     sizeStocks,
+    variants,
+    photoByColor,
+    photos: parentPhotos,
     stock,
     audience: p.audience || 'men',
     status: p.status === 'draft' ? 'draft' : 'active',
@@ -108,6 +159,20 @@ const PRODUCT_SELECT = {
     select: { size: true, stock: true, sortOrder: true },
     orderBy: { sortOrder: 'asc' },
   },
+  variants: {
+    select: {
+      id: true,
+      itemCode: true,
+      color: true,
+      size: true,
+      stock: true,
+      price: true,
+      cost: true,
+      photos: true,
+      sortOrder: true,
+    },
+    orderBy: { sortOrder: 'asc' },
+  },
   reviews: {
     where: { isVisible: true },
     select: { rating: true, isVisible: true },
@@ -145,6 +210,19 @@ const applySizeStocks = (rows) => ({
     deleteMany: {},
     create: sizeStockWrites(rows),
   },
+});
+
+const applyVariants = (rows) => ({
+  colors: colorsFromVariants(rows),
+  sizes: sizesFromVariants(rows),
+  stock: rows.reduce((n, r) => n + r.stock, 0),
+  photoByColor: photoByColorFromVariants(rows),
+  variants: {
+    deleteMany: {},
+    create: variantWrites(rows),
+  },
+  // Clear legacy size rows when real color/size children exist
+  sizeStocks: { deleteMany: {} },
 });
 
 const resolveAudienceAndCategory = async (body) => {
@@ -217,9 +295,10 @@ const buildProductCreateData = async (body) => {
     throw err;
   }
 
-  const sizeRows = normalizeSizeStocks(body);
-  if (!sizeRows.length) {
-    const err = new Error('Add at least one size with stock');
+  const variantRows = normalizeVariants(body);
+  const sizeRows = variantRows.length ? [] : normalizeSizeStocks(body);
+  if (!variantRows.length && !sizeRows.length) {
+    const err = new Error('Add at least one color/size variant with stock');
     err.status = 400;
     throw err;
   }
@@ -230,8 +309,18 @@ const buildProductCreateData = async (body) => {
     photoLinks.push(body.driveFolder.trim());
   }
   const resolvedPhotos = await resolvePhotoLinks(photoLinks);
-  const colorList = colors || [];
-  const photoByColor = normalizePhotoByColor(body.photoByColor, colorList);
+  // Resolve per-variant Drive folders / photo links when provided
+  for (const row of variantRows) {
+    if (row.photos?.length) {
+      row.photos = await resolvePhotoLinks(row.photos);
+    }
+  }
+  const colorList = variantRows.length
+    ? colorsFromVariants(variantRows)
+    : colors || [];
+  const photoByColor =
+    photoByColorFromVariants(variantRows) ||
+    normalizePhotoByColor(body.photoByColor, colorList);
   const status =
     String(body.status || 'active').toLowerCase() === 'draft' ? 'draft' : 'active';
 
@@ -255,6 +344,7 @@ const buildProductCreateData = async (body) => {
         : 'shopSortMen';
   const nextAudience = (maxAudience._max[audienceField] ?? -1) + 1;
 
+  const stockRows = variantRows.length ? variantRows : sizeRows;
   return {
     name: String(name).trim(),
     description: String(description).trim(),
@@ -267,8 +357,10 @@ const buildProductCreateData = async (body) => {
     photos: resolvedPhotos,
     colors: colorList,
     photoByColor,
-    sizes: sizeRows.map((r) => r.size),
-    stock: sizeRows.reduce((n, r) => n + r.stock, 0),
+    sizes: variantRows.length
+      ? sizesFromVariants(variantRows)
+      : sizeRows.map((r) => r.size),
+    stock: stockRows.reduce((n, r) => n + r.stock, 0),
     isSaleActive: Boolean(isSaleActive),
     salePrice: salePrice || null,
     saleQtyLimit: parseSaleQtyLimit(body.saleQtyLimit) ?? null,
@@ -276,7 +368,9 @@ const buildProductCreateData = async (body) => {
     shopSortMen: audience === 'men' ? nextAudience : 0,
     shopSortWomen: audience === 'women' ? nextAudience : 0,
     shopSortKids: audience === 'kids' ? nextAudience : 0,
-    sizeStocks: { create: sizeStockWrites(sizeRows) },
+    ...(variantRows.length
+      ? { variants: { create: variantWrites(variantRows) } }
+      : { sizeStocks: { create: sizeStockWrites(sizeRows) } }),
   };
 };
 
@@ -549,7 +643,18 @@ const updateProduct = async (req, res) => {
       data.categoryId = resolved.categoryId;
       if (!req.body.type) data.type = resolved.type;
     }
-    if (
+    if (req.body.variants !== undefined) {
+      const variantRows = normalizeVariants(req.body);
+      if (!variantRows.length) {
+        return res.status(400).json({ message: 'Add at least one color/size variant' });
+      }
+      for (const row of variantRows) {
+        if (row.photos?.length) {
+          row.photos = await resolvePhotoLinks(row.photos);
+        }
+      }
+      Object.assign(data, applyVariants(variantRows));
+    } else if (
       req.body.sizeStocks !== undefined ||
       req.body.sizes !== undefined ||
       req.body.stock !== undefined
@@ -589,8 +694,45 @@ const adjustStock = async (req, res) => {
   try {
     const delta = Number(req.body.delta);
     const size = req.body.size != null ? String(req.body.size).trim() : '';
+    const color = req.body.color != null ? String(req.body.color).trim() : '';
     if (!Number.isFinite(delta)) {
       return res.status(400).json({ message: 'delta must be a number' });
+    }
+
+    if (color && size) {
+      const child = await prisma.productVariant.findFirst({
+        where: {
+          productId: req.params.id,
+          color: { equals: color, mode: 'insensitive' },
+          size: { equals: size, mode: 'insensitive' },
+        },
+      });
+      if (!child) {
+        return res.status(404).json({ message: `Variant ${color} / ${size} not found` });
+      }
+      const nextStock = Math.max(0, child.stock + delta);
+      const applied = nextStock - child.stock;
+      const [updatedVariant, product] = await prisma.$transaction([
+        prisma.productVariant.update({
+          where: { id: child.id },
+          data: { stock: nextStock },
+          select: { id: true, color: true, size: true, stock: true },
+        }),
+        prisma.product.update({
+          where: { id: req.params.id },
+          data: { stock: { increment: applied } },
+          select: { id: true, stock: true },
+        }),
+      ]);
+      bustProductCache();
+      res.set('Cache-Control', 'no-store');
+      return res.json({
+        id: product.id,
+        color: updatedVariant.color,
+        size: updatedVariant.size,
+        stock: updatedVariant.stock,
+        totalStock: product.stock,
+      });
     }
 
     if (size) {

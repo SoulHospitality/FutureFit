@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import Modal from '../ui/Modal';
 import BrandLoader from '../ui/BrandLoader';
-import { getSizeStock } from '../../utils/helpers';
+import { getVariantStock, sizesForColor } from '../../utils/helpers';
 
 export default function CartEditModal({ item, open, onClose, onSave }) {
   const [product, setProduct] = useState(null);
@@ -28,11 +28,15 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
         const data = r.data;
         setProduct(data);
         const colors = data.colors || [];
-        const sizes = data.sizes || [];
-        setColor((c) => (colors.length && !colors.includes(c) ? colors[0] : c));
+        const nextColor =
+          colors.length && !colors.includes(item.color || '')
+            ? colors[0]
+            : item.color || colors[0] || '';
+        setColor(nextColor);
+        const sizes = sizesForColor(data, nextColor);
         const nextSize =
-          sizes.find((s) => s === item.size && getSizeStock(data, s) > 0) ||
-          sizes.find((s) => getSizeStock(data, s) > 0) ||
+          sizes.find((s) => s === item.size && getVariantStock(data, nextColor, s) > 0) ||
+          sizes.find((s) => getVariantStock(data, nextColor, s) > 0) ||
           item.size ||
           sizes[0] ||
           '';
@@ -51,19 +55,20 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
 
   if (!item) return null;
 
-  const available = product ? getSizeStock(product, size) : item.stock;
+  const sizeOptions = product ? sizesForColor(product, color) : [];
+  const available = product ? getVariantStock(product, color, size) : item.stock;
   const canSave = !loading && qty >= 1 && (available == null || available >= 1);
 
   const handleSave = () => {
     if (qty < 1) return;
-    if (product && size && getSizeStock(product, size) < 1) {
+    if (product && size && getVariantStock(product, color, size) < 1) {
       toast.error(size ? `Size ${size} is out of stock` : 'Out of stock');
       return;
     }
     onSave(
       {
         color: product?.colors?.length ? color : item.color,
-        size: product?.sizes?.length ? size : item.size,
+        size: sizeOptions.length ? size : item.size,
         qty: available > 0 ? Math.min(qty, available) : qty,
       },
       product
@@ -91,7 +96,19 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setColor(c)}
+                    onClick={() => {
+                      setColor(c);
+                      const nextSizes = sizesForColor(product, c);
+                      const next =
+                        nextSizes.find((s) => getVariantStock(product, c, s) > 0) ||
+                        nextSizes[0] ||
+                        '';
+                      setSize(next);
+                      setQty((q) => {
+                        const stock = getVariantStock(product, c, next);
+                        return stock > 0 ? Math.min(q, stock) : q;
+                      });
+                    }}
                     className={`border px-3 py-2 text-sm transition ${
                       color === c
                         ? 'border-timber-900 bg-timber-900 text-white'
@@ -105,14 +122,14 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
             </div>
           )}
 
-          {product?.sizes?.length > 0 && (
+          {sizeOptions.length > 0 && (
             <div>
               <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
                 Size
               </p>
               <div className="flex flex-wrap gap-2">
-                {product.sizes.map((s) => {
-                  const sizeQty = getSizeStock(product, s);
+                {sizeOptions.map((s) => {
+                  const sizeQty = getVariantStock(product, color, s);
                   const soldOut = sizeQty < 1;
                   return (
                     <button
@@ -146,22 +163,20 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
             <div className="inline-flex items-center border border-timber-200">
               <button
                 type="button"
-                className="px-3 py-2 text-timber-700 hover:bg-timber-50"
+                className="grid h-10 w-10 place-items-center text-timber-700 hover:bg-timber-50"
                 onClick={() => setQty((q) => Math.max(1, q - 1))}
                 aria-label="Decrease quantity"
               >
                 <Minus className="h-4 w-4" strokeWidth={1.5} />
               </button>
-              <span className="min-w-[2.5rem] text-center text-sm font-medium tabular-nums">
+              <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
                 {qty}
               </span>
               <button
                 type="button"
-                className="px-3 py-2 text-timber-700 hover:bg-timber-50 disabled:opacity-40"
+                className="grid h-10 w-10 place-items-center text-timber-700 hover:bg-timber-50 disabled:opacity-40"
                 onClick={() =>
-                  setQty((q) =>
-                    available > 0 ? Math.min(available, q + 1) : q + 1
-                  )
+                  setQty((q) => Math.min(available > 0 ? available : q + 1, q + 1))
                 }
                 disabled={available > 0 && qty >= available}
                 aria-label="Increase quantity"
@@ -169,26 +184,19 @@ export default function CartEditModal({ item, open, onClose, onSave }) {
                 <Plus className="h-4 w-4" strokeWidth={1.5} />
               </button>
             </div>
-            {available > 0 && available <= 5 && (
-              <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-timber-500">
-                Only {available} left
-              </p>
-            )}
+            {available > 0 && available <= 5 ? (
+              <p className="mt-2 text-xs text-timber-500">Only {available} left</p>
+            ) : null}
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" className="btn-outline flex-1" onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="btn-wheat flex-1"
-              onClick={handleSave}
-              disabled={!canSave}
-            >
-              Save changes
-            </button>
-          </div>
+          <button
+            type="button"
+            className="btn-wheat w-full"
+            disabled={!canSave}
+            onClick={handleSave}
+          >
+            Save
+          </button>
         </div>
       )}
     </Modal>

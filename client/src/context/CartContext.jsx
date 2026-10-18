@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { getSizeStock } from '../utils/helpers';
+import { getVariantStock, findVariant } from '../utils/helpers';
 import { trackAddToCart } from '../utils/tracking';
 
 const CartContext = createContext(null);
@@ -25,8 +25,13 @@ export function CartProvider({ children }) {
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   const addItem = (product, qty = 1, color = null, size = null) => {
+    const variant = findVariant(product, color, size);
     const price =
-      product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
+      product.isSaleActive && product.salePrice != null
+        ? product.salePrice
+        : variant?.price != null
+          ? variant.price
+          : product.price;
     trackAddToCart({
       productId: product.id,
       name: product.name,
@@ -36,13 +41,17 @@ export function CartProvider({ children }) {
     setItems((prev) => {
       const key = itemKey(product.id, color, size);
       const existing = prev.find((i) => itemKey(i.productId, i.color, i.size) === key);
-      const available = getSizeStock(product, size);
+      const available = getVariantStock(product, color, size);
       const nextQty = existing ? existing.qty + qty : qty;
       const cappedQty = available > 0 ? Math.min(nextQty, available) : nextQty;
+      const image =
+        variant?.photos?.[0] ||
+        product.photos?.[0] ||
+        '';
       if (existing) {
         return prev.map((i) =>
           itemKey(i.productId, i.color, i.size) === key
-            ? { ...i, qty: cappedQty, stock: available || i.stock }
+            ? { ...i, qty: cappedQty, stock: available || i.stock, image: image || i.image }
             : i
         );
       }
@@ -51,7 +60,7 @@ export function CartProvider({ children }) {
         {
           productId: product.id,
           name: product.name,
-          image: product.photos?.[0] || '',
+          image,
           price,
           qty: cappedQty,
           color,
@@ -88,7 +97,9 @@ export function CartProvider({ children }) {
 
       const newColor = next.color !== undefined ? next.color : current.color;
       const newSize = next.size !== undefined ? next.size : current.size;
-      const available = product ? getSizeStock(product, newSize) : current.stock;
+      const available = product
+        ? getVariantStock(product, newColor, newSize)
+        : current.stock;
       const requestedQty = next.qty !== undefined ? next.qty : current.qty;
       const newQty = available > 0 ? Math.min(requestedQty, available) : requestedQty;
 

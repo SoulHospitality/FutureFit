@@ -49,7 +49,9 @@ const TYPE_FROM_SLUG = {
   pajamas: 'boxers',
   'sleepwear-loungewear': 'boxers',
   'denim-shorts': 'trunks',
+  shorts: 'trunks',
   undershorts: 'trunks',
+  thermals: 'boxers',
 };
 
 const TYPE_TO_SLUG = {
@@ -74,8 +76,11 @@ const DEFAULT_SUBCATEGORIES = [
   { audience: 'men', name: 'Hoodies', slug: 'hoodies', sortOrder: 4 },
   { audience: 'men', name: 'Pants', slug: 'pants', sortOrder: 5 },
   { audience: 'men', name: 'Denim Shorts', slug: 'denim-shorts', sortOrder: 6 },
-  { audience: 'men', name: 'Pajamas', slug: 'pajamas', sortOrder: 7 },
-  { audience: 'men', name: 'Sleepwear & Loungewear', slug: 'sleepwear-loungewear', sortOrder: 8 },
+  { audience: 'men', name: 'Shorts', slug: 'shorts', sortOrder: 7 },
+  { audience: 'men', name: 'Thermals', slug: 'thermals', sortOrder: 8 },
+  { audience: 'men', name: 'Undershirts', slug: 'undershirts', sortOrder: 9 },
+  { audience: 'men', name: 'Pajamas', slug: 'pajamas', sortOrder: 10 },
+  { audience: 'men', name: 'Sleepwear & Loungewear', slug: 'sleepwear-loungewear', sortOrder: 11 },
   // Women
   { audience: 'women', name: "Women's Undershirts", slug: 'womens-undershirts', sortOrder: 0 },
   { audience: 'women', name: 'Dresses', slug: 'dresses', sortOrder: 1 },

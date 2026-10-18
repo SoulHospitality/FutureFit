@@ -1,6 +1,7 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { stockForSize } = require('../utils/sizeStock');
+const { stockForVariant, findVariant } = require('../utils/variants');
 const { fulfillOrderWithBosta, isCodMethod, isInstaPayMethod } = require('./bostaController');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
@@ -45,7 +46,7 @@ const buildOrderItems = async (orderItems) => {
   const productIds = orderItems.map((i) => i.productId);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
-    include: { sizeStocks: true },
+    include: { sizeStocks: true, variants: true },
   });
   const byId = Object.fromEntries(products.map((p) => [p.id, p]));
   const saleLeft = Object.fromEntries(products.map((p) => [p.id, saleUnitsLeft(p)]));
@@ -69,26 +70,55 @@ const buildOrderItems = async (orderItems) => {
       throw err;
     }
     const size = item.size || null;
-    if (product.sizeStocks?.length && !size) {
+    const color = item.color || null;
+    const hasVariants = product.variants?.length > 0;
+    if (hasVariants && (!color || !size)) {
+      const err = new Error(`Select a color and size for ${product.name}`);
+      err.status = 400;
+      throw err;
+    }
+    if (!hasVariants && product.sizeStocks?.length && !size) {
       const err = new Error(`Select a size for ${product.name}`);
       err.status = 400;
       throw err;
     }
-    const available = stockForSize(product, size);
+    const available = hasVariants
+      ? stockForVariant(product, color, size)
+      : stockForSize(product, size);
     if (available < qty) {
-      const label = size ? `${product.name} (${size})` : product.name;
+      const label =
+        color && size
+          ? `${product.name} (${color} / ${size})`
+          : size
+            ? `${product.name} (${size})`
+            : product.name;
       const err = new Error(`Insufficient stock for ${label}`);
       err.status = 400;
       throw err;
     }
+    const variant = hasVariants ? findVariant(product, color, size) : null;
+    if (hasVariants && !variant) {
+      const err = new Error(`Variant not found for ${product.name} (${color} / ${size})`);
+      err.status = 400;
+      throw err;
+    }
+    const unitPrice =
+      variant?.price != null ? Number(variant.price) : Number(product.price);
+    const image =
+      (variant?.photos && variant.photos[0]) ||
+      product.photos[0] ||
+      '';
+    // Persist the exact color/size strings stored on the child row
+    const lineColor = variant?.color ?? color;
+    const lineSize = variant?.size ?? size;
     // A capped sale only covers the units left; the rest of the line is full price
     const saleQty = Math.min(qty, saleLeft[product.id]);
     const base = {
       productId: product.id,
       name: product.name,
-      image: product.photos[0] || '',
-      color: item.color || null,
-      size: item.size || null,
+      image,
+      color: lineColor,
+      size: lineSize,
     };
     if (saleQty > 0) {
       const price = Number(product.salePrice);
@@ -98,7 +128,7 @@ const buildOrderItems = async (orderItems) => {
       itemsData.push({ ...base, qty: saleQty, price });
     }
     if (qty - saleQty > 0) {
-      const price = Number(product.price);
+      const price = unitPrice;
       itemsPrice += price * (qty - saleQty);
       itemsData.push({ ...base, qty: qty - saleQty, price });
     }
@@ -241,7 +271,28 @@ const persistOrder = async ({
     await consumeLimits(tx, { saleUsage, couponId });
 
     for (const item of itemsData) {
-      if (item.size) {
+      const childCount = await tx.productVariant.count({
+        where: { productId: item.productId },
+      });
+      if (childCount > 0) {
+        if (!item.color || !item.size) {
+          throw new Error(`Select a color and size for ${item.name}`);
+        }
+        const childUpdated = await tx.productVariant.updateMany({
+          where: {
+            productId: item.productId,
+            color: item.color,
+            size: item.size,
+            stock: { gte: item.qty },
+          },
+          data: { stock: { decrement: item.qty } },
+        });
+        if (childUpdated.count === 0) {
+          throw new Error(
+            `Insufficient stock for ${item.name} (${item.color} / ${item.size})`
+          );
+        }
+      } else if (item.size) {
         const variantCount = await tx.productSize.count({
           where: { productId: item.productId },
         });

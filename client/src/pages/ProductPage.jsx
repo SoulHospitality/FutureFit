@@ -20,7 +20,8 @@ import { useWishlist } from '../context/WishlistContext';
 import {
   formatMoney,
   getImageUrl,
-  getSizeStock,
+  getVariantStock,
+  sizesForColor,
   totalStock,
   PRODUCT_TYPES,
   FREE_SHIPPING_MIN,
@@ -232,6 +233,12 @@ export default function ProductPage() {
     setColor(c);
     setActivePhoto(0);
     railRef.current?.scrollTo({ left: 0 });
+    if (!product) return;
+    const nextSizes = sizesForColor(product, c);
+    const next =
+      nextSizes.find((s) => getVariantStock(product, c, s) > 0) || nextSizes[0] || '';
+    setSize(next);
+    setQty(1);
   };
 
   const onRailScroll = () => {
@@ -250,8 +257,11 @@ export default function ProductPage() {
       trackViewContent(r.data);
       const firstColor = r.data.colors?.[0] || '';
       setColor(firstColor);
+      const colorSizes = sizesForColor(r.data, firstColor);
       const firstInStock =
-        (r.data.sizes || []).find((s) => getSizeStock(r.data, s) > 0) || r.data.sizes?.[0] || '';
+        colorSizes.find((s) => getVariantStock(r.data, firstColor, s) > 0) ||
+        colorSizes[0] ||
+        '';
       setSize(firstInStock);
       setActivePhoto(0);
       setQty(1);
@@ -324,7 +334,8 @@ export default function ProductPage() {
   const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
-  const available = getSizeStock(product, size);
+  const sizeOptions = sizesForColor(product, color);
+  const available = getVariantStock(product, color, size);
   const productStock = totalStock(product);
   const lowStock = available > 0 && available <= 5;
   const sizeGuide = sizeGuideByType[product.type] || sizeGuideByType.default;
@@ -591,7 +602,7 @@ export default function ProductPage() {
               </div>
             )}
 
-            {product.sizes?.length > 0 && (
+            {sizeOptions.length > 0 && (
               <div className="mt-7">
                 <div className="mb-3 flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
@@ -607,8 +618,8 @@ export default function ProductPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes.map((s) => {
-                    const sizeQty = getSizeStock(product, s);
+                  {sizeOptions.map((s) => {
+                    const sizeQty = getVariantStock(product, color, s);
                     const soldOut = sizeQty < 1;
                     return (
                       <button

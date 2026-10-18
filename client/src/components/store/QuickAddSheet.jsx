@@ -9,7 +9,8 @@ import {
   colorSwatchStyle,
   formatMoney,
   getImageUrl,
-  getSizeStock,
+  getVariantStock,
+  sizesForColor,
   photosForColor,
   totalStock,
 } from '../../utils/helpers';
@@ -34,9 +35,13 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
         if (cancelled) return;
         const p = r.data;
         setProduct(p);
-        setColor(p.colors?.[0] || '');
+        const firstColor = p.colors?.[0] || '';
+        setColor(firstColor);
+        const colorSizes = sizesForColor(p, firstColor);
         const first =
-          (p.sizes || []).find((s) => getSizeStock(p, s) > 0) || p.sizes?.[0] || '';
+          colorSizes.find((s) => getVariantStock(p, firstColor, s) > 0) ||
+          colorSizes[0] ||
+          '';
         setSize(first);
       })
       .catch(() => {
@@ -58,10 +63,14 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
 
   const price =
     product?.isSaleActive && product?.salePrice != null ? product.salePrice : product?.price;
-  const available = product?.sizes?.length
-    ? getSizeStock(product, size)
+  const sizeOptions = product ? sizesForColor(product, color) : [];
+  const available = sizeOptions.length
+    ? getVariantStock(product, color, size)
     : totalStock(product);
-  const canAdd = available >= 1 && (!product?.sizes?.length || size) && (!product?.colors?.length || color);
+  const canAdd =
+    available >= 1 &&
+    (!sizeOptions.length || size) &&
+    (!product?.colors?.length || color);
   const gallery = photosForColor(product || seed, color);
   const photo = gallery[0] || product?.photos?.[0] || seed.photos?.[0] || seed.image || '';
 
@@ -150,7 +159,15 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
                           key={c}
                           type="button"
                           title={c}
-                          onClick={() => setColor(c)}
+                          onClick={() => {
+                            setColor(c);
+                            const nextSizes = sizesForColor(product, c);
+                            const next =
+                              nextSizes.find((s) => getVariantStock(product, c, s) > 0) ||
+                              nextSizes[0] ||
+                              '';
+                            setSize(next);
+                          }}
                           className={`relative grid h-10 w-10 place-items-center rounded-full border transition ${
                             selected
                               ? 'border-timber-900 ring-2 ring-timber-900 ring-offset-2'
@@ -169,14 +186,14 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
                 </div>
               )}
 
-              {product?.sizes?.length > 0 && (
+              {sizeOptions.length > 0 && (
                 <div className="mt-8">
                   <span className="mb-3 block text-[10px] font-medium uppercase tracking-[0.24em] text-timber-700">
                     Size
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {product.sizes.map((s) => {
-                      const sizeQty = getSizeStock(product, s);
+                    {sizeOptions.map((s) => {
+                      const sizeQty = getVariantStock(product, color, s);
                       const soldOut = sizeQty < 1;
                       return (
                         <button

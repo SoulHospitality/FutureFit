@@ -213,7 +213,35 @@ export const formatMoney = (n) =>
 export const asArray = (value) => (Array.isArray(value) ? value : []);
 
 /** Units available for a specific size. Falls back to product-level stock. */
+export const findVariant = (product, color, size) => {
+  const rows = product?.variants;
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const c = String(color || '').trim().toLowerCase();
+  const s = String(size || '').trim().toLowerCase();
+  return (
+    rows.find(
+      (v) =>
+        String(v.color || '').trim().toLowerCase() === c &&
+        String(v.size || '').trim().toLowerCase() === s
+    ) || null
+  );
+};
+
+export const getVariantStock = (product, color, size) => {
+  const v = findVariant(product, color, size);
+  if (v) return Number(v.stock) || 0;
+  return getSizeStock(product, size);
+};
+
 export const getSizeStock = (product, size) => {
+  const variants = product?.variants;
+  if (Array.isArray(variants) && variants.length) {
+    if (!size) return 0;
+    const s = String(size).trim().toLowerCase();
+    return variants
+      .filter((v) => String(v.size || '').trim().toLowerCase() === s)
+      .reduce((n, v) => n + (Number(v.stock) || 0), 0);
+  }
   const rows = product?.sizeStocks;
   if (Array.isArray(rows) && rows.length) {
     if (!size) return 0;
@@ -224,11 +252,35 @@ export const getSizeStock = (product, size) => {
 };
 
 export const totalStock = (product) => {
+  const variants = product?.variants;
+  if (Array.isArray(variants) && variants.length) {
+    return variants.reduce((sum, row) => sum + (Number(row.stock) || 0), 0);
+  }
   const rows = product?.sizeStocks;
   if (Array.isArray(rows) && rows.length) {
     return rows.reduce((sum, row) => sum + (Number(row.stock) || 0), 0);
   }
   return Number(product?.stock) || 0;
+};
+
+export const sizesForColor = (product, color) => {
+  const variants = product?.variants;
+  if (!Array.isArray(variants) || !variants.length) {
+    return product?.sizes || [];
+  }
+  const c = String(color || '').trim().toLowerCase();
+  const out = [];
+  const seen = new Set();
+  for (const v of variants) {
+    if (c && String(v.color || '').trim().toLowerCase() !== c) continue;
+    const s = String(v.size || '').trim();
+    if (!s) continue;
+    const key = s.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out.length ? out : product?.sizes || [];
 };
 
 

@@ -8,7 +8,8 @@ import {
   categoryLabel,
   totalStock,
   colorSwatchStyle,
-  getSizeStock,
+  getVariantStock,
+  sizesForColor,
   photosForColor,
   preloadImages,
 } from '../../utils/helpers';
@@ -75,8 +76,11 @@ function ProductCard({ product, priority = false }) {
       return;
     }
     const color = product.colors?.[0] || null;
+    const colorSizes = sizesForColor(product, color);
     const size =
-      (product.sizes || []).find((s) => getSizeStock(product, s) > 0) || product.sizes?.[0] || null;
+      colorSizes.find((s) => getVariantStock(product, color, s) > 0) ||
+      colorSizes[0] ||
+      null;
     addItem(product, 1, color, size);
     openDrawer();
   };

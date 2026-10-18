@@ -28,6 +28,7 @@ const empty = {
   colors: '',
   photoByColor: {},
   sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
+  variantRows: [],
   isSaleActive: false,
   salePrice: '',
   saleQtyLimit: '',
@@ -50,7 +51,19 @@ const sizeRowsFromProduct = (p) => {
   }));
 };
 
-const queueKey = (id, size) => `${id}::${size || ''}`;
+const variantRowsFromProduct = (p) => {
+  if (!Array.isArray(p.variants) || !p.variants.length) return [];
+  return p.variants.map((v) => ({
+    itemCode: v.itemCode || '',
+    color: v.color || '',
+    size: v.size || '',
+    stock: v.stock ?? 0,
+    price: v.price ?? '',
+    cost: v.cost ?? '',
+  }));
+};
+
+const queueKey = (id, color, size) => `${id}::${color || ''}::${size || ''}`;
 
 export default function StaffProducts() {
   const [products, setProducts] = useState([]);
@@ -92,8 +105,8 @@ export default function StaffProducts() {
     );
   }, [products, q]);
 
-  const flushStock = async (id, size) => {
-    const key = queueKey(id, size);
+  const flushStock = async (id, color, size) => {
+    const key = queueKey(id, color, size);
     const q = stockQueue.current[key];
     if (!q || q.inFlight || q.pending === 0) return;
 
@@ -104,12 +117,25 @@ export default function StaffProducts() {
     try {
       const { data } = await api.patch(`/products/${id}/stock`, {
         delta,
+        ...(color ? { color } : {}),
         ...(size ? { size } : {}),
       });
       const stillPending = stockQueue.current[key]?.pending || 0;
       setProducts((prev) =>
         prev.map((p) => {
           if (p.id !== id) return p;
+          if (color && size && p.variants?.length) {
+            const variants = p.variants.map((row) =>
+              row.color === color && row.size === size
+                ? { ...row, stock: Math.max(0, data.stock + stillPending) }
+                : row
+            );
+            return {
+              ...p,
+              variants,
+              stock: variants.reduce((n, row) => n + row.stock, 0),
+            };
+          }
           if (size && p.sizeStocks?.length) {
             const sizeStocks = p.sizeStocks.map((row) =>
               row.size === size
@@ -133,16 +159,35 @@ export default function StaffProducts() {
       const queue = stockQueue.current[key];
       if (queue) {
         queue.inFlight = false;
-        if (queue.pending !== 0) flushStock(id, size);
+        if (queue.pending !== 0) flushStock(id, color, size);
       }
     }
   };
 
-  const adjust = (id, delta, size) => {
+  const adjust = (id, delta, color, size) => {
     let applied = true;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
+        if (color && size && p.variants?.length) {
+          const current = p.variants.find(
+            (row) => row.color === color && row.size === size
+          );
+          if (delta < 0 && (!current || current.stock <= 0)) {
+            applied = false;
+            return p;
+          }
+          const variants = p.variants.map((row) =>
+            row.color === color && row.size === size
+              ? { ...row, stock: Math.max(0, row.stock + delta) }
+              : row
+          );
+          return {
+            ...p,
+            variants,
+            stock: variants.reduce((n, row) => n + row.stock, 0),
+          };
+        }
         if (size && p.sizeStocks?.length) {
           const current = p.sizeStocks.find((row) => row.size === size);
           if (delta < 0 && (!current || current.stock <= 0)) {
@@ -167,7 +212,7 @@ export default function StaffProducts() {
     );
     if (!applied) return;
 
-    const key = queueKey(id, size);
+    const key = queueKey(id, color, size);
     if (!stockQueue.current[key]) {
       stockQueue.current[key] = { pending: 0, inFlight: false, timer: null };
     }
@@ -175,7 +220,7 @@ export default function StaffProducts() {
     queue.pending += delta;
 
     clearTimeout(queue.timer);
-    queue.timer = setTimeout(() => flushStock(id, size), 400);
+    queue.timer = setTimeout(() => flushStock(id, color, size), 400);
   };
 
   const openCreate = () => {
@@ -183,6 +228,7 @@ export default function StaffProducts() {
     setForm({
       ...empty,
       sizeRows: DEFAULT_SIZE_ROWS.map((row) => ({ ...row })),
+      variantRows: [],
     });
     setOpen(true);
   };
@@ -208,6 +254,7 @@ export default function StaffProducts() {
       colors: (p.colors || []).join(', '),
       photoByColor: map,
       sizeRows: sizeRowsFromProduct(p),
+      variantRows: variantRowsFromProduct(p),
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
       saleQtyLimit: p.saleQtyLimit ?? '',
@@ -257,14 +304,24 @@ export default function StaffProducts() {
 
   const save = async (e) => {
     e.preventDefault();
+    const variants = (form.variantRows || [])
+      .map((row) => ({
+        itemCode: String(row.itemCode || '').trim(),
+        color: String(row.color || '').trim(),
+        size: String(row.size || '').trim(),
+        stock: Math.max(0, Number(row.stock) || 0),
+        price: row.price === '' || row.price == null ? null : Number(row.price),
+        cost: row.cost === '' || row.cost == null ? null : Number(row.cost),
+      }))
+      .filter((row) => row.color && row.size && row.itemCode);
     const sizeStocks = form.sizeRows
       .map((row) => ({
         size: String(row.size || '').trim(),
         stock: Math.max(0, Number(row.stock) || 0),
       }))
       .filter((row) => row.size);
-    if (!sizeStocks.length) {
-      return toast.error('Add at least one size with a name');
+    if (!variants.length && !sizeStocks.length) {
+      return toast.error('Add at least one color/size variant or size row');
     }
     setSaving(true);
     const links = [
@@ -288,7 +345,7 @@ export default function StaffProducts() {
       photos: links,
       colors,
       photoByColor,
-      sizeStocks,
+      ...(variants.length ? { variants } : { sizeStocks }),
       isSaleActive: Boolean(form.isSaleActive),
       salePrice: form.salePrice === '' ? null : Number(form.salePrice),
       saleQtyLimit: form.saleQtyLimit === '' ? null : Number(form.saleQtyLimit),
@@ -332,7 +389,19 @@ export default function StaffProducts() {
     .filter(Boolean)
     .slice(0, 8);
 
-  const formTotalStock = form.sizeRows.reduce((n, row) => n + (Number(row.stock) || 0), 0);
+  const formTotalStock = (form.variantRows?.length
+    ? form.variantRows
+    : form.sizeRows
+  ).reduce((n, row) => n + (Number(row.stock) || 0), 0);
+
+  const updateVariantRow = (index, field, value) => {
+    setForm((f) => ({
+      ...f,
+      variantRows: f.variantRows.map((row, i) =>
+        i === index ? { ...row, [field]: value } : row
+      ),
+    }));
+  };
 
   return (
     <>
@@ -387,7 +456,7 @@ export default function StaffProducts() {
               <th>Dept</th>
               <th>Price</th>
               <th>Cost</th>
-              <th>Stock by size</th>
+              <th>Stock</th>
               <th>Sale</th>
               <th></th>
             </tr>
@@ -401,9 +470,12 @@ export default function StaffProducts() {
               </tr>
             )}
             {filtered.map((p) => {
-              const rows = p.sizeStocks?.length
-                ? p.sizeStocks
-                : [{ size: '', stock: p.stock }];
+              const hasVariants = p.variants?.length > 0;
+              const rows = hasVariants
+                ? p.variants
+                : p.sizeStocks?.length
+                  ? p.sizeStocks
+                  : [{ size: '', stock: p.stock }];
               const isDraft = p.status === 'draft';
               return (
                 <tr key={p.id} className={isDraft ? 'bg-timber-50/70' : undefined}>
@@ -419,6 +491,7 @@ export default function StaffProducts() {
                         {p.itemCode ? (
                           <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
                             {p.itemCode}
+                            {hasVariants ? ` · ${p.variants.length} children` : ''}
                           </span>
                         ) : null}
                       </span>
@@ -442,10 +515,21 @@ export default function StaffProducts() {
                   <td>{formatMoney(p.price)}</td>
                   <td>{p.cost != null && p.cost !== '' ? formatMoney(p.cost) : '—'}</td>
                   <td>
-                    <div className="space-y-1">
+                    <div className="max-h-36 space-y-1 overflow-y-auto">
                       {rows.map((row) => (
-                        <div key={row.size || 'total'} className="flex items-center gap-1">
-                          {row.size ? (
+                        <div
+                          key={
+                            hasVariants
+                              ? `${row.color}-${row.size}`
+                              : row.size || 'total'
+                          }
+                          className="flex items-center gap-1"
+                        >
+                          {hasVariants ? (
+                            <span className="w-24 shrink-0 truncate text-[11px] font-medium text-timber-500">
+                              {row.color} / {row.size}
+                            </span>
+                          ) : row.size ? (
                             <span className="w-10 shrink-0 text-xs font-medium text-timber-500">
                               {row.size}
                             </span>
@@ -453,7 +537,14 @@ export default function StaffProducts() {
                           <button
                             type="button"
                             className="btn-outline btn-sm !px-2"
-                            onClick={() => adjust(p.id, -1, row.size || undefined)}
+                            onClick={() =>
+                              adjust(
+                                p.id,
+                                -1,
+                                hasVariants ? row.color : undefined,
+                                row.size || undefined
+                              )
+                            }
                           >
                             <Minus className="w-3 h-3" />
                           </button>
@@ -463,13 +554,20 @@ export default function StaffProducts() {
                           <button
                             type="button"
                             className="btn-outline btn-sm !px-2"
-                            onClick={() => adjust(p.id, 1, row.size || undefined)}
+                            onClick={() =>
+                              adjust(
+                                p.id,
+                                1,
+                                hasVariants ? row.color : undefined,
+                                row.size || undefined
+                              )
+                            }
                           >
                             <Plus className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
-                      {p.sizeStocks?.length > 1 && (
+                      {(hasVariants || p.sizeStocks?.length > 1) && (
                         <p className="text-[10px] uppercase tracking-wide text-timber-400">
                           Total {totalStock(p)}
                         </p>
@@ -642,50 +740,108 @@ export default function StaffProducts() {
               Total stock: <span className="ms-1 font-semibold tabular-nums text-timber-800">{formTotalStock}</span>
             </div>
 
-            <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
+            {form.variantRows?.length > 0 ? (
+              <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
                 <div>
-                  <label className="label !mb-0">Sizes & stock</label>
+                  <label className="label !mb-0">Child variants (color × size)</label>
                   <p className="mt-1 text-xs text-timber-400">
-                    Each size has its own inventory. Sold-out sizes are hidden from checkout.
+                    Storefront shows the parent; shoppers pick a child by colour and size.
                   </p>
                 </div>
-                <button type="button" className="btn-outline btn-sm" onClick={addSizeRow}>
-                  <Plus className="w-3 h-3" />
-                  Add size
-                </button>
-              </div>
-              <div className="space-y-2">
-                {form.sizeRows.map((row, index) => (
-                  <div key={index} className="grid grid-cols-[1fr_7rem_auto] gap-2">
-                    <input
-                      className="input"
-                      value={row.size}
-                      onChange={(e) => updateSizeRow(index, 'size', e.target.value)}
-                      placeholder="Size (S, M, 41…)"
-                      required
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      className="input"
-                      value={row.stock}
-                      onChange={(e) => updateSizeRow(index, 'stock', e.target.value)}
-                      placeholder="Qty"
-                    />
-                    <button
-                      type="button"
-                      className="btn-ghost btn-sm text-red-600"
-                      onClick={() => removeSizeRow(index)}
-                      disabled={form.sizeRows.length <= 1}
-                      aria-label="Remove size"
+                <div className="max-h-72 space-y-2 overflow-y-auto">
+                  {form.variantRows.map((row, index) => (
+                    <div
+                      key={index}
+                      className="grid grid-cols-[7rem_1fr_5rem_5rem_5rem] gap-2"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <input
+                        className="input font-mono text-xs"
+                        value={row.itemCode}
+                        onChange={(e) => updateVariantRow(index, 'itemCode', e.target.value)}
+                        placeholder="Item ID"
+                        required
+                      />
+                      <input
+                        className="input"
+                        value={row.color}
+                        onChange={(e) => updateVariantRow(index, 'color', e.target.value)}
+                        placeholder="Colour"
+                        required
+                      />
+                      <input
+                        className="input"
+                        value={row.size}
+                        onChange={(e) => updateVariantRow(index, 'size', e.target.value)}
+                        placeholder="Size"
+                        required
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        className="input"
+                        value={row.stock}
+                        onChange={(e) => updateVariantRow(index, 'stock', e.target.value)}
+                        placeholder="Qty"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input"
+                        value={row.cost}
+                        onChange={(e) => updateVariantRow(index, 'cost', e.target.value)}
+                        placeholder="Cost"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="label !mb-0">Sizes & stock</label>
+                    <p className="mt-1 text-xs text-timber-400">
+                      Each size has its own inventory. Sold-out sizes are hidden from checkout.
+                    </p>
+                  </div>
+                  <button type="button" className="btn-outline btn-sm" onClick={addSizeRow}>
+                    <Plus className="w-3 h-3" />
+                    Add size
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {form.sizeRows.map((row, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_7rem_auto] gap-2">
+                      <input
+                        className="input"
+                        value={row.size}
+                        onChange={(e) => updateSizeRow(index, 'size', e.target.value)}
+                        placeholder="Size (S, M, 41…)"
+                        required
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        className="input"
+                        value={row.stock}
+                        onChange={(e) => updateSizeRow(index, 'stock', e.target.value)}
+                        placeholder="Qty"
+                      />
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm text-red-600"
+                        onClick={() => removeSizeRow(index)}
+                        disabled={form.sizeRows.length <= 1}
+                        aria-label="Remove size"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
               <div>

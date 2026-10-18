@@ -124,6 +124,9 @@ model Product {
   updatedAt    DateTime      @updatedAt
 
   category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  /// Color + size children. The storefront shows this parent and picks among variants.
+  variants   ProductVariant[]
+  /// @deprecated Prefer variants. Kept for one release of old clients.
   sizeStocks ProductSize[]
   orderItems OrderItem[]
   reviews    Review[]
@@ -136,6 +139,29 @@ model Product {
   @@index([shopSortMen])
   @@index([shopSortWomen])
   @@index([shopSortKids])
+}
+
+/// One sellable child of a parent product (unique item ID + color + size).
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  /// Staff-only child code (e.g. BX-BLK-M). Never shown on the storefront.
+  itemCode  String   @unique
+  color     String
+  size      String
+  stock     Int      @default(0)
+  /// Optional override; null means use the parent product price / sale price.
+  price     Decimal? @db.Decimal(10, 2)
+  cost      Decimal? @db.Decimal(10, 2)
+  photos    String[] @default([])
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, color, size])
+  @@index([productId])
 }
 
 enum HomepageSection {
@@ -281,7 +307,8 @@ model Order {
 model OrderItem {
   id        String  @id @default(uuid())
   orderId   String
-  productId String
+  /// Kept when the catalog product is removed so order history still shows.
+  productId String?
   name      String
   qty       Int
   image     String
@@ -289,8 +316,8 @@ model OrderItem {
   color     String?
   size      String?
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 }
 
 model ProblemRequest {
