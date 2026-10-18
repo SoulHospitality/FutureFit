@@ -7,7 +7,11 @@ import {
   Images,
   LayoutGrid,
   Loader2,
+  Maximize2,
+  Minimize2,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   Phone,
   RefreshCw,
   Ruler,
@@ -15,6 +19,7 @@ import {
   ScrollText,
   Smartphone,
   Megaphone,
+  ExternalLink,
 } from 'lucide-react';
 import api from '../../api/axios';
 import DragSortList from '../../components/staff/DragSortList';
@@ -142,12 +147,47 @@ function withIds(list) {
   }));
 }
 
-function LivePreview({ path, refreshKey, device }) {
+/** Render storefront at real desktop/phone width, then CSS-scale to fit the pane (Shopify-style). */
+function LivePreview({ path, refreshKey, device, zoom = 'fit' }) {
+  const shellRef = useRef(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const frameW = device === 'mobile' ? 390 : 1440;
   const src = `${path}${path.includes('?') ? '&' : '?'}staffPreview=1&_=${refreshKey}`;
-  const width = device === 'mobile' ? 390 : '100%';
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setBox({ w: width, h: height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Fit width; keep readable floor so desktop never collapses into a postage stamp.
+  const fitScale = box.w > 0 ? box.w / frameW : 1;
+  const scale =
+    zoom === '100'
+      ? 1
+      : zoom === '75'
+        ? 0.75
+        : Math.min(1, Math.max(device === 'mobile' ? 0.72 : 0.45, fitScale));
+  const frameH = box.h > 0 ? Math.max(640, Math.round(box.h / scale)) : 900;
+
+  const pushDraft = (frame) => {
+    const draft = readWebsiteDraft();
+    if (!draft || !frame) return;
+    try {
+      frame.contentWindow?.postMessage({ type: 'ff-website-draft', draft }, window.location.origin);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-inner">
-      <div className="flex items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-200/80">
+      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
         <div className="flex gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
           <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
@@ -157,28 +197,48 @@ function LivePreview({ path, refreshKey, device }) {
           {window.location.origin}
           {path}
         </div>
+        <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-500">
+          {Math.round(scale * 100)}% · {device === 'mobile' ? '390px' : '1440px'}
+        </span>
       </div>
-      <div className="flex min-h-0 flex-1 justify-center overflow-auto bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%),linear-gradient(-45deg,#f4f4f5_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f4f4f5_75%),linear-gradient(-45deg,transparent_75%,#f4f4f5_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0] p-3">
-        <iframe
-          key={`${refreshKey}-${path}-${device}`}
-          data-ff-preview
-          title="Store preview"
-          src={src}
-          className="h-full min-h-[520px] rounded-lg border border-zinc-200 bg-white shadow-sm transition-all"
-          style={{ width, maxWidth: '100%' }}
-          onLoad={(e) => {
-            const draft = readWebsiteDraft();
-            if (!draft) return;
-            try {
-              e.currentTarget.contentWindow?.postMessage(
-                { type: 'ff-website-draft', draft },
-                window.location.origin
-              );
-            } catch {
-              /* ignore */
-            }
-          }}
-        />
+      <div
+        ref={shellRef}
+        className="relative min-h-0 flex-1 overflow-auto"
+        style={{
+          backgroundImage:
+            'linear-gradient(45deg,#e4e4e7 25%,transparent 25%),linear-gradient(-45deg,#e4e4e7 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e4e4e7 75%),linear-gradient(-45deg,transparent 75%,#e4e4e7 75%)',
+          backgroundSize: '16px 16px',
+          backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
+        }}
+      >
+        {box.w > 0 ? (
+          <div
+            className="mx-auto"
+            style={{
+              width: frameW * scale,
+              height: Math.min(box.h, frameH * scale),
+              marginTop: device === 'mobile' ? 12 : 0,
+            }}
+          >
+            <iframe
+              key={`${refreshKey}-${path}-${device}`}
+              data-ff-preview
+              title="Store preview"
+              src={src}
+              className={`bg-white shadow-xl ${
+                device === 'mobile' ? 'rounded-[1.75rem] border-[6px] border-zinc-900' : 'border-0'
+              }`}
+              style={{
+                width: frameW,
+                height: frameH,
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                display: 'block',
+              }}
+              onLoad={(e) => pushDraft(e.currentTarget)}
+            />
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -549,7 +609,9 @@ export default function StaffWebsiteController() {
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState('desktop');
-  const [previewOpen, setPreviewOpen] = useState(true);
+  const [editorOpen, setEditorOpen] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [zoom, setZoom] = useState('fit'); // fit | 75 | 100
   const [policyPreview, setPolicyPreview] = useState('/returns');
   const draftTimer = useRef(null);
 
@@ -579,6 +641,15 @@ export default function StaffWebsiteController() {
     }, 250);
     return () => clearTimeout(draftTimer.current);
   }, [form]);
+
+  useEffect(() => {
+    if (!expanded) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded]);
 
   const saveContent = async () => {
     if (!form) return;
@@ -657,84 +728,185 @@ export default function StaffWebsiteController() {
   })();
 
   return (
-    <div className="-m-4 flex min-h-[calc(100vh-3.5rem)] flex-col sm:-m-6 lg:-m-8">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3 sm:px-6">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-900">Website Controller</h1>
-          <p className="text-xs text-zinc-500">
-            Edit storefront content with a live preview — like Shopify / WordPress customizer.
-          </p>
+    <div className="flex h-full min-h-0 flex-col bg-zinc-100">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+        <div className="min-w-0">
+          <h1 className="truncate text-sm font-semibold text-zinc-900">Website Controller</h1>
+          <p className="hidden truncate text-[11px] text-zinc-500 sm:block">{section.hint}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
             <button
               type="button"
-              className={`rounded-md p-1.5 ${device === 'desktop' ? 'bg-white shadow-sm' : ''}`}
+              className={`rounded-md p-1.5 ${device === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
               onClick={() => setDevice('desktop')}
               aria-label="Desktop preview"
+              title="Desktop (1440px)"
             >
               <Monitor className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className={`rounded-md p-1.5 ${device === 'mobile' ? 'bg-white shadow-sm' : ''}`}
+              className={`rounded-md p-1.5 ${device === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
               onClick={() => setDevice('mobile')}
-              aria-label="Mobile preview"
+              aria-label="Phone preview"
+              title="Phone (390px)"
             >
               <Smartphone className="h-4 w-4" />
             </button>
           </div>
-          <button type="button" className="btn-outline btn-sm inline-flex items-center gap-1.5" onClick={bumpPreview}>
+          <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-[11px] font-medium">
+            {[
+              { id: 'fit', label: 'Fit' },
+              { id: '75', label: '75%' },
+              { id: '100', label: '100%' },
+            ].map((z) => (
+              <button
+                key={z.id}
+                type="button"
+                className={`rounded-md px-2 py-1 ${zoom === z.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
+                onClick={() => setZoom(z.id)}
+              >
+                {z.label}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            onClick={bumpPreview}
+            title="Refresh preview"
+          >
             <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
           <button
             type="button"
-            className="btn-outline btn-sm inline-flex items-center gap-1.5 lg:hidden"
-            onClick={() => setPreviewOpen((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            onClick={() => setEditorOpen((v) => !v)}
+            title={editorOpen ? 'Hide editor' : 'Show editor'}
           >
-            <Eye className="h-3.5 w-3.5" />
-            {previewOpen ? 'Hide preview' : 'Preview'}
+            {editorOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">{editorOpen ? 'Hide editor' : 'Editor'}</span>
           </button>
-          <Link to={previewPath} target="_blank" className="btn-ghost btn-sm text-zinc-600">
-            Open store
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            onClick={() => setExpanded(true)}
+            title="Expand preview"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Expand</span>
+          </button>
+          <Link
+            to={previewPath}
+            target="_blank"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Open</span>
           </Link>
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="w-full shrink-0 border-b border-zinc-200 bg-white lg:w-52 lg:border-b-0 lg:border-r">
-          <nav className="flex gap-1 overflow-x-auto p-2 lg:flex-col lg:overflow-visible">
-            {SECTIONS.map((s) => (
-              <NavLink
-                key={s.path}
-                to={`/staff/website/${s.path}`}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-50'
-                  }`
-                }
-              >
-                <s.icon className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.75} />
-                {s.label}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
-
-        <div className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-5">
-          <p className="mb-4 text-xs text-zinc-500">{section.hint}</p>
-          {panel}
-        </div>
-
+      <div className="flex min-h-0 flex-1">
         <div
-          className={`${
-            previewOpen ? 'flex' : 'hidden'
-          } h-[50vh] min-h-0 w-full flex-col border-t border-zinc-200 bg-zinc-50 p-3 lg:flex lg:h-auto lg:w-[46%] lg:border-l lg:border-t-0 xl:w-[42%]`}
+          className={`flex min-h-0 shrink-0 flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 ${
+            editorOpen ? 'w-full max-w-full sm:w-[380px] lg:w-[400px]' : 'w-0 overflow-hidden border-r-0'
+          }`}
         >
-          <LivePreview path={previewPath} refreshKey={previewKey} device={device} />
+          {editorOpen ? (
+            <>
+              <aside className="shrink-0 border-b border-zinc-100">
+                <nav className="flex gap-0.5 overflow-x-auto p-1.5 lg:flex-col lg:overflow-visible">
+                  {SECTIONS.map((s) => (
+                    <NavLink
+                      key={s.path}
+                      to={`/staff/website/${s.path}`}
+                      className={({ isActive }) =>
+                        `flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
+                          isActive ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-50'
+                        }`
+                      }
+                    >
+                      <s.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
+                      {s.label}
+                    </NavLink>
+                  ))}
+                </nav>
+              </aside>
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+                <p className="mb-3 text-[11px] text-zinc-500 lg:hidden">{section.hint}</p>
+                {panel}
+              </div>
+            </>
+          ) : null}
         </div>
+
+        {!expanded ? (
+          <div className={`min-h-0 min-w-0 flex-1 flex-col ${editorOpen ? 'hidden sm:flex' : 'flex'}`}>
+            <LivePreview path={previewPath} refreshKey={previewKey} device={device} zoom={zoom} />
+          </div>
+        ) : (
+          <div className="hidden min-h-0 min-w-0 flex-1 sm:block" />
+        )}
       </div>
+
+      {editorOpen ? (
+        <button
+          type="button"
+          className="fixed bottom-4 end-4 z-40 inline-flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-3 text-sm font-medium text-white shadow-lg sm:hidden"
+          onClick={() => setExpanded(true)}
+        >
+          <Eye className="h-4 w-4" />
+          Preview store
+        </button>
+      ) : null}
+
+      {expanded ? (
+        <div className="fixed inset-0 z-[90] flex flex-col bg-white">
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2">
+            <p className="text-sm font-semibold text-zinc-900">Live preview</p>
+            <div className="flex items-center gap-1.5">
+              <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+                <button
+                  type="button"
+                  className={`rounded-md p-1.5 ${device === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+                  onClick={() => setDevice('desktop')}
+                >
+                  <Monitor className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-md p-1.5 ${device === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+                  onClick={() => setDevice('mobile')}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                onClick={bumpPreview}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
+                onClick={() => setExpanded(false)}
+              >
+                <Minimize2 className="h-3.5 w-3.5" />
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1">
+            <LivePreview path={previewPath} refreshKey={previewKey} device={device} zoom="fit" />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
