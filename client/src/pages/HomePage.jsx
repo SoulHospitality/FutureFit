@@ -30,6 +30,7 @@ import {
   STORE_WHATSAPP_URL,
 } from '../utils/helpers';
 import { usePageMeta } from '../utils/seo';
+import { useSiteCopy } from '../utils/websiteContent';
 
 const FALLBACK_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
@@ -80,12 +81,13 @@ const SERVICES = [
   },
 ];
 
-function Hero({ slides }) {
+function Hero({ slides, copy = {} }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchStartX = useRef(null);
   const count = slides.length;
   const slide = slides[index];
+  const home = copy.wording?.home || {};
 
   useEffect(() => {
     if (count < 2 || paused) return undefined;
@@ -157,13 +159,13 @@ function Hero({ slides }) {
       <div className="home-hero__content ff-container relative flex h-full flex-col justify-end pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-28 sm:pb-28 sm:pt-32 short:!pb-16 short:!pt-20">
         <div key={slide?.id || 'fallback'} className="max-w-3xl">
           <p className="ff-fade-up text-[10px] font-semibold uppercase tracking-[0.32em] text-blush sm:text-[11px] sm:tracking-[0.36em]">
-            FutureFit · From Cairo
+            {home.heroEyebrow || 'FutureFit · From Cairo'}
           </p>
           <h1
             className="ff-fade-up mt-4 font-display text-[clamp(2.4rem,min(9vw,8svh),6.5rem)] font-light leading-[0.98] tracking-[-0.03em] text-balance sm:mt-5 short:!mt-2 short:!text-[clamp(1.8rem,9svh,2.6rem)]"
             style={{ animationDelay: '80ms' }}
           >
-            {slide?.title || (
+            {slide?.title || home.heroFallbackTitle || (
               <>
                 Setting trends with <em className="italic text-blush">every stitch.</em>
               </>
@@ -174,6 +176,7 @@ function Hero({ slides }) {
             style={{ animationDelay: '160ms' }}
           >
             {slide?.description ||
+              home.heroFallbackBody ||
               'Classic cuts. Modern presence. Essentials made to move with you — from Cairo streets to every occasion.'}
           </p>
         </div>
@@ -182,7 +185,7 @@ function Hero({ slides }) {
             to="/shop"
             className="btn-lg btn w-full bg-white text-timber-900 hover:bg-blush min-[420px]:w-auto short:!w-auto"
           >
-            Shop all
+            {home.heroCta || 'Shop all'}
           </Link>
         </div>
       </div>
@@ -341,6 +344,8 @@ const homeJsonLd = () => {
 
 export default function HomePage() {
   usePageMeta({ path: '/', jsonLd: homeJsonLd() });
+  const siteCopy = useSiteCopy();
+  const home = siteCopy.wording?.home || {};
   const { tree } = useCategories();
   const [slides, setSlides] = useState([]);
   const [products, setProducts] = useState([]);
@@ -433,18 +438,18 @@ export default function HomePage() {
 
   return (
     <div className="bg-bone">
-      <Hero slides={slides} />
+      <Hero slides={slides} copy={siteCopy} />
       <TrustMarquee />
 
       {/* Departments */}
       <section className="ff-section">
         <div className="ff-container">
           <SectionHeading
-            eyebrow="Shop by department"
-            title="The best way to shop"
-            titleEm="the essentials you love."
+            eyebrow={home.departmentsEyebrow || 'Shop by department'}
+            title={home.departmentsTitle || 'The best way to shop'}
+            titleEm={home.departmentsTitleEm || 'the essentials you love.'}
             link="/shop"
-            linkLabel="Shop all"
+            linkLabel={home.departmentsLinkLabel || 'Shop all'}
           />
           <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0">
             {departments.map((dept, i) => {
@@ -496,10 +501,10 @@ export default function HomePage() {
       <section className="ff-section bg-white">
         <div className="ff-container">
           <SectionHeading
-            eyebrow="Top picks"
-            title="Best"
-            titleEm="sellers"
-            body="Customer favourites, selected by the house."
+            eyebrow={home.bestSellersEyebrow || 'Top picks'}
+            title={home.bestSellersTitle || 'Best'}
+            titleEm={home.bestSellersTitleEm || 'sellers'}
+            body={home.bestSellersBody || 'Customer favourites, selected by the house.'}
             link="/shop"
           />
           {bestAudiences.length > 1 && (
@@ -560,10 +565,13 @@ export default function HomePage() {
           </Reveal>
           <div>
             <SectionHeading
-              eyebrow="Fabric & fit"
-              title="Soft hand. Clean lines."
-              titleEm="All-day hold."
-              body="Considered fabrics and precise cuts — underwear and essentials made to stay comfortable from morning through late."
+              eyebrow={home.editorialEyebrow || 'Fabric & fit'}
+              title={home.editorialTitle || 'Soft hand. Clean lines.'}
+              titleEm={home.editorialTitleEm || 'All-day hold.'}
+              body={
+                home.editorialBody ||
+                'Considered fabrics and precise cuts — underwear and essentials made to stay comfortable from morning through late.'
+              }
             />
             <Reveal delay={120} className="mt-10 divide-y divide-timber-200/80 border-y border-timber-200/80">
               {[
@@ -582,7 +590,7 @@ export default function HomePage() {
             </Reveal>
             <Reveal delay={200} className="mt-10 flex flex-wrap gap-4">
               <Link to="/shop" className="btn-wheat">
-                Shop the essentials
+                {home.editorialCta || 'Shop the essentials'}
               </Link>
               <Link to="/about" className="ff-link self-center">
                 Our story
@@ -597,12 +605,12 @@ export default function HomePage() {
         <section className="ff-section ff-grain overflow-hidden bg-blush/50">
           <div className="ff-container">
             <SectionHeading
-              eyebrow="Keep exploring"
-              title="Packs &"
-              titleEm="bundles"
-              body="Stock up on the pieces you wear most."
+              eyebrow={home.packsEyebrow || 'Keep exploring'}
+              title={home.packsTitle || 'Packs &'}
+              titleEm={home.packsTitleEm || 'bundles'}
+              body={home.packsBody || 'Stock up on the pieces you wear most.'}
               link="/shop"
-              linkLabel="Shop all"
+              linkLabel={home.packsLinkLabel || 'Shop all'}
             />
             <div className="mt-12">
               <ProductRail products={packs} />
@@ -660,9 +668,9 @@ export default function HomePage() {
       <section className="ff-section">
         <div className="ff-container">
           <SectionHeading
-            eyebrow="Why FutureFit"
-            title="Shopping made"
-            titleEm="effortless."
+            eyebrow={home.servicesEyebrow || 'Why FutureFit'}
+            title={home.servicesTitle || 'Shopping made'}
+            titleEm={home.servicesTitleEm || 'effortless.'}
             align="center"
           />
           <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-5">
@@ -709,12 +717,13 @@ export default function HomePage() {
         </div>
         <div className="ff-container relative grid gap-10 py-20 sm:py-28 lg:grid-cols-2 lg:items-end">
           <div>
-            <p className="ff-eyebrow !text-blush">Newsletter</p>
+            <p className="ff-eyebrow !text-blush">{home.newsletterEyebrow || 'Newsletter'}</p>
             <h2 className="mt-4 font-display text-[clamp(2.4rem,5vw,4.5rem)] font-light leading-[1] tracking-tight">
-              First to know. <em className="italic text-blush">First to wear.</em>
+              {home.newsletterTitle || 'First to know.'}{' '}
+              <em className="italic text-blush">{home.newsletterTitleEm || 'First to wear.'}</em>
             </h2>
             <p className="mt-4 max-w-md text-[15px] leading-relaxed text-bone/65">
-              New drops and restocks — straight to your inbox. No spam, ever.
+              {home.newsletterBody || 'New drops and restocks — straight to your inbox. No spam, ever.'}
             </p>
           </div>
           <form onSubmit={subscribe} className="flex w-full flex-col gap-3 sm:flex-row lg:justify-self-end lg:max-w-lg">
@@ -732,7 +741,7 @@ export default function HomePage() {
               disabled={sending}
               className="btn min-h-[3.25rem] rounded-full bg-bone px-8 text-timber-900 hover:bg-blush"
             >
-              {sending ? 'Saving…' : 'Subscribe'}
+              {sending ? 'Saving…' : home.newsletterCta || 'Subscribe'}
             </button>
           </form>
         </div>

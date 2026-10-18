@@ -76,6 +76,8 @@ model Category {
   imageUrl  String?
   /// Short line shown under the name on homepage Departments.
   statement String?
+  /// Size chart image for product pages in this subcategory.
+  sizeChartUrl String?
   sortOrder Int       @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

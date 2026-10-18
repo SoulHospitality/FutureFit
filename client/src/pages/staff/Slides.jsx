@@ -8,7 +8,7 @@ import { getImageUrl, asArray } from '../../utils/helpers';
 
 const emptyForm = { title: '', description: '', imageUrl: '' };
 
-export default function StaffSlides() {
+export default function StaffSlides({ embedded = false, onChanged } = {}) {
   const [slides, setSlides] = useState([]);
   const [cloudOk, setCloudOk] = useState(false);
   const [open, setOpen] = useState(false);
@@ -71,6 +71,7 @@ export default function StaffSlides() {
       setForm(emptyForm);
       setFileData(null);
       load();
+      onChanged?.();
     } catch (err) {
       toast.error(
         err.response?.data?.message ||
@@ -82,6 +83,7 @@ export default function StaffSlides() {
   const remove = async (id) => {
     await api.delete(`/slides/${id}`);
     load();
+    onChanged?.();
   };
 
   const onReorder = async (next) => {
@@ -92,6 +94,7 @@ export default function StaffSlides() {
         next.map((s, i) => api.put(`/slides/${s.id}`, { sortOrder: i }))
       );
       toast.success('Slide order saved');
+      onChanged?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not save slide order');
       load();
@@ -102,19 +105,28 @@ export default function StaffSlides() {
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="page-title">Slideshow</h1>
-          <p className="page-subtitle">
-            Homepage hero images via Cloudinary — drag to set order
+      <div className={`flex items-center justify-between ${embedded ? 'mb-4' : 'mb-6'}`}>
+        {!embedded ? (
+          <div>
+            <h1 className="page-title">Slideshow</h1>
+            <p className="page-subtitle">
+              Homepage hero images via Cloudinary — drag to set order
+              {!cloudOk && (
+                <span className="text-amber-600">
+                  {' '}
+                  — Cloudinary not configured; you can still paste a hosted image URL.
+                </span>
+              )}
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">
+            Homepage hero images — drag to set order
             {!cloudOk && (
-              <span className="text-amber-600">
-                {' '}
-                — Cloudinary not configured; you can still paste a hosted image URL.
-              </span>
+              <span className="text-amber-600"> — Cloudinary not configured; paste a URL instead.</span>
             )}
           </p>
-        </div>
+        )}
         <button type="button" className="btn-wheat" onClick={openCreate}>
           Add slide
         </button>

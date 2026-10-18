@@ -339,6 +339,8 @@ export default function ProductPage() {
   const productStock = totalStock(product);
   const lowStock = available > 0 && available <= 5;
   const sizeGuide = sizeGuideByType[product.type] || sizeGuideByType.default;
+  const sizeChartUrl =
+    product.category?.sizeChartUrl || product.category?.parent?.sizeChartUrl || null;
   const care = careByType[product.type] || careByType.default;
   const fitTip = fitTipByType[product.type] || fitTipByType.default;
   const liked = isSaved(product.id);
@@ -724,7 +726,16 @@ export default function ProductPage() {
                 open={openSection === 'size'}
                 onToggle={() => toggleSection('size')}
               >
-                {Array.isArray(sizeGuide[0]) && sizeGuide[0].length > 2 ? (
+                {sizeChartUrl ? (
+                  <div className="overflow-hidden rounded-xl border border-timber-100 bg-white">
+                    <img
+                      src={getImageUrl(sizeChartUrl, { width: 900 })}
+                      alt={`${typeLabel} size chart`}
+                      className="w-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
+                ) : Array.isArray(sizeGuide[0]) && sizeGuide[0].length > 2 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[280px] text-left text-xs">
                       <tbody>

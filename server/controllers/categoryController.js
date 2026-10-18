@@ -137,6 +137,9 @@ const updateCategory = async (req, res) => {
     if (req.body.statement !== undefined) {
       data.statement = req.body.statement ? String(req.body.statement).trim().slice(0, 200) : null;
     }
+    if (req.body.sizeChartUrl !== undefined) {
+      data.sizeChartUrl = req.body.sizeChartUrl ? String(req.body.sizeChartUrl).trim() : null;
+    }
 
     if (!isRoot) {
       if (req.body.parentId !== undefined) {

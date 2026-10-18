@@ -19,6 +19,7 @@ const PAGE_TITLES = {
   '/staff/deliveries': 'Deliveries',
   '/staff/problems': 'Problems',
   '/staff/users': 'Users',
+  '/staff/website': 'Website Controller',
   '/staff/slides': 'Slideshow',
   '/staff/homepage': 'Homepage',
   '/staff/shop-control': 'Shop Control',

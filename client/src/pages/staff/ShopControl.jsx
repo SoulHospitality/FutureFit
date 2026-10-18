@@ -12,7 +12,7 @@ const TABS = [
   { key: 'kids', label: 'Kids' },
 ];
 
-export default function StaffShopControl() {
+export default function StaffShopControl({ embedded = false, onChanged } = {}) {
   const [tab, setTab] = useState('all');
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +51,7 @@ export default function StaffShopControl() {
       });
       setDirty(false);
       toast.success(`${TABS.find((t) => t.key === tab)?.label || 'Shop'} order saved`);
+      onChanged?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not save order');
     } finally {
@@ -60,13 +61,19 @@ export default function StaffShopControl() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="page-title">Shop Control</h1>
-          <p className="page-subtitle">
+      <div className={`flex flex-wrap items-end justify-between gap-3 ${embedded ? 'mb-4' : 'mb-6'}`}>
+        {!embedded ? (
+          <div>
+            <h1 className="page-title">Shop Control</h1>
+            <p className="page-subtitle">
+              Drag products to set the order for All, Men, Women, and Kids on the storefront.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">
             Drag products to set the order for All, Men, Women, and Kids on the storefront.
           </p>
-        </div>
+        )}
         <button
           type="button"
           className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"

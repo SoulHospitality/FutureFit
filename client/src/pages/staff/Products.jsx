@@ -425,7 +425,7 @@ export default function StaffProducts() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/staff/shop-control" className="btn-outline">
+          <Link to="/staff/website/shop" className="btn-outline">
             <LayoutGrid className="h-4 w-4" />
             Shop Control
           </Link>

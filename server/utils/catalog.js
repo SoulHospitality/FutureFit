@@ -123,6 +123,7 @@ const serializeCategory = (c) => {
       : null,
     imageUrl: c.imageUrl || null,
     statement: c.statement || null,
+    sizeChartUrl: c.sizeChartUrl || null,
     sortOrder: c.sortOrder,
     productCount: c._count?.products ?? c.productCount ?? 0,
     childCount: c._count?.children ?? c.childCount ?? 0,

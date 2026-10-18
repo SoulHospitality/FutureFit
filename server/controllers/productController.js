@@ -152,7 +152,8 @@ const PRODUCT_SELECT = {
       slug: true,
       audience: true,
       parentId: true,
-      parent: { select: { id: true, name: true, slug: true } },
+      sizeChartUrl: true,
+      parent: { select: { id: true, name: true, slug: true, sizeChartUrl: true } },
     },
   },
   sizeStocks: {

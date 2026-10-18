@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { loadMarketingConfig, useMarketingConfig } from '../utils/marketingConfig';
+import { loadWebsiteContent } from '../utils/websiteContent';
 import { initTracking, trackPageView } from '../utils/tracking';
 import { captureAttribution } from '../utils/attribution';
 import { applyPageMeta, applyVerificationTags } from '../utils/seo';
@@ -26,6 +27,7 @@ export default function MarketingTracker() {
 
   useEffect(() => {
     loadMarketingConfig();
+    loadWebsiteContent();
   }, []);
 
   useEffect(() => {

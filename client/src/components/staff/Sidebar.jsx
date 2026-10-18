@@ -6,7 +6,6 @@ import {
   Truck,
   AlertTriangle,
   Users,
-  Images,
   Tag,
   Wallet,
   LogOut,
@@ -23,8 +22,8 @@ import {
   UserRound,
   PackageSearch,
   Settings2,
-  LayoutGrid,
   Megaphone,
+  Globe2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { canAccess } from '../../utils/permissions';
@@ -45,12 +44,10 @@ const NAV_GROUPS = [
     label: 'Catalog',
     items: [
       { path: '/staff/products', label: 'Products', icon: Package, page: 'products' },
-      { path: '/staff/shop-control', label: 'Shop Control', icon: LayoutGrid, page: 'shop-control' },
+      { path: '/staff/website', label: 'Website Controller', icon: Globe2, page: 'website' },
       { path: '/staff/inventory', label: 'Inventory', icon: PackageSearch, page: 'inventory' },
       { path: '/staff/categories', label: 'Categories', icon: Layers, page: 'categories' },
       { path: '/staff/reviews', label: 'Reviews', icon: Star, page: 'reviews' },
-      { path: '/staff/slides', label: 'Slideshow', icon: Images, page: 'slides' },
-      { path: '/staff/homepage', label: 'Homepage', icon: Store, page: 'homepage' },
     ],
   },
   {

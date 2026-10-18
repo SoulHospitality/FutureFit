@@ -18,6 +18,7 @@ const ADMIN_PAGES = [
   'slides',
   'homepage',
   'shop-control',
+  'website',
   'promotions',
   'marketing',
   'finance',

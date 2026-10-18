@@ -20,7 +20,7 @@ const SECTIONS = [
   },
 ];
 
-export default function StaffHomepage() {
+export default function StaffHomepage({ embedded = false, onChanged } = {}) {
   const [bestSellers, setBestSellers] = useState([]);
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +107,7 @@ export default function StaffHomepage() {
       setBestSellers(asArray(data?.bestSellers));
       setPacks(asArray(data?.packs));
       toast.success('Homepage updated');
+      onChanged?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Save failed');
     } finally {
@@ -116,14 +117,20 @@ export default function StaffHomepage() {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="page-title">Homepage</h1>
-          <p className="page-subtitle">
-            Choose which products appear in Best sellers and Packs &amp; bundles on the storefront.
-            Drag to set order.
+      <div className={`flex flex-wrap items-center justify-between gap-3 ${embedded ? 'mb-4' : 'mb-6'}`}>
+        {!embedded ? (
+          <div>
+            <h1 className="page-title">Homepage</h1>
+            <p className="page-subtitle">
+              Choose which products appear in Best sellers and Packs &amp; bundles on the storefront.
+              Drag to set order.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">
+            Choose which products appear in Best sellers and Packs &amp; bundles. Drag to set order.
           </p>
-        </div>
+        )}
         <button type="button" className="btn-wheat" disabled={saving || loading} onClick={save}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>

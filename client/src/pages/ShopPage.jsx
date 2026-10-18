@@ -12,6 +12,7 @@ import {
 import EmptyState from '../components/ui/EmptyState';
 import BrandLoader from '../components/ui/BrandLoader';
 import { usePageMeta } from '../utils/seo';
+import { useSiteCopy } from '../utils/websiteContent';
 
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Recommended' },
@@ -312,6 +313,8 @@ function FiltersPanel({
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams();
+  const siteCopy = useSiteCopy();
+  const shopCopy = siteCopy.wording?.shop || {};
   const { categories, tree, treeByAudience } = useCategories();
   const [allProducts, setAllProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -521,7 +524,7 @@ export default function ShopPage() {
     ? `Results for “${searchQuery}”`
     : audience
       ? audienceLabel(audience)
-      : 'The collection';
+      : shopCopy.allTitle || 'The collection';
 
   const activeDept = useMemo(() => {
     if (!audience) return null;
@@ -533,9 +536,10 @@ export default function ShopPage() {
   }, [tree, audience]);
 
   const heroStatement =
-    (searchQuery && 'Showing matches across the catalog.') ||
+    (searchQuery && (shopCopy.resultsBody || 'Showing matches across the catalog.')) ||
     activeDept?.statement ||
     DEPT_COPY[audience] ||
+    shopCopy.allBody ||
     DEPT_COPY.all;
 
   const activeFilters = useMemo(() => {
@@ -721,7 +725,7 @@ export default function ShopPage() {
             ) : products.length === 0 ? (
               <EmptyState
                 title="No pieces found"
-                subtitle="Try clearing filters or another department."
+                subtitle={shopCopy.emptyMessage || 'Try clearing filters or another department.'}
                 action={
                   <button type="button" onClick={clearFilters} className="btn-wheat btn-sm">
                     Clear filters
