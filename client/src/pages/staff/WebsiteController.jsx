@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, NavLink, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
-  Eye,
+  ArrowLeft,
   Home,
   Images,
   LayoutGrid,
@@ -10,8 +10,6 @@ import {
   Maximize2,
   Minimize2,
   Monitor,
-  PanelLeftClose,
-  PanelLeftOpen,
   Phone,
   RefreshCw,
   Ruler,
@@ -21,6 +19,8 @@ import {
   Megaphone,
   ExternalLink,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { defaultStaffPage } from '../../utils/permissions';
 import api from '../../api/axios';
 import DragSortList from '../../components/staff/DragSortList';
 import { getImageUrl, asArray } from '../../utils/helpers';
@@ -147,11 +147,11 @@ function withIds(list) {
   }));
 }
 
-/** Render storefront at real desktop/phone width, then CSS-scale to fit the pane (Shopify-style). */
-function LivePreview({ path, refreshKey, device, zoom = 'fit' }) {
+/** Storefront at real device width, CSS-scaled to fit — soft canvas, no chrome clutter. */
+function LivePreview({ path, refreshKey, device, zoom = 'fit', className = '' }) {
   const shellRef = useRef(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
-  const frameW = device === 'mobile' ? 390 : 1440;
+  const frameW = device === 'mobile' ? 390 : 1280;
   const src = `${path}${path.includes('?') ? '&' : '?'}staffPreview=1&_=${refreshKey}`;
 
   useEffect(() => {
@@ -159,21 +159,20 @@ function LivePreview({ path, refreshKey, device, zoom = 'fit' }) {
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      setBox({ w: width, h: height });
+      setBox({ w: Math.max(0, width - 32), h: Math.max(0, height - 24) });
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
-  // Fit width; keep readable floor so desktop never collapses into a postage stamp.
   const fitScale = box.w > 0 ? box.w / frameW : 1;
   const scale =
     zoom === '100'
       ? 1
       : zoom === '75'
         ? 0.75
-        : Math.min(1, Math.max(device === 'mobile' ? 0.72 : 0.45, fitScale));
-  const frameH = box.h > 0 ? Math.max(640, Math.round(box.h / scale)) : 900;
+        : Math.min(1, Math.max(device === 'mobile' ? 0.78 : 0.5, fitScale));
+  const frameH = box.h > 0 ? Math.max(720, Math.round(box.h / scale)) : 900;
 
   const pushDraft = (frame) => {
     const draft = readWebsiteDraft();
@@ -186,47 +185,38 @@ function LivePreview({ path, refreshKey, device, zoom = 'fit' }) {
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-zinc-200/80">
-      <div className="flex shrink-0 items-center gap-2 border-b border-zinc-200 bg-white px-3 py-2">
-        <div className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-          <span className="h-2.5 w-2.5 rounded-full bg-zinc-300" />
-        </div>
-        <div className="min-w-0 flex-1 truncate rounded-md bg-zinc-100 px-2.5 py-1 text-[11px] text-zinc-500">
-          {window.location.origin}
-          {path}
-        </div>
-        <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-zinc-500">
-          {Math.round(scale * 100)}% · {device === 'mobile' ? '390px' : '1440px'}
-        </span>
-      </div>
-      <div
-        ref={shellRef}
-        className="relative min-h-0 flex-1 overflow-auto"
-        style={{
-          backgroundImage:
-            'linear-gradient(45deg,#e4e4e7 25%,transparent 25%),linear-gradient(-45deg,#e4e4e7 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e4e4e7 75%),linear-gradient(-45deg,transparent 75%,#e4e4e7 75%)',
-          backgroundSize: '16px 16px',
-          backgroundPosition: '0 0,0 8px,8px -8px,-8px 0',
-        }}
-      >
+    <div ref={shellRef} className={`relative min-h-0 flex-1 overflow-hidden ${className}`}>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,255,255,0.85),transparent_55%)]" />
+      <div className="flex h-full items-start justify-center overflow-auto p-3 sm:p-4">
         {box.w > 0 ? (
           <div
-            className="mx-auto"
+            className="relative shrink-0"
             style={{
               width: frameW * scale,
-              height: Math.min(box.h, frameH * scale),
-              marginTop: device === 'mobile' ? 12 : 0,
+              height: Math.min(box.h + 8, frameH * scale),
             }}
           >
+            {device === 'mobile' ? (
+              <div
+                className="absolute inset-0 rounded-[2rem] bg-zinc-900 shadow-[0_25px_60px_-20px_rgba(9,9,11,0.45)]"
+                style={{ width: frameW * scale, height: Math.min(box.h + 8, frameH * scale) }}
+                aria-hidden
+              />
+            ) : (
+              <div
+                className="absolute inset-0 rounded-xl bg-white shadow-[0_25px_60px_-24px_rgba(9,9,11,0.35)] ring-1 ring-zinc-900/10"
+                aria-hidden
+              />
+            )}
             <iframe
               key={`${refreshKey}-${path}-${device}`}
               data-ff-preview
               title="Store preview"
               src={src}
-              className={`bg-white shadow-xl ${
-                device === 'mobile' ? 'rounded-[1.75rem] border-[6px] border-zinc-900' : 'border-0'
+              className={`relative bg-white ${
+                device === 'mobile'
+                  ? 'rounded-[1.65rem] border-[5px] border-zinc-900'
+                  : 'rounded-xl'
               }`}
               style={{
                 width: frameW,
@@ -238,7 +228,12 @@ function LivePreview({ path, refreshKey, device, zoom = 'fit' }) {
               onLoad={(e) => pushDraft(e.currentTarget)}
             />
           </div>
-        ) : null}
+        ) : (
+          <div className="grid h-full place-items-center text-sm text-zinc-400">Loading preview…</div>
+        )}
+      </div>
+      <div className="pointer-events-none absolute bottom-3 end-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-medium tabular-nums text-zinc-500 shadow-sm ring-1 ring-zinc-200 backdrop-blur">
+        {Math.round(scale * 100)}% · {device === 'mobile' ? 'Phone' : 'Desktop'}
       </div>
     </div>
   );
@@ -604,16 +599,18 @@ function ShopWordingPanel({ form, setForm, onSave, saving }) {
 
 export default function StaffWebsiteController() {
   const { pathname } = useLocation();
+  const { user } = useAuth();
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [device, setDevice] = useState('desktop');
-  const [editorOpen, setEditorOpen] = useState(true);
+  const [mobileTab, setMobileTab] = useState('edit'); // edit | preview
   const [expanded, setExpanded] = useState(false);
-  const [zoom, setZoom] = useState('fit'); // fit | 75 | 100
+  const [zoom, setZoom] = useState('fit');
   const [policyPreview, setPolicyPreview] = useState('/returns');
   const draftTimer = useRef(null);
+  const backTo = defaultStaffPage(user?.role);
 
   const activePath = pathname.replace(/^\/staff\/website\/?/, '').split('/')[0] || 'homepage';
   const section = SECTIONS.find((s) => s.path === activePath) || SECTIONS[0];
@@ -727,158 +724,225 @@ export default function StaffWebsiteController() {
     }
   })();
 
+  const ToolBtn = ({ active, onClick, children, title }) => (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      className={`inline-flex h-8 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition ${
+        active
+          ? 'bg-zinc-900 text-white'
+          : 'bg-white text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50 hover:text-zinc-900'
+      }`}
+    >
+      {children}
+    </button>
+  );
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-zinc-100">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2">
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold text-zinc-900">Website Controller</h1>
-          <p className="hidden truncate text-[11px] text-zinc-500 sm:block">{section.hint}</p>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Top bar */}
+      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200/80 bg-white px-3 sm:px-4">
+        <Link
+          to={backTo}
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-xs font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+          <span className="hidden sm:inline">Admin</span>
+        </Link>
+        <div className="h-4 w-px bg-zinc-200" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold tracking-tight text-zinc-900">Website Controller</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+
+        {/* Mobile edit / preview switch */}
+        <div className="inline-flex rounded-lg bg-zinc-100 p-0.5 md:hidden">
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              mobileTab === 'edit' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+            }`}
+            onClick={() => setMobileTab('edit')}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className={`rounded-md px-3 py-1.5 text-xs font-medium ${
+              mobileTab === 'preview' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+            }`}
+            onClick={() => setMobileTab('preview')}
+          >
+            Preview
+          </button>
+        </div>
+
+        <div className="hidden items-center gap-1.5 md:flex">
+          <div className="inline-flex rounded-lg bg-zinc-100 p-0.5">
             <button
               type="button"
-              className={`rounded-md p-1.5 ${device === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+              title="Desktop"
+              className={`grid h-7 w-8 place-items-center rounded-md ${
+                device === 'desktop' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+              }`}
               onClick={() => setDevice('desktop')}
-              aria-label="Desktop preview"
-              title="Desktop (1440px)"
+            >
+              <Monitor className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Phone"
+              className={`grid h-7 w-8 place-items-center rounded-md ${
+                device === 'mobile' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+              }`}
+              onClick={() => setDevice('mobile')}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="inline-flex rounded-lg bg-zinc-100 p-0.5 text-[11px] font-semibold">
+            {['fit', '75', '100'].map((z) => (
+              <button
+                key={z}
+                type="button"
+                className={`rounded-md px-2 py-1 ${
+                  zoom === z ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                }`}
+                onClick={() => setZoom(z)}
+              >
+                {z === 'fit' ? 'Fit' : `${z}%`}
+              </button>
+            ))}
+          </div>
+          <ToolBtn onClick={bumpPreview} title="Refresh preview">
+            <RefreshCw className="h-3.5 w-3.5" />
+          </ToolBtn>
+          <ToolBtn onClick={() => setExpanded(true)} title="Fullscreen preview">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </ToolBtn>
+          <Link
+            to={previewPath}
+            target="_blank"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-50"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Store
+          </Link>
+        </div>
+      </header>
+
+      <div className="flex min-h-0 flex-1">
+        {/* Section rail + editor */}
+        <div
+          className={`${
+            mobileTab === 'edit' ? 'flex' : 'hidden'
+          } w-full min-h-0 shrink-0 flex-col border-r border-zinc-200/80 bg-white md:flex md:w-[420px] xl:w-[440px]`}
+        >
+          <div className="flex min-h-0 flex-1">
+            <nav className="flex w-14 shrink-0 flex-col gap-0.5 border-r border-zinc-100 bg-zinc-50/80 py-2 sm:w-[200px] sm:px-2">
+              {SECTIONS.map((s) => (
+                <NavLink
+                  key={s.path}
+                  to={`/staff/website/${s.path}`}
+                  title={s.label}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-[13px] font-medium transition ${
+                      isActive
+                        ? 'bg-zinc-900 text-white shadow-sm'
+                        : 'text-zinc-600 hover:bg-white hover:text-zinc-900'
+                    }`
+                  }
+                >
+                  <s.icon className="mx-auto h-4 w-4 shrink-0 sm:mx-0" strokeWidth={1.75} />
+                  <span className="hidden truncate sm:inline">{s.label}</span>
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+              <div className="sticky top-0 z-10 border-b border-zinc-100 bg-white/95 px-4 py-3 backdrop-blur">
+                <p className="text-sm font-semibold text-zinc-900">{section.label}</p>
+                <p className="mt-0.5 text-[12px] leading-snug text-zinc-500">{section.hint}</p>
+              </div>
+              <div className="p-4">{panel}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview stage */}
+        <div
+          className={`${
+            mobileTab === 'preview' ? 'flex' : 'hidden'
+          } min-h-0 min-w-0 flex-1 flex-col md:flex`}
+        >
+          {!expanded ? (
+            <LivePreview
+              path={previewPath}
+              refreshKey={previewKey}
+              device={device}
+              zoom={zoom}
+              className="bg-[#e8e8ea]"
+            />
+          ) : null}
+
+          {/* Mobile preview toolbar */}
+          <div className="flex items-center justify-center gap-2 border-t border-zinc-200 bg-white px-3 py-2 md:hidden">
+            <button
+              type="button"
+              className={`grid h-9 w-9 place-items-center rounded-lg ${
+                device === 'desktop' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600'
+              }`}
+              onClick={() => setDevice('desktop')}
             >
               <Monitor className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className={`rounded-md p-1.5 ${device === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+              className={`grid h-9 w-9 place-items-center rounded-lg ${
+                device === 'mobile' ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600'
+              }`}
               onClick={() => setDevice('mobile')}
-              aria-label="Phone preview"
-              title="Phone (390px)"
             >
               <Smartphone className="h-4 w-4" />
             </button>
+            <button
+              type="button"
+              className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-100 text-zinc-600"
+              onClick={bumpPreview}
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="grid h-9 w-9 place-items-center rounded-lg bg-zinc-100 text-zinc-600"
+              onClick={() => setExpanded(true)}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
           </div>
-          <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 text-[11px] font-medium">
-            {[
-              { id: 'fit', label: 'Fit' },
-              { id: '75', label: '75%' },
-              { id: '100', label: '100%' },
-            ].map((z) => (
-              <button
-                key={z.id}
-                type="button"
-                className={`rounded-md px-2 py-1 ${zoom === z.id ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'}`}
-                onClick={() => setZoom(z.id)}
-              >
-                {z.label}
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-            onClick={bumpPreview}
-            title="Refresh preview"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-            onClick={() => setEditorOpen((v) => !v)}
-            title={editorOpen ? 'Hide editor' : 'Show editor'}
-          >
-            {editorOpen ? <PanelLeftClose className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{editorOpen ? 'Hide editor' : 'Editor'}</span>
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-            onClick={() => setExpanded(true)}
-            title="Expand preview"
-          >
-            <Maximize2 className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Expand</span>
-          </button>
-          <Link
-            to={previewPath}
-            target="_blank"
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Open</span>
-          </Link>
         </div>
       </div>
-
-      <div className="flex min-h-0 flex-1">
-        <div
-          className={`flex min-h-0 shrink-0 flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 ${
-            editorOpen ? 'w-full max-w-full sm:w-[380px] lg:w-[400px]' : 'w-0 overflow-hidden border-r-0'
-          }`}
-        >
-          {editorOpen ? (
-            <>
-              <aside className="shrink-0 border-b border-zinc-100">
-                <nav className="flex gap-0.5 overflow-x-auto p-1.5 lg:flex-col lg:overflow-visible">
-                  {SECTIONS.map((s) => (
-                    <NavLink
-                      key={s.path}
-                      to={`/staff/website/${s.path}`}
-                      className={({ isActive }) =>
-                        `flex items-center gap-2 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-medium transition ${
-                          isActive ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-50'
-                        }`
-                      }
-                    >
-                      <s.icon className="h-3.5 w-3.5 shrink-0 opacity-80" strokeWidth={1.75} />
-                      {s.label}
-                    </NavLink>
-                  ))}
-                </nav>
-              </aside>
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-                <p className="mb-3 text-[11px] text-zinc-500 lg:hidden">{section.hint}</p>
-                {panel}
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        {!expanded ? (
-          <div className={`min-h-0 min-w-0 flex-1 flex-col ${editorOpen ? 'hidden sm:flex' : 'flex'}`}>
-            <LivePreview path={previewPath} refreshKey={previewKey} device={device} zoom={zoom} />
-          </div>
-        ) : (
-          <div className="hidden min-h-0 min-w-0 flex-1 sm:block" />
-        )}
-      </div>
-
-      {editorOpen ? (
-        <button
-          type="button"
-          className="fixed bottom-4 end-4 z-40 inline-flex items-center gap-2 rounded-full bg-zinc-900 px-4 py-3 text-sm font-medium text-white shadow-lg sm:hidden"
-          onClick={() => setExpanded(true)}
-        >
-          <Eye className="h-4 w-4" />
-          Preview store
-        </button>
-      ) : null}
 
       {expanded ? (
-        <div className="fixed inset-0 z-[90] flex flex-col bg-white">
-          <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-3 py-2">
-            <p className="text-sm font-semibold text-zinc-900">Live preview</p>
+        <div className="fixed inset-0 z-[90] flex flex-col bg-[#e8e8ea]">
+          <div className="flex h-12 items-center justify-between gap-2 border-b border-zinc-200 bg-white px-4">
+            <p className="text-sm font-semibold text-zinc-900">Preview</p>
             <div className="flex items-center gap-1.5">
-              <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5">
+              <div className="inline-flex rounded-lg bg-zinc-100 p-0.5">
                 <button
                   type="button"
-                  className={`rounded-md p-1.5 ${device === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+                  className={`grid h-8 w-9 place-items-center rounded-md ${
+                    device === 'desktop' ? 'bg-white shadow-sm' : 'text-zinc-500'
+                  }`}
                   onClick={() => setDevice('desktop')}
                 >
                   <Monitor className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
-                  className={`rounded-md p-1.5 ${device === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-500'}`}
+                  className={`grid h-8 w-9 place-items-center rounded-md ${
+                    device === 'mobile' ? 'bg-white shadow-sm' : 'text-zinc-500'
+                  }`}
                   onClick={() => setDevice('mobile')}
                 >
                   <Smartphone className="h-4 w-4" />
@@ -886,15 +950,7 @@ export default function StaffWebsiteController() {
               </div>
               <button
                 type="button"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-                onClick={bumpPreview}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Refresh
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-zinc-900 px-3 text-xs font-medium text-white"
                 onClick={() => setExpanded(false)}
               >
                 <Minimize2 className="h-3.5 w-3.5" />
@@ -902,9 +958,13 @@ export default function StaffWebsiteController() {
               </button>
             </div>
           </div>
-          <div className="min-h-0 flex-1">
-            <LivePreview path={previewPath} refreshKey={previewKey} device={device} zoom="fit" />
-          </div>
+          <LivePreview
+            path={previewPath}
+            refreshKey={previewKey}
+            device={device}
+            zoom="fit"
+            className="bg-[#e8e8ea]"
+          />
         </div>
       ) : null}
     </div>

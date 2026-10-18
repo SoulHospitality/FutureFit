@@ -48,37 +48,11 @@ export default function StaffLayout({ children, page }) {
       .find(([path]) => pathname.startsWith(path))?.[1] ||
     'Staff';
 
-  // Website Controller needs a full-bleed customizer canvas (no padded main / no chrome).
-  const isWebsiteCustomizer = pathname.startsWith('/staff/website');
-
-  if (isWebsiteCustomizer) {
+  // Immersive customizer — no staff sidebar/header so the canvas can breathe.
+  if (pathname.startsWith('/staff/website')) {
     return (
-      <div className="staff-shell h-[100dvh] overflow-hidden bg-zinc-100">
-        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
-        <div className="flex h-full flex-col lg:ml-64">
-          <header className="flex h-11 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-3 sm:px-4">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                className="grid h-8 w-8 place-items-center rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 lg:hidden"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open menu"
-              >
-                <Menu className="h-4 w-4" strokeWidth={1.5} />
-              </button>
-              <p className="text-xs font-semibold text-zinc-900">{title}</p>
-            </div>
-            <Link
-              to="/"
-              target="_blank"
-              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
-            >
-              <Store className="h-3.5 w-3.5" strokeWidth={1.5} />
-              <span className="hidden sm:inline">View store</span>
-            </Link>
-          </header>
-          <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
-        </div>
+      <div className="staff-shell h-[100dvh] overflow-hidden bg-[#ececee]">
+        <main className="h-full min-h-0">{children}</main>
       </div>
     );
   }
