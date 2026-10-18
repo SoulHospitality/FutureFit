@@ -17,7 +17,7 @@ const emptyCategory = {
 
 const emptySub = { name: '', slug: '', parentId: '', sortOrder: 0 };
 
-const SYSTEM_ROOTS = new Set(['men', 'women', 'kids']);
+const SYSTEM_ROOTS = new Set(['men', 'women', 'boys', 'girls', 'baby']);
 
 export default function StaffCategories() {
   const [categories, setCategories] = useState([]);
@@ -191,7 +191,7 @@ export default function StaffCategories() {
         <div>
           <h1 className="page-title">Categories</h1>
           <p className="page-subtitle">
-            Add top-level categories (Men, Women, Kids, or custom) and nest subcategories under
+            Add top-level categories (Men, Women, Boys, Girls, Baby, or custom) and nest subcategories under
             them.
           </p>
         </div>
@@ -397,7 +397,7 @@ export default function StaffCategories() {
                   ))}
                 </select>
                 <p className="mt-1 text-[11px] text-timber-400">
-                  Used for product filtering. For Men / Women / Kids, name the category to match
+                  Used for product filtering. For Men / Women / Boys / Girls / Baby, name the category to match
                   (or use those exact names).
                 </p>
               </div>

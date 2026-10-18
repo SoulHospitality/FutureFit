@@ -12,7 +12,12 @@ const XLSX = require('xlsx');
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { resolvePhotoLinks } = require('../utils/drivePhotos');
-const { ensureDefaultCategories, typeFromCategory } = require('../utils/catalog');
+const {
+  ensureDefaultCategories,
+  typeFromCategory,
+  normalizeAudience,
+  normalizeCategorySlug,
+} = require('../utils/catalog');
 const { cleanItemCode } = require('../utils/itemCode');
 const {
   variantWrites,
@@ -142,19 +147,16 @@ async function main() {
       }
 
       const firstChild = children[0];
-      const audience = String(
-        parentRow.audience || firstChild.audience || 'men'
-      )
-        .trim()
-        .toLowerCase();
-      const categorySlug = String(
+      const audience =
+        normalizeAudience(parentRow.audience || firstChild.audience || 'men') || 'men';
+      const categorySlug = normalizeCategorySlug(
         parentRow.category || firstChild.category || ''
-      )
-        .trim()
-        .toLowerCase();
+      );
       const category = bySlugAudience[`${audience}:${categorySlug}`];
       if (!category || !category.parentId) {
-        throw new Error(`Unknown category "${categorySlug}" for ${audience}`);
+        throw new Error(
+          `Unknown category "${categorySlug}" for ${audience} (sheet: ${parentRow.audience}/${parentRow.category})`
+        );
       }
 
       const variants = [];
@@ -232,6 +234,14 @@ async function main() {
       const photoByColor = photoByColorFromVariants(variants);
       const stock = variants.reduce((n, v) => n + v.stock, 0);
 
+      const AUDIENCE_SORT = {
+        men: 'shopSortMen',
+        women: 'shopSortWomen',
+        boys: 'shopSortBoys',
+        girls: 'shopSortGirls',
+        baby: 'shopSortBaby',
+      };
+      const audField = AUDIENCE_SORT[audience] || 'shopSortMen';
       const [maxAll, maxAud] = await Promise.all([
         prisma.product.aggregate({ _max: { shopSortAll: true } }),
         prisma.product.aggregate({
@@ -239,16 +249,13 @@ async function main() {
           _max: {
             shopSortMen: true,
             shopSortWomen: true,
-            shopSortKids: true,
+            shopSortBoys: true,
+            shopSortGirls: true,
+            shopSortBaby: true,
           },
         }),
       ]);
-      const audField =
-        audience === 'women'
-          ? 'shopSortWomen'
-          : audience === 'kids'
-            ? 'shopSortKids'
-            : 'shopSortMen';
+      const nextAud = (maxAud._max[audField] ?? -1) + 1;
 
       await prisma.product.create({
         data: {
@@ -269,10 +276,11 @@ async function main() {
           isSaleActive: isSale && salePrice != null,
           salePrice: isSale ? salePrice : null,
           shopSortAll: (maxAll._max.shopSortAll ?? -1) + 1,
-          shopSortMen: audience === 'men' ? (maxAud._max.shopSortMen ?? -1) + 1 : 0,
-          shopSortWomen:
-            audience === 'women' ? (maxAud._max.shopSortWomen ?? -1) + 1 : 0,
-          shopSortKids: audience === 'kids' ? (maxAud._max.shopSortKids ?? -1) + 1 : 0,
+          shopSortMen: audience === 'men' ? nextAud : 0,
+          shopSortWomen: audience === 'women' ? nextAud : 0,
+          shopSortBoys: audience === 'boys' ? nextAud : 0,
+          shopSortGirls: audience === 'girls' ? nextAud : 0,
+          shopSortBaby: audience === 'baby' ? nextAud : 0,
           variants: { create: variantWrites(variants) },
         },
       });

@@ -142,7 +142,9 @@ const PRODUCT_SELECT = {
   shopSortAll: true,
   shopSortMen: true,
   shopSortWomen: true,
-  shopSortKids: true,
+  shopSortBoys: true,
+  shopSortGirls: true,
+  shopSortBaby: true,
   createdAt: true,
   updatedAt: true,
   category: {
@@ -325,6 +327,14 @@ const buildProductCreateData = async (body) => {
   const status =
     String(body.status || 'active').toLowerCase() === 'draft' ? 'draft' : 'active';
 
+  const AUDIENCE_SORT = {
+    men: 'shopSortMen',
+    women: 'shopSortWomen',
+    boys: 'shopSortBoys',
+    girls: 'shopSortGirls',
+    baby: 'shopSortBaby',
+  };
+  const audienceField = AUDIENCE_SORT[audience] || 'shopSortMen';
   const [maxAll, maxAudience] = await Promise.all([
     prisma.product.aggregate({ _max: { shopSortAll: true } }),
     prisma.product.aggregate({
@@ -332,17 +342,13 @@ const buildProductCreateData = async (body) => {
       _max: {
         shopSortMen: true,
         shopSortWomen: true,
-        shopSortKids: true,
+        shopSortBoys: true,
+        shopSortGirls: true,
+        shopSortBaby: true,
       },
     }),
   ]);
   const nextAll = (maxAll._max.shopSortAll ?? -1) + 1;
-  const audienceField =
-    audience === 'women'
-      ? 'shopSortWomen'
-      : audience === 'kids'
-        ? 'shopSortKids'
-        : 'shopSortMen';
   const nextAudience = (maxAudience._max[audienceField] ?? -1) + 1;
 
   const stockRows = variantRows.length ? variantRows : sizeRows;
@@ -368,7 +374,9 @@ const buildProductCreateData = async (body) => {
     shopSortAll: nextAll,
     shopSortMen: audience === 'men' ? nextAudience : 0,
     shopSortWomen: audience === 'women' ? nextAudience : 0,
-    shopSortKids: audience === 'kids' ? nextAudience : 0,
+    shopSortBoys: audience === 'boys' ? nextAudience : 0,
+    shopSortGirls: audience === 'girls' ? nextAudience : 0,
+    shopSortBaby: audience === 'baby' ? nextAudience : 0,
     ...(variantRows.length
       ? { variants: { create: variantWrites(variantRows) } }
       : { sizeStocks: { create: sizeStockWrites(sizeRows) } }),
@@ -418,13 +426,13 @@ const listProducts = async (req, res) => {
         ];
       }
       const sortField =
-        audience === 'men'
-          ? 'shopSortMen'
-          : audience === 'women'
-            ? 'shopSortWomen'
-            : audience === 'kids'
-              ? 'shopSortKids'
-              : 'shopSortAll';
+        {
+          men: 'shopSortMen',
+          women: 'shopSortWomen',
+          boys: 'shopSortBoys',
+          girls: 'shopSortGirls',
+          baby: 'shopSortBaby',
+        }[audience] || 'shopSortAll';
       const rows = await prisma.product.findMany({
         where,
         select: PRODUCT_SELECT,

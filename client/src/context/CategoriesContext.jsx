@@ -27,7 +27,7 @@ export function buildCategoryTree(categories = []) {
   }));
 }
 
-/** Subcategories for a department (Men / Women / Kids). When audience is null, unique by slug. */
+/** Subcategories for a department (Men / Women / Boys / Girls / Baby). When audience is null, unique by slug. */
 export function subcategoriesForAudience(treeByAudience, audience) {
   if (!audience) {
     const seen = new Set();
@@ -83,7 +83,7 @@ export function CategoriesProvider({ children }) {
 
   const tree = useMemo(() => buildCategoryTree(categories), [categories]);
   const treeByAudience = useMemo(() => {
-    const map = { men: [], women: [], kids: [] };
+    const map = { men: [], women: [], boys: [], girls: [], baby: [] };
     for (const node of tree) {
       if (map[node.audience]) map[node.audience].push(node);
     }

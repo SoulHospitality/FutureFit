@@ -76,11 +76,11 @@ const createCategory = async (req, res) => {
     }
     if (!AUDIENCES.includes(audience)) {
       return res.status(400).json({
-        message: 'Pick an audience for this category (Men, Women, or Kids)',
+        message: 'Pick an audience for this category (Men, Women, Boys, Girls, or Baby)',
       });
     }
 
-    // Men / Women / Kids: only one root each
+    // Men / Women / Boys / Girls / Baby: only one root each
     if (AUDIENCES.includes(slug)) {
       const existingRoot = await prisma.category.findFirst({
         where: { audience, parentId: null, slug },
@@ -162,14 +162,16 @@ const updateCategory = async (req, res) => {
         data.slug = slug;
       }
     } else {
-      // Keep men/women/kids slugs locked; allow custom root slugs to change
+      // Keep system department slugs locked; allow custom root slugs to change
       if (AUDIENCES.includes(existing.slug)) {
         data.slug = existing.slug;
       } else if (req.body.slug !== undefined || req.body.name !== undefined) {
         const slug = slugify(req.body.slug || req.body.name || data.name || existing.name);
         if (!slug) return res.status(400).json({ message: 'A valid slug is required' });
         if (AUDIENCES.includes(slug)) {
-          return res.status(400).json({ message: 'That slug is reserved for Men, Women, or Kids' });
+          return res.status(400).json({
+            message: 'That slug is reserved for Men, Women, Boys, Girls, or Baby',
+          });
         }
         data.slug = slug;
       }
@@ -206,7 +208,8 @@ const deleteCategory = async (req, res) => {
     const isRoot = isRootCategory(row);
     if (isRoot && AUDIENCES.includes(row.slug)) {
       return res.status(400).json({
-        message: 'Men, Women, and Kids cannot be deleted — remove their subcategories instead',
+        message:
+          'Men, Women, Boys, Girls, and Baby cannot be deleted — remove their subcategories instead',
       });
     }
 

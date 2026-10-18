@@ -31,7 +31,7 @@ const defaults = () => ({
     siteTitle: 'FutureFit — Setting Trends With Every Stitch',
     titleSuffix: ' | FutureFit',
     metaDescription:
-      'FutureFit — Setting trends with every stitch. Premium underwear and everyday essentials for men, women and kids, made in Egypt. Cash on delivery nationwide.',
+      'FutureFit — Setting trends with every stitch. Premium underwear and everyday essentials for men, women, boys, girls and baby, made in Egypt. Cash on delivery nationwide.',
     ogImage: '',
     allowIndexing: true,
     googleVerification: '',

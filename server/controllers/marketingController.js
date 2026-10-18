@@ -9,7 +9,7 @@ const {
   siteUrlFrom,
 } = require('../utils/marketing');
 
-const AUDIENCES = ['men', 'women', 'kids'];
+const AUDIENCES = ['men', 'women', 'boys', 'girls', 'baby'];
 
 const xml = (value) =>
   String(value ?? '')
@@ -278,7 +278,14 @@ const plain = (text, max = 4900) =>
     .trim()
     .slice(0, max);
 
-const GENDER = { men: 'male', women: 'female', kids: 'unisex' };
+const GENDER = {
+  men: 'male',
+  women: 'female',
+  boys: 'male',
+  girls: 'female',
+  baby: 'unisex',
+};
+const CHILD_AUDIENCES = new Set(['boys', 'girls', 'baby']);
 
 const productFeed = async (_req, res) => {
   try {
@@ -320,7 +327,7 @@ const productFeed = async (_req, res) => {
             '      <g:google_product_category>213</g:google_product_category>',
             type ? `      <g:product_type>${xml(type)}</g:product_type>` : null,
             `      <g:gender>${GENDER[p.audience] || 'unisex'}</g:gender>`,
-            `      <g:age_group>${p.audience === 'kids' ? 'kids' : 'adult'}</g:age_group>`,
+            `      <g:age_group>${CHILD_AUDIENCES.has(p.audience) ? 'kids' : 'adult'}</g:age_group>`,
             p.colors?.length ? `      <g:color>${xml(p.colors.slice(0, 3).join('/'))}</g:color>` : null,
             '    </item>',
           ]

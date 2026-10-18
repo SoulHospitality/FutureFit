@@ -38,7 +38,9 @@ const DESTINATIONS = [
   { label: 'Shop all', path: '/shop' },
   { label: 'Men', path: '/shop?audience=men' },
   { label: 'Women', path: '/shop?audience=women' },
-  { label: 'Kids', path: '/shop?audience=kids' },
+  { label: 'Boys', path: '/shop?audience=boys' },
+  { label: 'Girls', path: '/shop?audience=girls' },
+  { label: 'Baby', path: '/shop?audience=baby' },
 ];
 
 let rowId = 0;

@@ -26,7 +26,9 @@ enum ProductType {
 enum Audience {
   men
   women
-  kids
+  boys
+  girls
+  baby
 }
 
 enum ProductStatus {
@@ -117,13 +119,15 @@ model Product {
   /// Units sold at the sale price since the sale was last switched on.
   saleQtySold  Int           @default(0)
   /// Manual merchandising order for the All shop collection.
-  shopSortAll  Int           @default(0)
-  /// Manual merchandising order within Men / Women / Kids.
-  shopSortMen  Int           @default(0)
-  shopSortWomen Int          @default(0)
-  shopSortKids Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  shopSortAll   Int           @default(0)
+  /// Manual merchandising order within each department.
+  shopSortMen   Int           @default(0)
+  shopSortWomen Int           @default(0)
+  shopSortBoys  Int           @default(0)
+  shopSortGirls Int           @default(0)
+  shopSortBaby  Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   category   Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   /// Color + size children. The storefront shows this parent and picks among variants.
@@ -140,7 +144,9 @@ model Product {
   @@index([shopSortAll])
   @@index([shopSortMen])
   @@index([shopSortWomen])
-  @@index([shopSortKids])
+  @@index([shopSortBoys])
+  @@index([shopSortGirls])
+  @@index([shopSortBaby])
 }
 
 /// One sellable child of a parent product (unique item ID + color + size).

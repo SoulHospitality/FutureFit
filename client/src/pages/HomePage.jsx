@@ -38,7 +38,9 @@ import { useSiteCopy } from '../utils/websiteContent';
 const FALLBACK_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
   women: 'Pieces cut for ease, presence, and all-day wear.',
-  kids: 'Soft staples sized for growing days.',
+  boys: 'Soft staples sized for growing days.',
+  girls: 'Soft staples sized for growing days.',
+  baby: 'Gentle essentials for the littlest ones.',
 };
 
 const SLIDE_MS = 6500;
@@ -510,12 +512,12 @@ export default function HomePage() {
             link="/shop"
             linkLabel={home.departmentsLinkLabel || 'Shop all'}
           />
-          <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-6 sm:overflow-visible sm:px-0">
+          <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-3 lg:grid-cols-5 sm:gap-6 sm:overflow-visible sm:px-0">
             {departments.map((dept, i) => {
               const key = dept.audience || dept.slug;
               const photo = dept.imageUrl || fallbackPhotos[key] || DEPT_IMAGES[key] || null;
               const statement = dept.statement || FALLBACK_COPY[key] || '';
-              const href = ['men', 'women', 'kids'].includes(dept.slug)
+              const href = ['men', 'women', 'boys', 'girls', 'baby'].includes(dept.slug)
                 ? `/shop?audience=${dept.slug}`
                 : `/shop?category=${dept.slug}`;
               return (

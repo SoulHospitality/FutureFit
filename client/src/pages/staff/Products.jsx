@@ -768,7 +768,7 @@ export default function StaffProducts() {
                     (c) =>
                       c.audience === form.audience &&
                       c.parentId &&
-                      !['men', 'women', 'kids'].includes(c.slug)
+                      !['men', 'women', 'boys', 'girls', 'baby'].includes(c.slug)
                   )
                   .map((c) => (
                     <option key={c.id} value={c.id}>

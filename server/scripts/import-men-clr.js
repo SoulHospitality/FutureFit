@@ -181,7 +181,9 @@ async function main() {
           shopSortAll: (maxAll._max.shopSortAll ?? -1) + 1,
           shopSortMen: (maxMen._max.shopSortMen ?? -1) + 1,
           shopSortWomen: 0,
-          shopSortKids: 0,
+          shopSortBoys: 0,
+          shopSortGirls: 0,
+          shopSortBaby: 0,
           sizeStocks: { create: sizeStockWrites(sizeStocks) },
         },
       });

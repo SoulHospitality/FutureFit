@@ -31,7 +31,9 @@ const PRICE_PRESETS = [
 const DEPT_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
   women: 'Pieces cut for ease, presence, and all-day wear.',
-  kids: 'Soft staples sized for growing days.',
+  boys: 'Soft staples sized for growing days.',
+  girls: 'Soft staples sized for growing days.',
+  baby: 'Gentle essentials for the littlest ones.',
   all: 'Classic cuts and refined staples — browse by department, colour, and size.',
 };
 
@@ -487,13 +489,13 @@ export default function ShopPage() {
     } else {
       // recommended — honor Shop Control order from the API (already sorted); keep stable
       const field =
-        audience === 'men'
-          ? 'shopSortMen'
-          : audience === 'women'
-            ? 'shopSortWomen'
-            : audience === 'kids'
-              ? 'shopSortKids'
-              : 'shopSortAll';
+        {
+          men: 'shopSortMen',
+          women: 'shopSortWomen',
+          boys: 'shopSortBoys',
+          girls: 'shopSortGirls',
+          baby: 'shopSortBaby',
+        }[audience] || 'shopSortAll';
       list.sort((a, b) => (Number(a[field] ?? 0) - Number(b[field] ?? 0)));
     }
     return list;

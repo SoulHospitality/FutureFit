@@ -31,7 +31,9 @@ import { useMarketingConfig } from '../../utils/marketingConfig';
 const DEPT_COPY = {
   men: 'Underwear, undershirts and the everyday essentials.',
   women: 'Pieces cut for ease, presence and all-day wear.',
-  kids: 'Soft staples sized for growing days.',
+  boys: 'Soft staples sized for growing days.',
+  girls: 'Soft staples sized for growing days.',
+  baby: 'Gentle essentials for the littlest ones.',
 };
 
 const DEFAULT_ANNOUNCEMENTS = [

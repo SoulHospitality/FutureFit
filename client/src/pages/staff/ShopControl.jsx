@@ -9,7 +9,9 @@ const TABS = [
   { key: 'all', label: 'All' },
   { key: 'men', label: 'Men' },
   { key: 'women', label: 'Women' },
-  { key: 'kids', label: 'Kids' },
+  { key: 'boys', label: 'Boys' },
+  { key: 'girls', label: 'Girls' },
+  { key: 'baby', label: 'Baby' },
 ];
 
 export default function StaffShopControl({ embedded = false, onChanged } = {}) {
@@ -66,12 +68,12 @@ export default function StaffShopControl({ embedded = false, onChanged } = {}) {
           <div>
             <h1 className="page-title">Shop Control</h1>
             <p className="page-subtitle">
-              Drag products to set the order for All, Men, Women, and Kids on the storefront.
+              Drag products to set the order for All, Men, Women, Boys, Girls, and Baby on the storefront.
             </p>
           </div>
         ) : (
           <p className="text-sm text-zinc-500">
-            Drag products to set the order for All, Men, Women, and Kids on the storefront.
+            Drag products to set the order for All, Men, Women, Boys, Girls, and Baby on the storefront.
           </p>
         )}
         <button

@@ -3,40 +3,33 @@
  * Prefer Type + Product Category leaf + Title. Ignore marketing tags for subcategory.
  */
 
-const AUDIENCES = ['men', 'women', 'kids'];
+const AUDIENCES = ['men', 'women', 'boys', 'girls', 'baby'];
+
+const CHILD_AUDIENCES = new Set(['boys', 'girls', 'baby']);
 
 const mapAudience = (tags, title, type, productCategory) => {
   const tagsL = String(tags || '').toLowerCase();
   const titleL = String(title || '').toLowerCase();
   const typeL = String(type || '').toLowerCase();
   const catL = String(productCategory || '').toLowerCase();
+  const hay = `${tagsL} ${titleL} ${typeL} ${catL}`;
 
-  // Explicit tag signals
-  if (
-    /\bbaby\b/.test(tagsL) ||
-    /\bbaby underwear\b/.test(tagsL) ||
-    /\bgirls?\b/.test(tagsL) ||
-    /\bboys?\b/.test(tagsL)
-  ) {
-    return 'kids';
+  if (/\bbaby\b/.test(hay) || /\binfant\b/.test(hay) || /\bnewborn\b/.test(hay) || /\btoddler\b/.test(hay)) {
+    return 'baby';
   }
+  if (/\bgirls?\b/.test(hay) || /girl'?s underwear/.test(hay) || /\bpant(y|ies)\b/.test(typeL)) {
+    // Panties alone aren't enough for women vs girls — prefer girls when kids signals present
+    if (/\bkids?\b/.test(hay) || /\bgirls?\b/.test(hay) || /girl'?s underwear/.test(hay)) {
+      return 'girls';
+    }
+  }
+  if (/\bboys?\b/.test(hay) || /\bunisex kid/.test(hay) || /\bkids?\b/.test(hay)) {
+    if (/\bgirls?\b/.test(hay)) return 'girls';
+    return 'boys';
+  }
+
   if (/\bwomen\b/.test(tagsL) || /\bwoman\b/.test(tagsL)) return 'women';
   if (/\bmen\b/.test(tagsL) && !/\bwomen\b/.test(tagsL)) return 'men';
-
-  // Type / category / title
-  if (
-    /\bbaby\b/.test(typeL) ||
-    /\bbaby\b/.test(catL) ||
-    /\btoddler\b/.test(catL) ||
-    /\bgirls?'?\s*underwear\b/.test(catL) ||
-    /\bbaby\b/.test(titleL) ||
-    /\bkids?\b/.test(titleL) ||
-    /\bfor boys?\b/.test(titleL) ||
-    /\bfor girls?\b/.test(titleL) ||
-    /unisex kid/.test(titleL)
-  ) {
-    return 'kids';
-  }
 
   if (
     /\bwomen\b/.test(typeL) ||
@@ -84,12 +77,13 @@ const mapType = (shopifyType, title, tags, productCategory) => {
   return 'boxers';
 };
 
-/** Subcategory slug under Men / Women / Kids. */
+/** Subcategory slug under Men / Women / Boys / Girls / Baby. */
 const mapCategorySlug = (productCategory, shopifyType, title, tags, audience) => {
   const type = String(shopifyType || '').toLowerCase().trim();
   const titleL = String(title || '').toLowerCase();
   const cat = String(productCategory || '');
   const leaf = cat.split('>').pop().trim().toLowerCase();
+  const isChild = CHILD_AUDIENCES.has(audience);
 
   // --- 0) Strong title signals (beat empty/wrong Type) ---
   if (/hoodie/i.test(titleL)) return 'hoodies';
@@ -116,8 +110,8 @@ const mapCategorySlug = (productCategory, shopifyType, title, tags, audience) =>
   if (/thermal/.test(type)) return audience === 'women' ? 'leggings' : 'pants';
   if (/short/.test(type)) return 'denim-shorts';
   if (/underwear set/.test(type)) {
-    // Girls sets are tops + shorts — file under T-Shirts for kids
-    return audience === 'kids' ? 't-shirts' : 'womens-undershirts';
+    // Girls/baby sets are tops + shorts — file under T-Shirts for child depts
+    return isChild ? 't-shirts' : 'womens-undershirts';
   }
   if (/baby underwear|girl'?s underwear/.test(type)) {
     if (/spaghetti|strap top|set\s*\(|sleeve|undershirt|t-?shirt/.test(titleL)) {
@@ -129,7 +123,7 @@ const mapCategorySlug = (productCategory, shopifyType, title, tags, audience) =>
     if (/boxer/.test(titleL)) return 'boxers';
     if (/undershirt|t-?shirt/.test(titleL)) return 't-shirts';
     if (/sock/.test(titleL)) return 'socks';
-    return audience === 'kids' ? 'undershorts' : 'boxers';
+    return isChild ? 'undershorts' : 'boxers';
   }
 
   // --- 2) Product Category leaf ---
@@ -186,7 +180,7 @@ const mapCategorySlug = (productCategory, shopifyType, title, tags, audience) =>
 
   // --- 4) Audience defaults ---
   if (audience === 'women') return 'womens-undershirts';
-  if (audience === 'kids') return 'undershorts';
+  if (isChild) return 'undershorts';
   return 'boxers';
 };
 

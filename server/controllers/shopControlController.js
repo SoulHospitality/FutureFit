@@ -5,7 +5,9 @@ const COLLECTIONS = {
   all: { field: 'shopSortAll', audience: null, label: 'All' },
   men: { field: 'shopSortMen', audience: 'men', label: 'Men' },
   women: { field: 'shopSortWomen', audience: 'women', label: 'Women' },
-  kids: { field: 'shopSortKids', audience: 'kids', label: 'Kids' },
+  boys: { field: 'shopSortBoys', audience: 'boys', label: 'Boys' },
+  girls: { field: 'shopSortGirls', audience: 'girls', label: 'Girls' },
+  baby: { field: 'shopSortBaby', audience: 'baby', label: 'Baby' },
 };
 
 const serializeLite = (p) => ({
@@ -21,7 +23,9 @@ const serializeLite = (p) => ({
   shopSortAll: p.shopSortAll ?? 0,
   shopSortMen: p.shopSortMen ?? 0,
   shopSortWomen: p.shopSortWomen ?? 0,
-  shopSortKids: p.shopSortKids ?? 0,
+  shopSortBoys: p.shopSortBoys ?? 0,
+  shopSortGirls: p.shopSortGirls ?? 0,
+  shopSortBaby: p.shopSortBaby ?? 0,
 });
 
 const getShopOrder = async (req, res) => {
@@ -50,7 +54,9 @@ const getShopOrder = async (req, res) => {
         shopSortAll: true,
         shopSortMen: true,
         shopSortWomen: true,
-        shopSortKids: true,
+        shopSortBoys: true,
+        shopSortGirls: true,
+        shopSortBaby: true,
         createdAt: true,
       },
       orderBy: [{ [meta.field]: 'asc' }, { createdAt: 'desc' }],

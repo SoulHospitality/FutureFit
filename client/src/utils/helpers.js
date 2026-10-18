@@ -88,14 +88,18 @@ export const PRODUCT_TYPES = [
 export const AUDIENCES = [
   { value: 'men', label: 'Men' },
   { value: 'women', label: 'Women' },
-  { value: 'kids', label: 'Kids' },
+  { value: 'boys', label: 'Boys' },
+  { value: 'girls', label: 'Girls' },
+  { value: 'baby', label: 'Baby' },
 ];
 
 /** Fallback department cover photos when no catalog product exists yet. */
 export const DEPT_IMAGES = {
   men: '/images/products/uw-hero-1.webp',
   women: '/images/products/uw-hero-2.webp',
-  kids: '/images/products/uw-bundle.webp',
+  boys: '/images/products/uw-bundle.webp',
+  girls: '/images/products/uw-hero-2.webp',
+  baby: '/images/products/uw-bundle.webp',
 };
 
 export const audienceLabel = (value) =>
