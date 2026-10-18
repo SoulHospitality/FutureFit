@@ -27,17 +27,24 @@ export default function StaffInventory() {
     const query = q.trim().toLowerCase();
     if (query) {
       list = list.filter((r) =>
-        [r.name, r.size, r.category, r.audience].filter(Boolean).join(' ').toLowerCase().includes(query)
+        [r.itemCode, r.parentItemCode, r.name, r.color, r.size, r.category, r.audience]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(query)
       );
     }
     return list;
   }, [rows, tab, q]);
 
   const exportCsv = () => {
-    const header = ['Product', 'Size', 'Stock', 'Category', 'Price', 'Status'];
+    const header = ['Item ID', 'Parent', 'Product', 'Color', 'Size', 'Stock', 'Category', 'Price', 'Status'];
     const lines = filtered.map((r) =>
       [
+        r.itemCode || '',
+        r.parentItemCode || '',
         r.name,
+        r.color || '',
         r.size || '',
         r.stock,
         r.category || '',
@@ -67,7 +74,7 @@ export default function StaffInventory() {
           </div>
           <div>
             <h1 className="page-title">Inventory</h1>
-            <p className="page-subtitle">Stock by size · low stock first</p>
+            <p className="page-subtitle">Every child SKU · Item ID + stock · low first</p>
           </div>
         </div>
         <button
@@ -116,7 +123,7 @@ export default function StaffInventory() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               className="w-full rounded-lg border border-zinc-200 py-2 pl-9 pr-3 text-sm"
-              placeholder="Search SKUs"
+              placeholder="Search item ID, colour, size…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
@@ -127,7 +134,9 @@ export default function StaffInventory() {
           <table className="table">
             <thead>
               <tr>
+                <th>Item ID</th>
                 <th>Product</th>
+                <th>Color</th>
                 <th>Size</th>
                 <th>Stock</th>
                 <th>Category</th>
@@ -139,14 +148,25 @@ export default function StaffInventory() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm text-zinc-400">
+                  <td colSpan={9} className="py-12 text-center text-sm text-zinc-400">
                     Loading…
                   </td>
                 </tr>
               )}
               {filtered.map((r) => (
-                <tr key={`${r.productId}-${r.size || 'all'}`}>
+                <tr key={r.variantId || `${r.productId}-${r.color || ''}-${r.size || 'all'}`}>
+                  <td>
+                    <span className="font-mono text-[12px] font-medium tracking-wide text-zinc-900">
+                      {r.itemCode || '—'}
+                    </span>
+                    {r.parentItemCode ? (
+                      <span className="mt-0.5 block font-mono text-[10px] text-zinc-400">
+                        {r.parentItemCode}
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="font-medium text-zinc-900">{r.name}</td>
+                  <td className="text-zinc-500">{r.color || '—'}</td>
                   <td className="text-zinc-500">{r.size || '—'}</td>
                   <td className="tabular-nums font-semibold">{r.stock}</td>
                   <td className="text-zinc-500">{r.category || '—'}</td>
@@ -172,7 +192,7 @@ export default function StaffInventory() {
               ))}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-sm text-zinc-400">
+                  <td colSpan={9} className="py-12 text-center text-sm text-zinc-400">
                     No SKUs match
                   </td>
                 </tr>

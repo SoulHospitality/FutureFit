@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Download, FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, Download, FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
@@ -76,6 +76,7 @@ export default function StaffProducts() {
   const [categories, setCategories] = useState([]);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [expanded, setExpanded] = useState(() => new Set());
   const stockQueue = useRef({});
 
   const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
@@ -84,11 +85,21 @@ export default function StaffProducts() {
     api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
   }, []);
 
+  const toggleExpanded = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     const query = q.trim().toLowerCase();
     if (!query) return products;
-    return products.filter((p) =>
-      [
+    return products.filter((p) => {
+      const childCodes = (p.variants || []).map((v) => v.itemCode).filter(Boolean);
+      return [
         p.name,
         p.itemCode,
         p.description,
@@ -97,12 +108,13 @@ export default function StaffProducts() {
         audienceLabel(p.audience),
         categoryLabel(p),
         ...(p.colors || []),
+        ...childCodes,
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
-        .includes(query)
-    );
+        .includes(query);
+    });
   }, [products, q]);
 
   const flushStock = async (id, color, size) => {
@@ -471,136 +483,174 @@ export default function StaffProducts() {
             )}
             {filtered.map((p) => {
               const hasVariants = p.variants?.length > 0;
-              const rows = hasVariants
-                ? p.variants
-                : p.sizeStocks?.length
-                  ? p.sizeStocks
-                  : [{ size: '', stock: p.stock }];
+              const legacySizes = !hasVariants && p.sizeStocks?.length ? p.sizeStocks : [];
+              const isOpen = expanded.has(p.id);
+              const canExpand = hasVariants || legacySizes.length > 0;
               const isDraft = p.status === 'draft';
               return (
-                <tr key={p.id} className={isDraft ? 'bg-timber-50/70' : undefined}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={getImageUrl(p.photos?.[0])}
-                        alt=""
-                        className="w-10 h-10 rounded object-cover bg-timber-100"
-                      />
-                      <span>
-                        <span className="block font-medium">{p.name}</span>
-                        {p.itemCode ? (
-                          <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
-                            {p.itemCode}
-                            {hasVariants ? ` · ${p.variants.length} children` : ''}
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <span
-                      className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
-                        isDraft
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                      }`}
-                    >
-                      {isDraft ? 'Draft' : 'Active'}
-                    </span>
-                  </td>
-                  <td>
-                  {audienceLabel(p.audience)}
-                  {categoryLabel(p) ? ` · ${categoryLabel(p)}` : ''}
-                </td>
-                  <td>{formatMoney(p.price)}</td>
-                  <td>{p.cost != null && p.cost !== '' ? formatMoney(p.cost) : '—'}</td>
-                  <td>
-                    <div className="max-h-36 space-y-1 overflow-y-auto">
-                      {rows.map((row) => (
-                        <div
-                          key={
-                            hasVariants
-                              ? `${row.color}-${row.size}`
-                              : row.size || 'total'
-                          }
-                          className="flex items-center gap-1"
-                        >
-                          {hasVariants ? (
-                            <span className="w-24 shrink-0 truncate text-[11px] font-medium text-timber-500">
-                              {row.color} / {row.size}
-                            </span>
-                          ) : row.size ? (
-                            <span className="w-10 shrink-0 text-xs font-medium text-timber-500">
-                              {row.size}
+                <Fragment key={p.id}>
+                  <tr
+                    className={`${isDraft ? 'bg-timber-50/70' : ''} ${canExpand ? 'cursor-pointer' : ''}`}
+                    onClick={() => canExpand && toggleExpanded(p.id)}
+                  >
+                    <td>
+                      <div className="flex items-center gap-3">
+                        {canExpand ? (
+                          <ChevronDown
+                            className={`h-4 w-4 shrink-0 text-timber-400 transition ${
+                              isOpen ? 'rotate-0' : '-rotate-90'
+                            }`}
+                          />
+                        ) : (
+                          <span className="inline-block w-4" />
+                        )}
+                        <img
+                          src={getImageUrl(p.photos?.[0])}
+                          alt=""
+                          className="w-10 h-10 rounded object-cover bg-timber-100"
+                        />
+                        <span>
+                          <span className="block font-medium">{p.name}</span>
+                          {p.itemCode ? (
+                            <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
+                              {p.itemCode}
+                              {hasVariants ? ` · ${p.variants.length} children` : ''}
                             </span>
                           ) : null}
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm !px-2"
-                            onClick={() =>
-                              adjust(
-                                p.id,
-                                -1,
-                                hasVariants ? row.color : undefined,
-                                row.size || undefined
-                              )
-                            }
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-8 text-center font-semibold tabular-nums">
-                            {row.stock}
-                          </span>
-                          <button
-                            type="button"
-                            className="btn-outline btn-sm !px-2"
-                            onClick={() =>
-                              adjust(
-                                p.id,
-                                1,
-                                hasVariants ? row.color : undefined,
-                                row.size || undefined
-                              )
-                            }
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                      {(hasVariants || p.sizeStocks?.length > 1) && (
-                        <p className="text-[10px] uppercase tracking-wide text-timber-400">
-                          Total {totalStock(p)}
-                        </p>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    {p.isSaleActive ? formatMoney(p.salePrice) : '—'}
-                    {p.isSaleActive && p.saleQtyLimit != null && (
-                      <span className="block text-[10px] uppercase tracking-wide text-timber-400">
-                        {p.saleQtySold || 0}/{p.saleQtyLimit} sold
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                          isDraft
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {isDraft ? 'Draft' : 'Active'}
                       </span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="btn-ghost btn-sm"
-                        onClick={() => openEdit(p)}
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost btn-sm text-red-600"
-                        onClick={() => remove(p.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                    <td>
+                      {audienceLabel(p.audience)}
+                      {categoryLabel(p) ? ` · ${categoryLabel(p)}` : ''}
+                    </td>
+                    <td>{formatMoney(p.price)}</td>
+                    <td>{p.cost != null && p.cost !== '' ? formatMoney(p.cost) : '—'}</td>
+                    <td>
+                      <span className="font-semibold tabular-nums">{totalStock(p)}</span>
+                      {canExpand ? (
+                        <span className="ml-1 text-[10px] uppercase tracking-wide text-timber-400">
+                          total
+                        </span>
+                      ) : null}
+                    </td>
+                    <td>
+                      {p.isSaleActive ? formatMoney(p.salePrice) : '—'}
+                      {p.isSaleActive && p.saleQtyLimit != null && (
+                        <span className="block text-[10px] uppercase tracking-wide text-timber-400">
+                          {p.saleQtySold || 0}/{p.saleQtyLimit} sold
+                        </span>
+                      )}
+                    </td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm"
+                          onClick={() => openEdit(p)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-ghost btn-sm text-red-600"
+                          onClick={() => remove(p.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {isOpen &&
+                    hasVariants &&
+                    p.variants.map((row) => (
+                      <tr key={`${p.id}-${row.id || row.itemCode}`} className="bg-timber-50/40">
+                        <td colSpan={2}>
+                          <div className="flex items-center gap-3 pl-10">
+                            <span className="font-mono text-[11px] font-medium tracking-wide text-timber-700">
+                              {row.itemCode || '—'}
+                            </span>
+                            <span className="text-sm text-timber-600">
+                              {row.color} / {row.size}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-xs text-timber-400">Child</td>
+                        <td className="text-sm tabular-nums text-timber-500">
+                          {row.price != null ? formatMoney(row.price) : '—'}
+                        </td>
+                        <td className="text-sm tabular-nums text-timber-500">
+                          {row.cost != null ? formatMoney(row.cost) : '—'}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm !px-2"
+                              onClick={() => adjust(p.id, -1, row.color, row.size)}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center font-semibold tabular-nums">
+                              {row.stock}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm !px-2"
+                              onClick={() => adjust(p.id, 1, row.color, row.size)}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    ))}
+                  {isOpen &&
+                    !hasVariants &&
+                    legacySizes.map((row) => (
+                      <tr key={`${p.id}-${row.size}`} className="bg-timber-50/40">
+                        <td colSpan={2}>
+                          <div className="pl-10 text-sm text-timber-600">Size {row.size}</div>
+                        </td>
+                        <td className="text-xs text-timber-400">Size</td>
+                        <td colSpan={2} />
+                        <td>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm !px-2"
+                              onClick={() => adjust(p.id, -1, undefined, row.size)}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="w-8 text-center font-semibold tabular-nums">
+                              {row.stock}
+                            </span>
+                            <button
+                              type="button"
+                              className="btn-outline btn-sm !px-2"
+                              onClick={() => adjust(p.id, 1, undefined, row.size)}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    ))}
+                </Fragment>
               );
             })}
           </tbody>

@@ -528,6 +528,7 @@ const inventoryReport = async (_req, res) => {
   try {
     const products = await prisma.product.findMany({
       include: {
+        variants: { orderBy: { sortOrder: 'asc' } },
         sizeStocks: true,
         category: { select: { name: true, audience: true } },
       },
@@ -536,17 +537,49 @@ const inventoryReport = async (_req, res) => {
 
     const rows = [];
     for (const p of products) {
+      const children = p.variants || [];
+      const parentPrice = Number(
+        p.isSaleActive && p.salePrice != null ? p.salePrice : p.price
+      );
+      if (children.length) {
+        for (const v of children) {
+          const price =
+            v.price != null
+              ? Number(v.price)
+              : parentPrice;
+          rows.push({
+            productId: p.id,
+            variantId: v.id,
+            itemCode: v.itemCode,
+            parentItemCode: p.itemCode || null,
+            name: p.name,
+            color: v.color,
+            size: v.size,
+            stock: v.stock,
+            category: p.category?.name || null,
+            audience: p.category?.audience || p.audience || null,
+            price,
+            low: v.stock <= 5,
+            out: v.stock <= 0,
+          });
+        }
+        continue;
+      }
       const sizes = p.sizeStocks || [];
       if (sizes.length) {
         for (const s of sizes) {
           rows.push({
             productId: p.id,
+            variantId: null,
+            itemCode: p.itemCode || null,
+            parentItemCode: null,
             name: p.name,
+            color: null,
             size: s.size,
             stock: s.stock,
             category: p.category?.name || null,
             audience: p.category?.audience || p.audience || null,
-            price: Number(p.isSaleActive && p.salePrice != null ? p.salePrice : p.price),
+            price: parentPrice,
             low: s.stock <= 5,
             out: s.stock <= 0,
           });
@@ -554,12 +587,16 @@ const inventoryReport = async (_req, res) => {
       } else {
         rows.push({
           productId: p.id,
+          variantId: null,
+          itemCode: p.itemCode || null,
+          parentItemCode: null,
           name: p.name,
+          color: null,
           size: null,
           stock: p.stock,
           category: p.category?.name || null,
           audience: p.category?.audience || p.audience || null,
-          price: Number(p.isSaleActive && p.salePrice != null ? p.salePrice : p.price),
+          price: parentPrice,
           low: p.stock <= 5,
           out: p.stock <= 0,
         });

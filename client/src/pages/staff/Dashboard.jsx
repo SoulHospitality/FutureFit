@@ -300,12 +300,16 @@ export default function StaffDashboard() {
                   .slice(0, 6)
                   .map((p) => (
                     <li
-                      key={`${p.id}-${p.size || 'all'}`}
+                      key={p.variantId || `${p.id}-${p.color || ''}-${p.size || 'all'}`}
                       className="flex items-center justify-between gap-3 text-sm"
                     >
-                      <span className="truncate text-zinc-600">
-                        {p.name}
-                        {p.size ? ` · ${p.size}` : ''}
+                      <span className="min-w-0 truncate text-zinc-600">
+                        <span className="font-mono text-[11px] font-medium text-zinc-800">
+                          {p.itemCode || '—'}
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                          {[p.color, p.size].filter(Boolean).join(' / ') || p.name}
+                        </span>
                       </span>
                       <span className="shrink-0 font-medium tabular-nums text-zinc-900">
                         {p.stock}

@@ -772,11 +772,15 @@ const financeSummary = async (req, res) => {
         where: Object.keys(expenseDate).length ? { expenseDate } : undefined,
         orderBy: { expenseDate: 'desc' },
       }),
-      prisma.productSize.findMany({
+      prisma.productVariant.findMany({
         where: { stock: { lte: 5 } },
-        include: { product: { select: { id: true, name: true, price: true, salePrice: true } } },
+        include: {
+          product: {
+            select: { id: true, name: true, itemCode: true, price: true, salePrice: true },
+          },
+        },
         orderBy: { stock: 'asc' },
-        take: 10,
+        take: 12,
       }),
     ]);
 
@@ -833,10 +837,13 @@ const financeSummary = async (req, res) => {
       orders: orders.map(serializeOrder),
       lowStock: lowStock.map((row) => ({
         id: row.product.id,
+        variantId: row.id,
+        itemCode: row.itemCode,
         name: row.product.name,
+        color: row.color,
         size: row.size,
         stock: row.stock,
-        price: Number(row.product.price),
+        price: Number(row.price != null ? row.price : row.product.price),
         salePrice: row.product.salePrice != null ? Number(row.product.salePrice) : null,
       })),
       recentOrders: orders.slice(0, 10).map(serializeOrder),
