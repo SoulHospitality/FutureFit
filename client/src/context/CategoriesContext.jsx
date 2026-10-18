@@ -27,11 +27,23 @@ export function buildCategoryTree(categories = []) {
   }));
 }
 
-/** Subcategories for a department (Men / Women / Kids). */
+/** Subcategories for a department (Men / Women / Kids). When audience is null, unique by slug. */
 export function subcategoriesForAudience(treeByAudience, audience) {
   if (!audience) {
-    return Object.values(treeByAudience || {}).flatMap((roots) =>
-      (roots || []).flatMap((r) => r.children || [])
+    const seen = new Set();
+    const unique = [];
+    for (const roots of Object.values(treeByAudience || {})) {
+      for (const r of roots || []) {
+        for (const child of r.children || []) {
+          const key = child.slug || child.id;
+          if (!key || seen.has(key)) continue;
+          seen.add(key);
+          unique.push(child);
+        }
+      }
+    }
+    return unique.sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
     );
   }
   const roots = treeByAudience?.[audience] || [];

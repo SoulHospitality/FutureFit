@@ -624,29 +624,6 @@ export default function ShopPage() {
             </div>
           </div>
 
-          {audienceCategories.length > 0 && (
-            <div className="ff-scroll-x -mx-5 mt-8 gap-2 px-5 sm:mx-0 sm:flex-wrap sm:px-0">
-              <button
-                type="button"
-                data-active={!selectedCategory ? 'true' : 'false'}
-                onClick={() => patchParams({ category: null })}
-                className="ff-chip shrink-0"
-              >
-                All {audience ? audienceLabel(audience) : 'pieces'}
-              </button>
-              {audienceCategories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  data-active={selectedCategory === c.slug ? 'true' : 'false'}
-                  onClick={() => patchParams({ category: c.slug })}
-                  className="ff-chip shrink-0"
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
       </section>
 
