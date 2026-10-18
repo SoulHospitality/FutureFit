@@ -28,6 +28,9 @@ import {
   formatMoney,
   STORE_EMAIL,
   STORE_WHATSAPP_URL,
+  MOBILE_MEDIA_QUERY,
+  SLIDE_DESKTOP_ASPECT,
+  SLIDE_MOBILE_ASPECT,
 } from '../utils/helpers';
 import { usePageMeta } from '../utils/seo';
 import { useSiteCopy } from '../utils/websiteContent';
@@ -39,9 +42,22 @@ const FALLBACK_COPY = {
 };
 
 const SLIDE_MS = 6500;
-// Portrait phones/tablets get a smart-cropped tall image instead of an upscaled 16:9 slice.
-const HERO_PORTRAIT_MEDIA = '(max-aspect-ratio: 3/4)';
-const HERO_PORTRAIT_ASPECT = '9:16';
+const DESKTOP_WIDTHS = [960, 1280, 1600, 1920, 2400];
+const MOBILE_WIDTHS = [390, 480, 640, 750, 960, 1080];
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(MOBILE_MEDIA_QUERY).matches : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return mobile;
+}
 
 const TRUST_ITEMS = [
   `Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}`,
@@ -81,13 +97,27 @@ const SERVICES = [
   },
 ];
 
-function Hero({ slides, copy = {} }) {
+function Hero({ desktopSlides = [], mobileSlides = [], copy = {} }) {
+  const isMobile = useIsMobile();
+  // Prefer device-native slideshow; fall back so the hero never goes blank.
+  const slides = useMemo(() => {
+    if (isMobile) return mobileSlides.length ? mobileSlides : desktopSlides;
+    return desktopSlides.length ? desktopSlides : mobileSlides;
+  }, [isMobile, desktopSlides, mobileSlides]);
+  const usingMobileArt = isMobile && mobileSlides.length > 0;
+  const aspect = usingMobileArt ? SLIDE_MOBILE_ASPECT : SLIDE_DESKTOP_ASPECT;
+  const widths = usingMobileArt ? MOBILE_WIDTHS : DESKTOP_WIDTHS;
+
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchStartX = useRef(null);
   const count = slides.length;
   const slide = slides[index];
   const home = copy.wording?.home || {};
+
+  useEffect(() => {
+    setIndex(0);
+  }, [isMobile, slides]);
 
   useEffect(() => {
     if (count < 2 || paused) return undefined;
@@ -100,18 +130,39 @@ function Hero({ slides, copy = {} }) {
     if (count < 2) return;
     const next = slides[(index + 1) % count];
     if (!next?.cloudinaryUrl) return;
-    const portrait = window.matchMedia?.(HERO_PORTRAIT_MEDIA).matches;
     const img = new Image();
-    img.src = portrait
-      ? getImageUrl(next.cloudinaryUrl, { width: 960, aspect: HERO_PORTRAIT_ASPECT })
-      : getImageUrl(next.cloudinaryUrl, { width: 1600 });
-  }, [index, slides, count]);
+    img.src = getImageUrl(next.cloudinaryUrl, {
+      width: usingMobileArt ? 960 : 1600,
+      aspect,
+      dpr: usingMobileArt ? 2 : undefined,
+    });
+  }, [index, slides, count, usingMobileArt, aspect]);
+
+  // Preload LCP hero for the active device to cut first paint on phones.
+  useEffect(() => {
+    if (!slide?.cloudinaryUrl) return undefined;
+    const href = getImageUrl(slide.cloudinaryUrl, {
+      width: usingMobileArt ? 750 : 1280,
+      aspect,
+      dpr: usingMobileArt ? 2 : undefined,
+    });
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'image';
+    link.href = href;
+    link.setAttribute('fetchpriority', 'high');
+    document.head.appendChild(link);
+    return () => {
+      link.remove();
+    };
+  }, [slide?.id, slide?.cloudinaryUrl, usingMobileArt, aspect]);
 
   const go = (dir) => count && setIndex((i) => (i + dir + count) % count);
 
   return (
     <section
       className="home-hero relative w-full overflow-hidden bg-timber-900 text-white"
+      data-device={usingMobileArt ? 'mobile' : 'desktop'}
       onPointerEnter={(e) => e.pointerType === 'mouse' && setPaused(true)}
       onPointerLeave={(e) => e.pointerType === 'mouse' && setPaused(false)}
       onTouchStart={(e) => {
@@ -125,36 +176,35 @@ function Hero({ slides, copy = {} }) {
         if (Math.abs(dx) >= 48) go(dx < 0 ? 1 : -1);
       }}
       aria-roledescription="carousel"
-      aria-label="Homepage slideshow"
+      aria-label={usingMobileArt ? 'Homepage slideshow (phone)' : 'Homepage slideshow'}
     >
       <div className="absolute inset-0">
         {slide?.cloudinaryUrl ? (
-          <picture key={slide.id}>
-            <source
-              media={HERO_PORTRAIT_MEDIA}
-              srcSet={getImageSrcSet(slide.cloudinaryUrl, [480, 720, 960, 1280, 1600], {
-                aspect: HERO_PORTRAIT_ASPECT,
-              })}
-              sizes="120vw"
-            />
-            <img
-              src={getImageUrl(slide.cloudinaryUrl, { width: 1280 })}
-              srcSet={getImageSrcSet(slide.cloudinaryUrl, [640, 960, 1280, 1600, 2000, 2560])}
-              alt={slide.title || 'FutureFit'}
-              width={1600}
-              height={900}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              sizes="100vw"
-              className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
-            />
-          </picture>
+          <img
+            key={`${slide.id}-${usingMobileArt ? 'm' : 'd'}`}
+            src={getImageUrl(slide.cloudinaryUrl, {
+              width: usingMobileArt ? 750 : 1280,
+              aspect,
+              dpr: usingMobileArt ? 2 : undefined,
+            })}
+            srcSet={getImageSrcSet(slide.cloudinaryUrl, widths, {
+              aspect,
+              dpr: usingMobileArt ? 2 : undefined,
+            })}
+            alt={slide.title || 'FutureFit'}
+            width={usingMobileArt ? 1080 : 1920}
+            height={usingMobileArt ? 1920 : 1080}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
+            sizes="100vw"
+            className="ff-kenburns absolute inset-0 h-full w-full object-cover object-center"
+          />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(161,161,170,0.25),transparent_55%),linear-gradient(160deg,#27272a_0%,#18181b_60%,#09090b_100%)]" />
         )}
       </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-black/30" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-black/35" />
 
       <div className="home-hero__content ff-container relative flex h-full flex-col justify-end pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-28 sm:pb-28 sm:pt-32 short:!pb-16 short:!pt-20">
         <div key={slide?.id || 'fallback'} className="max-w-3xl">
@@ -347,7 +397,8 @@ export default function HomePage() {
   const siteCopy = useSiteCopy();
   const home = siteCopy.wording?.home || {};
   const { tree } = useCategories();
-  const [slides, setSlides] = useState([]);
+  const [desktopSlides, setDesktopSlides] = useState([]);
+  const [mobileSlides, setMobileSlides] = useState([]);
   const [products, setProducts] = useState([]);
   const [packs, setPacks] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -378,8 +429,11 @@ export default function HomePage() {
       api.get('/homepage').then((r) => r.data || {}).catch(() => ({})),
       api.get('/reviews?visible=true&limit=6').then((r) => asArray(r.data)).catch(() => []),
     ]).then(([slideData, homeData, reviewData]) => {
-      const sortedSlides = [...slideData].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-      setSlides(sortedSlides);
+      const sorted = [...slideData].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const desktop = sorted.filter((s) => (s.device || 'desktop') === 'desktop');
+      const mobile = sorted.filter((s) => s.device === 'mobile');
+      setDesktopSlides(desktop);
+      setMobileSlides(mobile);
       setProducts(asArray(homeData.bestSellers));
       setPacks(asArray(homeData.packs));
       setReviews(reviewData);
@@ -390,10 +444,11 @@ export default function HomePage() {
           productPhotoByAudience[key] = p.photos[0];
         }
       });
+      const coverPool = desktop.length ? desktop : mobile;
       const photos = {};
       AUDIENCES.forEach((a, i) => {
         photos[a.value] =
-          sortedSlides[i]?.cloudinaryUrl ||
+          coverPool[i]?.cloudinaryUrl ||
           DEPT_IMAGES[a.value] ||
           productPhotoByAudience[a.value] ||
           null;
@@ -420,7 +475,11 @@ export default function HomePage() {
   }, [reviews]);
 
   const editorialImage =
-    slides[1]?.cloudinaryUrl || slides[0]?.cloudinaryUrl || fallbackPhotos.men || DEPT_IMAGES.men;
+    desktopSlides[1]?.cloudinaryUrl ||
+    desktopSlides[0]?.cloudinaryUrl ||
+    mobileSlides[0]?.cloudinaryUrl ||
+    fallbackPhotos.men ||
+    DEPT_IMAGES.men;
 
   const subscribe = async (e) => {
     e.preventDefault();
@@ -438,7 +497,7 @@ export default function HomePage() {
 
   return (
     <div className="bg-bone">
-      <Hero slides={slides} copy={siteCopy} />
+      <Hero desktopSlides={desktopSlides} mobileSlides={mobileSlides} copy={siteCopy} />
       <TrustMarquee />
 
       {/* Departments */}

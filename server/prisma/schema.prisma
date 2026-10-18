@@ -214,14 +214,23 @@ model ProductSize {
   @@index([productId])
 }
 
+enum SlideDevice {
+  desktop
+  mobile
+}
+
 model Slide {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   cloudinaryUrl String
-  title         String   @default("New Arrival")
-  description   String   @default("Shop the collection")
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  title         String      @default("New Arrival")
+  description   String      @default("Shop the collection")
+  /// desktop = PC / landscape slideshow; mobile = phone / portrait slideshow
+  device        SlideDevice @default(desktop)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([device, sortOrder])
 }
 
 model Coupon {

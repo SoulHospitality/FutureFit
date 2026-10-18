@@ -1,5 +1,5 @@
 /** Normalize Drive / remote image URLs for <img src> */
-export const getImageUrl = (path, { width, aspect } = {}) => {
+export const getImageUrl = (path, { width, aspect, quality, dpr } = {}) => {
   if (!path) return '';
   if (path.startsWith('blob:') || path.startsWith('data:')) return path;
 
@@ -22,10 +22,12 @@ export const getImageUrl = (path, { width, aspect } = {}) => {
   }
 
   if (url.includes('res.cloudinary.com')) {
-    const parts = ['f_auto', 'q_auto'];
-    if (aspect) parts.push(`c_fill`, `g_auto`, `ar_${aspect}`);
+    const parts = ['f_auto', quality ? `q_${quality}` : 'q_auto'];
+    if (aspect) parts.push('c_fill', 'g_auto', `ar_${aspect}`);
     if (width) parts.push(`w_${width}`);
-    if (parts.length > 2 || width || aspect) {
+    // Cap retina so phones don't download 3× oversized heroes
+    if (dpr) parts.push(`dpr_${Math.min(Number(dpr) || 1, 2)}`);
+    if (parts.length > 2 || width || aspect || quality || dpr) {
       return url.replace('/upload/', `/upload/${parts.join(',')}/`);
     }
   }
@@ -46,8 +48,16 @@ export const getImageSrcSet = (path, widths = [640, 960, 1280, 1600, 2000], opts
     .join(', ');
 };
 
-/** Homepage slideshow hero — landscape */
-export const SLIDE_IMAGE_ASPECT = '16:9';
+/** Homepage slideshow — PC / desktop landscape */
+export const SLIDE_DESKTOP_ASPECT = '16:9';
+export const SLIDE_DESKTOP_SIZE = '1920×1080';
+/** Homepage slideshow — phone portrait */
+export const SLIDE_MOBILE_ASPECT = '9:16';
+export const SLIDE_MOBILE_SIZE = '1080×1920';
+/** @deprecated use SLIDE_DESKTOP_ASPECT */
+export const SLIDE_IMAGE_ASPECT = SLIDE_DESKTOP_ASPECT;
+/** Match phone slideshow + mobile layout optimizations */
+export const MOBILE_MEDIA_QUERY = '(max-width: 767px)';
 /** Homepage department / category covers — portrait */
 export const CATEGORY_IMAGE_ASPECT = '4:5';
 

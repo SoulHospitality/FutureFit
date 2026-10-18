@@ -213,7 +213,28 @@
   .home-hero {
     height: 100vh;
     height: 100svh;
+    height: 100dvh;
     min-height: 22rem;
+    /* Stable paint box so LCP image doesn't shift layout */
+    contain: layout paint;
+  }
+  /* Phone portrait — full viewport; landscape phones get a shorter crop */
+  @media (max-width: 767px) {
+    .home-hero {
+      min-height: min(100dvh, 52rem);
+    }
+  }
+  @media (max-width: 767px) and (orientation: landscape) {
+    .home-hero {
+      height: min(100dvh, 28rem);
+      min-height: 18rem;
+    }
+  }
+  @media (min-width: 768px) {
+    .home-hero {
+      min-height: 32rem;
+      max-height: 56rem;
+    }
   }
   @supports (padding: max(0px)) {
     .home-hero .home-hero__content {

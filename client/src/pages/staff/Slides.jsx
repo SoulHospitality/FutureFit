@@ -1,14 +1,41 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Monitor, Pencil, Smartphone, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import DragSortList from '../../components/staff/DragSortList';
-import { getImageUrl, asArray } from '../../utils/helpers';
+import {
+  asArray,
+  getImageUrl,
+  SLIDE_DESKTOP_ASPECT,
+  SLIDE_DESKTOP_SIZE,
+  SLIDE_MOBILE_ASPECT,
+  SLIDE_MOBILE_SIZE,
+} from '../../utils/helpers';
+
+const DEVICE_TABS = [
+  {
+    key: 'desktop',
+    label: 'PC / Desktop',
+    icon: Monitor,
+    aspect: SLIDE_DESKTOP_ASPECT,
+    size: SLIDE_DESKTOP_SIZE,
+    hint: 'Landscape hero for laptops and large screens. Keep the subject in the center third.',
+  },
+  {
+    key: 'mobile',
+    label: 'Phone',
+    icon: Smartphone,
+    aspect: SLIDE_MOBILE_ASPECT,
+    size: SLIDE_MOBILE_SIZE,
+    hint: 'Portrait hero for phones. Design tall — top and bottom crop less than the sides.',
+  },
+];
 
 const emptyForm = { title: '', description: '', imageUrl: '' };
 
 export default function StaffSlides({ embedded = false, onChanged } = {}) {
+  const [device, setDevice] = useState('desktop');
   const [slides, setSlides] = useState([]);
   const [cloudOk, setCloudOk] = useState(false);
   const [open, setOpen] = useState(false);
@@ -16,6 +43,12 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
   const [form, setForm] = useState(emptyForm);
   const [fileData, setFileData] = useState(null);
   const [savingOrder, setSavingOrder] = useState(false);
+
+  const tab = DEVICE_TABS.find((t) => t.key === device) || DEVICE_TABS[0];
+  const visible = useMemo(
+    () => slides.filter((s) => (s.device || 'desktop') === device),
+    [slides, device]
+  );
 
   const load = () => {
     api.get('/slides').then((r) => setSlides(asArray(r.data)));
@@ -60,13 +93,14 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
       const payload = {
         title: form.title,
         description: form.description,
-        sortOrder: editing ? editing.sortOrder ?? slides.length : slides.length,
+        device,
+        sortOrder: editing ? editing.sortOrder ?? visible.length : visible.length,
         imageUrl: form.imageUrl || undefined,
         imageData: fileData || undefined,
       };
       if (editing) await api.put(`/slides/${editing.id}`, payload);
       else await api.post('/slides', payload);
-      toast.success(editing ? 'Slide updated' : 'Slide added');
+      toast.success(editing ? 'Slide updated' : `${tab.label} slide added`);
       setOpen(false);
       setForm(emptyForm);
       setFileData(null);
@@ -87,13 +121,12 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
   };
 
   const onReorder = async (next) => {
-    setSlides(next);
+    const others = slides.filter((s) => (s.device || 'desktop') !== device);
+    setSlides([...others, ...next]);
     setSavingOrder(true);
     try {
-      await Promise.all(
-        next.map((s, i) => api.put(`/slides/${s.id}`, { sortOrder: i }))
-      );
-      toast.success('Slide order saved');
+      await Promise.all(next.map((s, i) => api.put(`/slides/${s.id}`, { sortOrder: i, device })));
+      toast.success(`${tab.label} order saved`);
       onChanged?.();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not save slide order');
@@ -103,14 +136,20 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
     }
   };
 
+  const thumbAspect = tab.aspect;
+  const thumbClass =
+    device === 'mobile'
+      ? 'h-16 w-10 shrink-0 rounded object-cover bg-zinc-100'
+      : 'h-14 w-24 shrink-0 rounded object-cover bg-zinc-100';
+
   return (
     <>
-      <div className={`flex items-center justify-between ${embedded ? 'mb-4' : 'mb-6'}`}>
+      <div className={`flex flex-wrap items-center justify-between gap-3 ${embedded ? 'mb-4' : 'mb-6'}`}>
         {!embedded ? (
           <div>
-            <h1 className="page-title">Slideshow</h1>
+            <h1 className="page-title">Slideshows</h1>
             <p className="page-subtitle">
-              Homepage hero images via Cloudinary — drag to set order
+              Separate heroes for PC and phone — upload the right aspect for each
               {!cloudOk && (
                 <span className="text-amber-600">
                   {' '}
@@ -121,23 +160,67 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
           </div>
         ) : (
           <p className="text-sm text-zinc-500">
-            Homepage hero images — drag to set order
+            Separate PC and phone heroes with recommended aspect ratios
             {!cloudOk && (
               <span className="text-amber-600"> — Cloudinary not configured; paste a URL instead.</span>
             )}
           </p>
         )}
         <button type="button" className="btn-wheat" onClick={openCreate}>
-          Add slide
+          Add {device === 'mobile' ? 'phone' : 'PC'} slide
         </button>
       </div>
 
+      <div className="mb-4 flex flex-wrap gap-1 border-b border-zinc-200">
+        {DEVICE_TABS.map((t) => {
+          const Icon = t.icon;
+          const count = slides.filter((s) => (s.device || 'desktop') === t.key).length;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setDevice(t.key)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition ${
+                device === t.key
+                  ? 'border-b-2 border-zinc-900 text-zinc-900'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.75} />
+              {t.label}
+              <span className="rounded-full bg-zinc-100 px-1.5 py-0.5 text-[10px] tabular-nums text-zinc-600">
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mb-4 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+        <p className="text-sm font-medium text-zinc-900">
+          Recommended: {tab.aspect} · {tab.size}
+        </p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{tab.hint}</p>
+        <div
+          className={`mt-3 overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white ${
+            device === 'mobile' ? 'mx-auto aspect-[9/16] w-16' : 'aspect-video max-w-xs'
+          }`}
+          aria-hidden
+        >
+          <div className="grid h-full place-items-center text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            {tab.aspect}
+          </div>
+        </div>
+      </div>
+
       <div className="sp-card overflow-clip">
-        {slides.length === 0 ? (
-          <p className="px-4 py-12 text-center text-sm text-zinc-400">No slides yet</p>
+        {visible.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-zinc-400">
+            No {tab.label.toLowerCase()} slides yet — add one at {tab.aspect}.
+          </p>
         ) : (
           <DragSortList
-            items={slides}
+            items={visible}
             onReorder={onReorder}
             disabled={savingOrder}
             itemLabel="slide"
@@ -145,9 +228,9 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
             renderItem={(s) => (
               <div className="flex items-center gap-3">
                 <img
-                  src={getImageUrl(s.cloudinaryUrl, { width: 160, aspect: '16:9' })}
+                  src={getImageUrl(s.cloudinaryUrl, { width: 160, aspect: thumbAspect })}
                   alt={s.title}
-                  className="h-14 w-24 shrink-0 rounded object-cover bg-zinc-100"
+                  className={thumbClass}
                   draggable={false}
                 />
                 <div className="min-w-0 flex-1">
@@ -155,11 +238,7 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
                   <p className="truncate text-xs text-zinc-500">{s.description}</p>
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button
-                    type="button"
-                    className="btn-ghost btn-sm"
-                    onClick={() => openEdit(s)}
-                  >
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => openEdit(s)}>
                     <Pencil className="h-4 w-4" />
                   </button>
                   <button
@@ -176,8 +255,18 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
         )}
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title={editing ? 'Edit slide' : 'New slide'}>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? `Edit ${tab.label} slide` : `New ${tab.label} slide`}
+      >
         <form onSubmit={save} className="space-y-4">
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+            Uploading for <span className="font-semibold text-zinc-900">{tab.label}</span> · aim for{' '}
+            <span className="font-semibold text-zinc-900">
+              {tab.aspect} ({tab.size})
+            </span>
+          </div>
           <div>
             <label className="label">Title</label>
             <input
@@ -198,8 +287,11 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
             <label className="label">{editing ? 'Replace image (optional)' : 'Upload (Cloudinary)'}</label>
             <input type="file" accept="image/*" onChange={onFile} className="input" />
             <p className="mt-1.5 text-xs text-zinc-500">
-              Recommended: <span className="font-medium text-zinc-700">16:9</span> landscape
-              (e.g. 1920×1080). Keep the main subject centered — edges may crop on mobile.
+              Recommended:{' '}
+              <span className="font-medium text-zinc-700">
+                {tab.aspect}
+              </span>{' '}
+              ({tab.size}). {tab.hint}
             </p>
           </div>
           <div>

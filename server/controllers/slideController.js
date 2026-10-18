@@ -3,17 +3,27 @@ const cache = require('../lib/cache');
 const { uploadImage, isCloudinaryConfigured } = require('../utils/cloudinary');
 
 const SLIDES_TTL_MS = 60_000;
+const DEVICES = ['desktop', 'mobile'];
+
+const normalizeDevice = (value) => {
+  const d = String(value || 'desktop').toLowerCase();
+  return DEVICES.includes(d) ? d : 'desktop';
+};
 
 const listSlides = async (req, res) => {
   try {
-    const { data: slides } = await cache.wrap('slides:list', SLIDES_TTL_MS, () =>
+    const device = req.query.device ? normalizeDevice(req.query.device) : null;
+    const cacheKey = device ? `slides:list:${device}` : 'slides:list';
+    const { data: slides } = await cache.wrap(cacheKey, SLIDES_TTL_MS, () =>
       prisma.slide.findMany({
-        orderBy: { sortOrder: 'asc' },
+        where: device ? { device } : undefined,
+        orderBy: [{ device: 'asc' }, { sortOrder: 'asc' }],
         select: {
           id: true,
           cloudinaryUrl: true,
           title: true,
           description: true,
+          device: true,
           sortOrder: true,
         },
       })
@@ -28,10 +38,14 @@ const listSlides = async (req, res) => {
 const createSlide = async (req, res) => {
   try {
     const { title, description, sortOrder, imageUrl, imageData } = req.body;
+    const device = normalizeDevice(req.body.device);
     let cloudinaryUrl = imageUrl;
 
     if (imageData) {
-      cloudinaryUrl = await uploadImage(imageData, 'futurefit/slides');
+      cloudinaryUrl = await uploadImage(
+        imageData,
+        device === 'mobile' ? 'futurefit/slides/mobile' : 'futurefit/slides/desktop'
+      );
     } else if (!cloudinaryUrl) {
       return res.status(400).json({ message: 'imageUrl or imageData required' });
     }
@@ -41,6 +55,7 @@ const createSlide = async (req, res) => {
         cloudinaryUrl,
         title: title || 'New Arrival',
         description: description || 'Shop the collection',
+        device,
         sortOrder: sortOrder ?? 0,
       },
     });
@@ -57,8 +72,13 @@ const updateSlide = async (req, res) => {
     if (req.body.title !== undefined) data.title = req.body.title;
     if (req.body.description !== undefined) data.description = req.body.description;
     if (req.body.sortOrder !== undefined) data.sortOrder = Number(req.body.sortOrder) || 0;
+    if (req.body.device !== undefined) data.device = normalizeDevice(req.body.device);
     if (req.body.imageData) {
-      data.cloudinaryUrl = await uploadImage(req.body.imageData, 'futurefit/slides');
+      const device = data.device || normalizeDevice(req.body.device);
+      data.cloudinaryUrl = await uploadImage(
+        req.body.imageData,
+        device === 'mobile' ? 'futurefit/slides/mobile' : 'futurefit/slides/desktop'
+      );
     } else if (req.body.imageUrl) {
       data.cloudinaryUrl = req.body.imageUrl;
     }

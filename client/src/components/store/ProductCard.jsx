@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { ChevronLeft, ChevronRight, Heart, Plus } from 'lucide-react';
 import {
   getImageUrl,
+  getImageSrcSet,
   formatMoney,
   categoryLabel,
   totalStock,
@@ -39,7 +40,14 @@ function ProductCard({ product, priority = false }) {
     return list.filter(Boolean).slice(0, CARD_GALLERY_LIMIT);
   }, [product, previewColor]);
 
-  const urls = useMemo(() => photos.map((src) => getImageUrl(src, { width: 600 })), [photos]);
+  const urls = useMemo(
+    () =>
+      photos.map((src) => ({
+        src: getImageUrl(src, { width: 600, aspect: '3:4' }),
+        srcSet: getImageSrcSet(src, [240, 360, 480, 640, 800], { aspect: '3:4' }),
+      })),
+    [photos]
+  );
   const shownIndex = urls.length
     ? (photoIndex ?? (hovered && urls.length > 1 ? 1 : 0)) % urls.length
     : 0;
@@ -60,7 +68,7 @@ function ProductCard({ product, priority = false }) {
 
   useEffect(() => {
     if (!warm || !urls.length) return;
-    preloadImages(urls);
+    preloadImages(urls.map((u) => u.src));
   }, [warm, urls]);
 
   useEffect(() => {
@@ -111,15 +119,16 @@ function ProductCard({ product, priority = false }) {
       >
         <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-timber-100">
           {urls.length ? (
-            urls.map((src, i) => (
+            urls.map((img, i) => (
               <img
-                key={`${src}-${i}`}
-                src={src}
+                key={`${img.src}-${i}`}
+                src={img.src}
+                srcSet={img.srcSet}
                 alt={i === shownIndex ? product.name : ''}
                 width={600}
                 height={800}
-                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
-                loading={i === 0 || priority || warm ? 'eager' : 'lazy'}
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 280px"
+                loading={priority && i === 0 ? 'eager' : 'lazy'}
                 decoding="async"
                 fetchPriority={priority && i === 0 ? 'high' : 'auto'}
                 draggable={false}

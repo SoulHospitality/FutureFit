@@ -37,7 +37,7 @@ const SECTIONS = [
     label: 'Slideshows',
     icon: Images,
     preview: '/',
-    hint: 'Hero slideshow images and captions',
+    hint: 'Separate PC (16:9) and phone (9:16) hero slideshows',
   },
   {
     path: 'shop',
