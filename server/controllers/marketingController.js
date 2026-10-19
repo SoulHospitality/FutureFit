@@ -295,31 +295,48 @@ const productFeed = async (_req, res) => {
       const products = await prisma.product.findMany({
         where: { status: 'active' },
         include: {
+          variants: { select: { stock: true, photos: true, price: true } },
           sizeStocks: { select: { stock: true } },
           category: { select: { name: true, parent: { select: { name: true } } } },
         },
         orderBy: { shopSortAll: 'asc' },
       });
 
+      // One feed row per parent product. Link always goes to FutureFit product page
+      // (not Shopify). Meta catalog ads must use this feed — not the old Shopify catalog.
       const items = products
-        .filter((p) => p.photos?.length)
         .map((p) => {
-          const stock = p.sizeStocks?.length
-            ? p.sizeStocks.reduce((s, r) => s + (Number(r.stock) || 0), 0)
-            : Number(p.stock) || 0;
-          const onSale = p.isSaleActive && p.salePrice != null && Number(p.salePrice) < Number(p.price);
-          const images = p.photos.map((ph) => absoluteImage(ph, base)).filter(Boolean);
+          const variantPhotos = (p.variants || []).flatMap((v) => v.photos || []);
+          const photoList = [...(p.photos || []), ...variantPhotos];
+          const images = [...new Set(photoList.map((ph) => absoluteImage(ph, base)).filter(Boolean))];
+          if (!images.length) return null;
+
+          const stock = p.variants?.length
+            ? p.variants.reduce((s, r) => s + (Number(r.stock) || 0), 0)
+            : p.sizeStocks?.length
+              ? p.sizeStocks.reduce((s, r) => s + (Number(r.stock) || 0), 0)
+              : Number(p.stock) || 0;
+          const childPrices = (p.variants || [])
+            .map((v) => (v.price != null ? Number(v.price) : null))
+            .filter((n) => n != null && n > 0);
+          const listPrice =
+            childPrices.length > 0
+              ? Math.min(Number(p.price) || Infinity, ...childPrices)
+              : Number(p.price) || 0;
+          const onSale =
+            p.isSaleActive && p.salePrice != null && Number(p.salePrice) < listPrice;
           const type = [p.category?.parent?.name, p.category?.name].filter(Boolean).join(' > ');
           return [
             '    <item>',
             `      <g:id>${xml(p.id)}</g:id>`,
+            `      <g:item_group_id>${xml(p.itemCode || p.id)}</g:item_group_id>`,
             `      <g:title>${xml(plain(p.name, 150))}</g:title>`,
             `      <g:description>${xml(plain(p.description) || plain(p.name))}</g:description>`,
             `      <g:link>${xml(`${base}/product/${p.id}`)}</g:link>`,
             `      <g:image_link>${xml(images[0])}</g:image_link>`,
             ...images.slice(1, 10).map((img) => `      <g:additional_image_link>${xml(img)}</g:additional_image_link>`),
             `      <g:availability>${stock > 0 ? 'in_stock' : 'out_of_stock'}</g:availability>`,
-            `      <g:price>${Number(p.price).toFixed(2)} EGP</g:price>`,
+            `      <g:price>${listPrice.toFixed(2)} EGP</g:price>`,
             onSale ? `      <g:sale_price>${Number(p.salePrice).toFixed(2)} EGP</g:sale_price>` : null,
             '      <g:brand>FutureFit</g:brand>',
             '      <g:condition>new</g:condition>',
@@ -334,6 +351,7 @@ const productFeed = async (_req, res) => {
             .filter(Boolean)
             .join('\n');
         })
+        .filter(Boolean)
         .join('\n');
 
       return `<?xml version="1.0" encoding="UTF-8"?>

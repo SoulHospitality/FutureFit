@@ -980,12 +980,19 @@ export default function StaffMarketing() {
               </p>
             </div>
             <CopyRow label="Feed URL" value={`${siteUrl}/feeds/products.xml`} />
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+              Catalog ads that still open <span className="font-mono">*.myshopify.com</span> are using the
+              old Shopify catalog. Disconnect that data source and connect this FutureFit feed instead —
+              every product link here goes to <span className="font-medium">{siteUrl}/product/…</span>.
+            </div>
             <div className="space-y-2 text-xs leading-relaxed text-zinc-600">
               <p>
                 <span className="font-medium text-zinc-900">Google Shopping:</span> Merchant Center → Products → Add products → “Add products from a file” → enter this URL, schedule daily.
               </p>
               <p>
-                <span className="font-medium text-zinc-900">Facebook & Instagram Shop / dynamic ads:</span> Commerce Manager → Catalog → Data sources → Data feed → scheduled feed → paste this URL.
+                <span className="font-medium text-zinc-900">Meta catalog (dynamic / Advantage+ shopping):</span>{' '}
+                Commerce Manager → Catalog → Data sources → remove Shopify → Add data source → Data feed →
+                paste this URL → schedule hourly or daily → wait for sync → point catalog ads at this catalog.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

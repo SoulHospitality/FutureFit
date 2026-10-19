@@ -15,7 +15,7 @@ const {
 } = require('../utils/variants');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
 const { nextItemCode, cleanItemCode } = require('../utils/itemCode');
-const { upsertParentWithVariants } = require('../utils/bulkCatalog');
+const { upsertParentWithVariants, patchByItemCode } = require('../utils/bulkCatalog');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
 const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
@@ -553,6 +553,12 @@ const bulkCreateProducts = async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const row = items[i];
       try {
+        // Partial CLR rows (e.g. Item ID + price/cost only) update existing SKUs.
+        if (row?.mode === 'patch' || row?.patch === true) {
+          const result = await patchByItemCode(row);
+          updated.push(serializeProduct(result.product, { staff: true }));
+          continue;
+        }
         // New CLR format: parent + nested children. Legacy flat rows still create.
         if (Array.isArray(row.variants) && row.variants.length) {
           const result = await upsertParentWithVariants(row, {
@@ -568,8 +574,17 @@ const bulkCreateProducts = async (req, res) => {
             ? await prisma.product.findUnique({ where: { itemCode: data.itemCode } })
             : null;
           if (existing) {
-            const { sizeStocks, variants, shopSortAll, shopSortMen, shopSortWomen, shopSortKids, ...rest } =
-              data;
+            const {
+              sizeStocks,
+              variants,
+              shopSortAll,
+              shopSortMen,
+              shopSortWomen,
+              shopSortBoys,
+              shopSortGirls,
+              shopSortBaby,
+              ...rest
+            } = data;
             const product = await prisma.product.update({
               where: { id: existing.id },
               data: {
@@ -601,7 +616,7 @@ const bulkCreateProducts = async (req, res) => {
         }
       } catch (err) {
         errors.push({
-          row: i + 1,
+          row: row?.__row ?? i + 1,
           name: row?.name || row?.itemCode || '',
           message: err.message || 'Could not import product',
         });

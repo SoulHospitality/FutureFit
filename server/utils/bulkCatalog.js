@@ -1,6 +1,6 @@
 const prisma = require('../lib/prisma');
 const { resolvePhotoLinks } = require('./drivePhotos');
-const { typeFromCategory } = require('./catalog');
+const { typeFromCategory, shopSortFieldFor } = require('./catalog');
 const { cleanItemCode } = require('./itemCode');
 const {
   normalizeVariants,
@@ -134,19 +134,14 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
       err.status = 400;
       throw err;
     }
+    const audField = shopSortFieldFor(audience);
     const [maxAll, maxAudience] = await Promise.all([
       prisma.product.aggregate({ _max: { shopSortAll: true } }),
       prisma.product.aggregate({
         where: { audience },
-        _max: { shopSortMen: true, shopSortWomen: true, shopSortKids: true },
+        _max: { [audField]: true },
       }),
     ]);
-    const audField =
-      audience === 'women'
-        ? 'shopSortWomen'
-        : audience === 'kids'
-          ? 'shopSortKids'
-          : 'shopSortMen';
     const product = await prisma.product.create({
       data: {
         itemCode: parentCode,
@@ -166,9 +161,12 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
         isSaleActive: isSaleActive && salePrice != null,
         salePrice: isSaleActive ? salePrice : null,
         shopSortAll: (maxAll._max.shopSortAll ?? -1) + 1,
-        shopSortMen: audience === 'men' ? (maxAudience._max.shopSortMen ?? -1) + 1 : 0,
-        shopSortWomen: audience === 'women' ? (maxAudience._max.shopSortWomen ?? -1) + 1 : 0,
-        shopSortKids: audience === 'kids' ? (maxAudience._max.shopSortKids ?? -1) + 1 : 0,
+        shopSortMen: 0,
+        shopSortWomen: 0,
+        shopSortBoys: 0,
+        shopSortGirls: 0,
+        shopSortBaby: 0,
+        [audField]: (maxAudience._max[audField] ?? -1) + 1,
         variants: { create: variantWrites(variantRows) },
       },
       include: {
@@ -284,8 +282,151 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
   return { created: false, product };
 };
 
+const PATCH_PRODUCT_INCLUDE = {
+  variants: { orderBy: { sortOrder: 'asc' } },
+  sizeStocks: true,
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      audience: true,
+      parentId: true,
+      parent: { select: { id: true, name: true, slug: true } },
+    },
+  },
+  reviews: { where: { isVisible: true }, select: { rating: true, isVisible: true } },
+};
+
+/**
+ * Update an existing parent Product or child ProductVariant by Item ID.
+ * Only fields present on `body` are written (partial CLR rows / price lists).
+ */
+const patchByItemCode = async (body = {}) => {
+  const code = cleanItemCode(body.itemCode ?? body.item_id);
+  if (!code) {
+    const err = new Error('Item ID is required');
+    err.status = 400;
+    throw err;
+  }
+
+  const has = (key) => Object.prototype.hasOwnProperty.call(body, key) && body[key] !== undefined;
+
+  // Prefer parent match first (price lists are usually parent Item IDs).
+  const [existing, variant] = await Promise.all([
+    prisma.product.findUnique({
+      where: { itemCode: code },
+      select: { id: true, _count: { select: { variants: true } } },
+    }),
+    prisma.productVariant.findUnique({
+      where: { itemCode: code },
+      select: { id: true, productId: true },
+    }),
+  ]);
+
+  if (existing) {
+    const data = {};
+    if (has('name')) {
+      const name = String(body.name || '').trim();
+      if (name) data.name = name;
+    }
+    if (has('description')) {
+      const description = String(body.description || '').trim();
+      if (description) data.description = description;
+    }
+    if (has('price')) {
+      const price = parseMoney(body.price);
+      if (price != null && price > 0) data.price = price;
+    }
+    if (has('cost')) data.cost = parseMoney(body.cost);
+    if ((has('stock') || has('stocks')) && !existing._count.variants) {
+      data.stock = Math.max(0, Math.floor(Number(body.stock ?? body.stocks) || 0));
+    }
+    if (has('isSaleActive') || has('salePrice')) {
+      const isSaleActive = Boolean(body.isSaleActive);
+      const salePrice = parseMoney(body.salePrice);
+      data.isSaleActive = isSaleActive && salePrice != null;
+      data.salePrice = data.isSaleActive ? salePrice : null;
+    }
+    if (has('photos') || has('driveFolder') || has('drive_folder')) {
+      const photos = await softResolvePhotos([
+        ...(Array.isArray(body.photos) ? body.photos : []),
+        body.driveFolder || body.drive_folder || '',
+      ]);
+      if (photos.length) data.photos = photos;
+    }
+
+    if (!Object.keys(data).length) {
+      const err = new Error(`No updatable fields for ${code}`);
+      err.status = 400;
+      throw err;
+    }
+
+    const product = await prisma.product.update({
+      where: { id: existing.id },
+      data,
+      include: PATCH_PRODUCT_INCLUDE,
+    });
+    return { created: false, patched: true, kind: 'product', product };
+  }
+
+  if (variant) {
+    const data = {};
+    if (has('price')) data.price = parseMoney(body.price);
+    if (has('cost')) data.cost = parseMoney(body.cost);
+    if (has('stock') || has('stocks')) {
+      data.stock = Math.max(0, Math.floor(Number(body.stock ?? body.stocks) || 0));
+    }
+    if (has('color') || has('colors')) {
+      const color = String(body.color ?? body.colors ?? '').trim();
+      if (color && color.toLowerCase() !== 'parent') data.color = color;
+    }
+    if (has('size') || has('sizes')) {
+      const size = String(body.size ?? body.sizes ?? '').trim();
+      if (size && size.toLowerCase() !== 'parent') data.size = size;
+    }
+    if (has('photos') || has('driveFolder') || has('drive_folder')) {
+      const photos = await softResolvePhotos([
+        ...(Array.isArray(body.photos) ? body.photos : []),
+        body.driveFolder || body.drive_folder || '',
+      ]);
+      if (photos.length) data.photos = photos;
+    }
+    if (!Object.keys(data).length) {
+      const err = new Error(`No updatable fields for ${code}`);
+      err.status = 400;
+      throw err;
+    }
+    await prisma.productVariant.update({ where: { id: variant.id }, data });
+
+    if (data.stock != null) {
+      const all = await prisma.productVariant.findMany({
+        where: { productId: variant.productId },
+        select: { stock: true },
+      });
+      await prisma.product.update({
+        where: { id: variant.productId },
+        data: { stock: all.reduce((n, v) => n + v.stock, 0) },
+      });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: variant.productId },
+      include: PATCH_PRODUCT_INCLUDE,
+    });
+    return { created: false, patched: true, kind: 'variant', product };
+  }
+
+  const err = new Error(
+    `Item ID ${code} not found — add name, category, colors, and sizes to create it, or set Parent SKU for a child`
+  );
+  err.status = 404;
+  throw err;
+};
+
 module.exports = {
   upsertParentWithVariants,
+  patchByItemCode,
   softResolvePhotos,
   prepareVariantRows,
 };
