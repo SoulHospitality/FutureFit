@@ -15,6 +15,7 @@ const {
 } = require('../utils/variants');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
 const { nextItemCode, cleanItemCode } = require('../utils/itemCode');
+const { upsertParentWithVariants } = require('../utils/bulkCatalog');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
 const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
@@ -541,34 +542,79 @@ const bulkCreateProducts = async (req, res) => {
     if (!Array.isArray(items) || !items.length) {
       return res.status(400).json({ message: 'products array is required' });
     }
-    if (items.length > 100) {
-      return res.status(400).json({ message: 'Maximum 100 products per upload' });
+    if (items.length > 200) {
+      return res.status(400).json({ message: 'Maximum 200 parent products per upload' });
     }
 
     const created = [];
+    const updated = [];
     const errors = [];
 
     for (let i = 0; i < items.length; i++) {
       const row = items[i];
       try {
-        const data = await buildProductCreateData(row);
-        data.itemCode = cleanItemCode(row.itemCode ?? row.item_id);
-        const product = await insertProduct(data);
-        created.push(serializeProduct(product, { staff: true }));
+        // New CLR format: parent + nested children. Legacy flat rows still create.
+        if (Array.isArray(row.variants) && row.variants.length) {
+          const result = await upsertParentWithVariants(row, {
+            resolveAudienceAndCategory,
+          });
+          const serialized = serializeProduct(result.product, { staff: true });
+          if (result.created) created.push(serialized);
+          else updated.push(serialized);
+        } else {
+          const data = await buildProductCreateData(row);
+          data.itemCode = cleanItemCode(row.itemCode ?? row.item_id);
+          const existing = data.itemCode
+            ? await prisma.product.findUnique({ where: { itemCode: data.itemCode } })
+            : null;
+          if (existing) {
+            const { sizeStocks, variants, shopSortAll, shopSortMen, shopSortWomen, shopSortKids, ...rest } =
+              data;
+            const product = await prisma.product.update({
+              where: { id: existing.id },
+              data: {
+                ...rest,
+                ...(variants || sizeStocks
+                  ? variants
+                    ? {
+                        variants: {
+                          deleteMany: {},
+                          create: variants.create,
+                        },
+                        sizeStocks: { deleteMany: {} },
+                      }
+                    : {
+                        sizeStocks: {
+                          deleteMany: {},
+                          create: sizeStocks.create,
+                        },
+                      }
+                  : {}),
+              },
+              select: PRODUCT_SELECT,
+            });
+            updated.push(serializeProduct(product, { staff: true }));
+          } else {
+            const product = await insertProduct(data);
+            created.push(serializeProduct(product, { staff: true }));
+          }
+        }
       } catch (err) {
         errors.push({
           row: i + 1,
-          name: row?.name || '',
-          message: err.message || 'Could not create product',
+          name: row?.name || row?.itemCode || '',
+          message: err.message || 'Could not import product',
         });
       }
     }
 
-    if (created.length) bustProductCache();
-    res.status(created.length ? 201 : 400).json({
+    if (created.length || updated.length) bustProductCache();
+    const ok = created.length + updated.length;
+    res.status(ok ? 201 : 400).json({
       created: created.length,
+      updated: updated.length,
       failed: errors.length,
-      products: created,
+      products: [...created, ...updated],
       errors,
     });
   } catch (error) {

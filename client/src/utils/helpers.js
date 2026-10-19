@@ -241,6 +241,33 @@ export const findVariant = (product, color, size) => {
   );
 };
 
+/** Sale price wins; otherwise the selected child's price, else the parent price. */
+export const effectiveUnitPrice = (product, color, size) => {
+  if (product?.isSaleActive && product?.salePrice != null) {
+    return Number(product.salePrice) || 0;
+  }
+  const variant = findVariant(product, color, size);
+  if (variant?.price != null && variant.price !== '') {
+    return Number(variant.price) || 0;
+  }
+  return Number(product?.price) || 0;
+};
+
+/** Lowest sellable price for cards/lists (sale, else min child, else parent). */
+export const displayPrice = (product) => {
+  if (product?.isSaleActive && product?.salePrice != null) {
+    return Number(product.salePrice) || 0;
+  }
+  const childPrices = (product?.variants || [])
+    .map((v) => (v.price != null && v.price !== '' ? Number(v.price) : null))
+    .filter((n) => n != null && Number.isFinite(n) && n > 0);
+  const parent = Number(product?.price) || 0;
+  if (childPrices.length) {
+    return Math.min(parent > 0 ? parent : Infinity, ...childPrices);
+  }
+  return parent;
+};
+
 export const getVariantStock = (product, color, size) => {
   const v = findVariant(product, color, size);
   if (v) return Number(v.stock) || 0;

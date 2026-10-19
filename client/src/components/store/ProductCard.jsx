@@ -10,6 +10,7 @@ import {
   totalStock,
   colorSwatchStyle,
   getVariantStock,
+  displayPrice,
   sizesForColor,
   photosForColor,
   preloadImages,
@@ -52,7 +53,7 @@ function ProductCard({ product, priority = false }) {
     ? (photoIndex ?? (hovered && urls.length > 1 ? 1 : 0)) % urls.length
     : 0;
   const onSale = product.isSaleActive && product.salePrice != null;
-  const price = onSale ? product.salePrice : product.price;
+  const price = displayPrice(product);
   const discount =
     onSale && Number(product.price) > 0
       ? Math.round((1 - Number(product.salePrice) / Number(product.price)) * 100)

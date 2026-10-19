@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { getVariantStock, findVariant } from '../utils/helpers';
+import { getVariantStock, findVariant, effectiveUnitPrice } from '../utils/helpers';
 import { trackAddToCart } from '../utils/tracking';
 
 const CartContext = createContext(null);
@@ -26,12 +26,7 @@ export function CartProvider({ children }) {
 
   const addItem = (product, qty = 1, color = null, size = null) => {
     const variant = findVariant(product, color, size);
-    const price =
-      product.isSaleActive && product.salePrice != null
-        ? product.salePrice
-        : variant?.price != null
-          ? variant.price
-          : product.price;
+    const price = effectiveUnitPrice(product, color, size);
     trackAddToCart({
       productId: product.id,
       name: product.name,
@@ -111,10 +106,9 @@ export function CartProvider({ children }) {
       const withoutOld = prev.filter((i) => itemKey(i.productId, i.color, i.size) !== oldKey);
       const duplicate = withoutOld.find((i) => itemKey(i.productId, i.color, i.size) === newKey);
 
-      const price =
-        product?.isSaleActive && product?.salePrice != null
-          ? product.salePrice
-          : product?.price ?? current.price;
+      const price = product
+        ? effectiveUnitPrice(product, newColor, newSize)
+        : current.price;
 
       if (duplicate) {
         const mergedQty =

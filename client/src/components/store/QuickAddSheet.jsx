@@ -10,6 +10,7 @@ import {
   formatMoney,
   getImageUrl,
   getVariantStock,
+  effectiveUnitPrice,
   sizesForColor,
   photosForColor,
   totalStock,
@@ -61,8 +62,7 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
 
   if (!open || !seed) return null;
 
-  const price =
-    product?.isSaleActive && product?.salePrice != null ? product.salePrice : product?.price;
+  const price = product ? effectiveUnitPrice(product, color, size) : seed?.price;
   const sizeOptions = product ? sizesForColor(product, color) : [];
   const available = sizeOptions.length
     ? getVariantStock(product, color, size)

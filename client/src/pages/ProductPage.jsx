@@ -21,6 +21,8 @@ import {
   formatMoney,
   getImageUrl,
   getVariantStock,
+  findVariant,
+  effectiveUnitPrice,
   sizesForColor,
   totalStock,
   PRODUCT_TYPES,
@@ -328,13 +330,16 @@ export default function ProductPage() {
     return <BrandLoader fullPage size="lg" label="Loading product" />;
   }
 
-  const price =
-    product.isSaleActive && product.salePrice != null ? product.salePrice : product.price;
+  const sizeOptions = sizesForColor(product, color);
+  const selectedVariant = findVariant(product, color, size);
+  const price = effectiveUnitPrice(product, color, size);
+  const listPrice =
+    selectedVariant?.price != null ? Number(selectedVariant.price) : Number(product.price);
+  const onSale = product.isSaleActive && product.salePrice != null;
   const photoIdx = Math.min(activePhoto, Math.max(0, photos.length - 1));
   const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
     product.type.replace('_', ' ');
-  const sizeOptions = sizesForColor(product, color);
   const available = getVariantStock(product, color, size);
   const productStock = totalStock(product);
   const lowStock = available > 0 && available <= 5;
@@ -521,19 +526,19 @@ export default function ProductPage() {
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <span
                 className={`text-2xl font-semibold tabular-nums ${
-                  product.isSaleActive && product.salePrice != null ? 'text-clay' : 'text-timber-900'
+                  onSale ? 'text-clay' : 'text-timber-900'
                 }`}
               >
                 {formatMoney(price)}
               </span>
-              {product.isSaleActive && product.salePrice != null && (
+              {onSale && listPrice > price && (
                 <>
                   <span className="text-base tabular-nums text-timber-400 line-through">
-                    {formatMoney(product.price)}
+                    {formatMoney(listPrice)}
                   </span>
-                  {Number(product.price) > 0 && (
+                  {listPrice > 0 && (
                     <span className="rounded-full bg-clay px-2.5 py-1 text-[11px] font-bold text-white">
-                      Save {Math.round((1 - Number(product.salePrice) / Number(product.price)) * 100)}%
+                      Save {Math.round((1 - price / listPrice) * 100)}%
                     </span>
                   )}
                 </>

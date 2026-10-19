@@ -587,8 +587,10 @@ export default function StaffProducts() {
                           </div>
                         </td>
                         <td className="text-xs text-timber-400">Child</td>
-                        <td className="text-sm tabular-nums text-timber-500">
-                          {row.price != null ? formatMoney(row.price) : '—'}
+                        <td className="text-sm tabular-nums text-timber-700">
+                          {row.price != null ? formatMoney(row.price) : (
+                            <span className="text-timber-400">Parent</span>
+                          )}
                         </td>
                         <td className="text-sm tabular-nums text-timber-500">
                           {row.cost != null ? formatMoney(row.cost) : '—'}
@@ -795,14 +797,14 @@ export default function StaffProducts() {
                 <div>
                   <label className="label !mb-0">Child variants (color × size)</label>
                   <p className="mt-1 text-xs text-timber-400">
-                    Storefront shows the parent; shoppers pick a child by colour and size.
+                    Storefront shows the parent; each child can have its own price, cost, and stock.
                   </p>
                 </div>
                 <div className="max-h-72 space-y-2 overflow-y-auto">
                   {form.variantRows.map((row, index) => (
                     <div
                       key={index}
-                      className="grid grid-cols-[7rem_1fr_5rem_5rem_5rem] gap-2"
+                      className="grid grid-cols-[7rem_1fr_4rem_4.5rem_5rem_5rem] gap-2"
                     >
                       <input
                         className="input font-mono text-xs"
@@ -832,6 +834,15 @@ export default function StaffProducts() {
                         value={row.stock}
                         onChange={(e) => updateVariantRow(index, 'stock', e.target.value)}
                         placeholder="Qty"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="input"
+                        value={row.price}
+                        onChange={(e) => updateVariantRow(index, 'price', e.target.value)}
+                        placeholder="Price"
                       />
                       <input
                         type="number"

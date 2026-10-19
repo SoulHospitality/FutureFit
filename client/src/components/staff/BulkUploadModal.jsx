@@ -5,7 +5,10 @@ import * as XLSX from 'xlsx';
 import api from '../../api/axios';
 import Modal from '../ui/Modal';
 
+/** Matches Future Fit - CLR.xlsx (parent / child). */
 const HEADERS = [
+  'Item ID',
+  'Parent SKU',
   'name',
   'description',
   'price',
@@ -18,36 +21,77 @@ const HEADERS = [
   'drive_folder',
   'is_sale',
   'sale_price',
+  'Cost',
 ];
 
 const TEMPLATE_ROWS = [
   [
-    'Relaxed Cotton Boxers',
-    'Classic woven boxers with a soft waistband',
-    349,
+    'BX-SHORT',
+    '',
+    "Men's Classic Cotton Boxer Shorts",
+    'Soft breathable boxers for everyday wear.',
+    '',
     'men',
     'boxers',
-    'White,Navy',
-    'S,M,L,XL',
-    '10,10,10,10',
+    'Parent',
+    'Parent',
     '',
     '',
-    false,
+    '',
+    '',
+    '',
     '',
   ],
   [
-    'Starter Essentials Pack',
-    'Boxers, briefs, and undershirt bundle',
-    849,
+    'BX-BLK-M',
+    'BX-SHORT',
+    "Men's Classic Black Cotton Boxer Shorts | Medium",
+    'Black cotton boxers. Size: Medium.',
+    119,
     'men',
-    'bundles',
-    'Black,White',
-    'S,M,L,XL',
-    '5,5,5,5',
+    'boxers',
+    'Black',
+    'M',
+    10,
     '',
     'https://drive.google.com/drive/folders/YOUR_FOLDER_ID',
-    true,
-    799,
+    '',
+    '',
+    88,
+  ],
+  [
+    'BX-BLK-L',
+    'BX-SHORT',
+    "Men's Classic Black Cotton Boxer Shorts | Large",
+    'Black cotton boxers. Size: Large.',
+    119,
+    'men',
+    'boxers',
+    'Black',
+    'L',
+    10,
+    '',
+    'https://drive.google.com/drive/folders/YOUR_FOLDER_ID',
+    '',
+    '',
+    88,
+  ],
+  [
+    'SK-P3STL',
+    '',
+    "Men's Pack of 3 Striped Long Socks",
+    'Pack of 3 long socks. Size 40-45.',
+    340,
+    'men',
+    'socks',
+    'Black, Grey, White',
+    '40-45',
+    10,
+    '',
+    'https://drive.google.com/drive/folders/YOUR_FOLDER_ID',
+    '',
+    '',
+    75,
   ],
 ];
 
@@ -65,6 +109,14 @@ function normalizeRow(raw, rowNumber) {
   });
   row.__row = rowNumber;
   return row;
+}
+
+function field(row, ...keys) {
+  for (const key of keys) {
+    const v = row[key];
+    if (v != null && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
 }
 
 function parseCsv(text) {
@@ -120,71 +172,170 @@ function parseExcel(arrayBuffer) {
   const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   return json
     .map((row, index) => normalizeRow(row, index + 2))
-    .filter((row) => row.name || row.description || row.price);
-}
-
-function splitList(value, separator = ',') {
-  return String(value || '')
-    .split(separator)
-    .map((s) => s.trim())
-    .filter(Boolean);
+    .filter((row) => {
+      const id = field(row, 'item id', 'item_id', 'itemid').toUpperCase();
+      if (!id || id === 'EXAMPLES') return false;
+      return Boolean(field(row, 'name'));
+    });
 }
 
 function parseBool(value) {
   const v = String(value || '').trim().toLowerCase();
-  return v === 'true' || v === '1' || v === 'yes';
+  return v === 'true' || v === '1' || v === 'yes' || v === 'y';
 }
 
-export function csvRowsToProducts(rows) {
-  return rows.map((row) => {
-    const sizes = splitList(row.sizes);
-    const stocks = splitList(row.stocks);
-    const sizeStocks = sizes.map((size, i) => ({
-      size,
-      stock: Math.max(0, Number(stocks[i]) || 0),
-    }));
+function parseMoney(value) {
+  if (value === '' || value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-    const photoRaw = row.photos || '';
-    let photos = splitList(photoRaw, '|');
-    if (!photos.length) photos = splitList(photoRaw, ';');
-    photos = photos.filter((url) => /^https?:\/\//i.test(url));
+function isParentMarker(value) {
+  return String(value || '').trim().toLowerCase() === 'parent';
+}
 
-    return {
-      name: row.name,
-      description: row.description,
-      price: Number(row.price),
-      audience: row.audience || 'men',
-      categorySlug: row.category || row.category_slug || '',
-      colors: splitList(row.colors),
-      sizeStocks,
-      photos,
-      driveFolder: row.drive_folder || row.drivefolder || '',
-      isSaleActive: parseBool(row.is_sale || row.is_sale_active),
-      salePrice: row.sale_price === '' || row.sale_price == null ? null : Number(row.sale_price),
-      __row: row.__row,
-    };
-  });
+function stripSizeFromText(text) {
+  return String(text || '')
+    .replace(/\s*[–—|-]\s*(X{0,3}-?Large|XX-Large|XXX-Large|X-Large|Medium|Small|Large)\b.*$/i, '')
+    .replace(/\s*\|\s*(X{0,3}-?Large|XX-Large|XXX-Large|X-Large|Medium|Small|Large)\b.*$/i, '')
+    .replace(/\s*Size:\s*[^.]*\.?/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function splitPhotos(value) {
+  const raw = String(value || '');
+  let photos = raw.split('|').map((s) => s.trim()).filter(Boolean);
+  if (!photos.length) photos = raw.split(';').map((s) => s.trim()).filter(Boolean);
+  return photos.filter((url) => /^https?:\/\//i.test(url));
+}
+
+function rowToVariant(row) {
+  const itemCode = field(row, 'item id', 'item_id', 'itemid').toUpperCase();
+  const color = field(row, 'colors', 'color');
+  const size = field(row, 'sizes', 'size');
+  return {
+    itemCode,
+    color,
+    size,
+    stock: Math.max(0, Math.floor(Number(field(row, 'stocks', 'stock')) || 0)),
+    price: parseMoney(field(row, 'price')),
+    cost: parseMoney(field(row, 'cost')),
+    photos: splitPhotos(field(row, 'photos')),
+    driveFolder: field(row, 'drive_folder', 'drivefolder', 'drive folder'),
+  };
+}
+
+/** Group CLR rows into parent products with children for upsert. */
+export function sheetRowsToProducts(rows) {
+  const parents = new Map();
+
+  for (const row of rows) {
+    const itemId = field(row, 'item id', 'item_id', 'itemid').toUpperCase();
+    const parentSku = field(row, 'parent sku', 'parent_sku', 'parentsku').toUpperCase();
+    if (!itemId) continue;
+
+    if (!parentSku) {
+      if (!parents.has(itemId)) parents.set(itemId, { parent: row, children: [] });
+      else parents.get(itemId).parent = row;
+      continue;
+    }
+    if (!parents.has(parentSku)) {
+      parents.set(parentSku, { parent: null, children: [] });
+    }
+    parents.get(parentSku).children.push(row);
+  }
+
+  const products = [];
+  for (const [parentCode, group] of parents) {
+    const parentRow = group.parent;
+    let children = group.children;
+
+    if (!parentRow) {
+      products.push({
+        __error: `Missing parent row for ${parentCode}`,
+        __row: children[0]?.__row,
+        itemCode: parentCode,
+      });
+      continue;
+    }
+
+    // Standalone parent (no children): use its own color/size as one child
+    if (!children.length) {
+      const color = field(parentRow, 'colors', 'color');
+      const size = field(parentRow, 'sizes', 'size');
+      if (!color || !size || isParentMarker(color) || isParentMarker(size)) {
+        products.push({
+          __error: `${parentCode} has no children and no sellable color/size`,
+          __row: parentRow.__row,
+          itemCode: parentCode,
+        });
+        continue;
+      }
+      children = [parentRow];
+    }
+
+    const firstChild = children[0];
+    const variants = children.map(rowToVariant).filter((v) => v.itemCode && v.color && v.size);
+
+    const parentPrice = parseMoney(field(parentRow, 'price'));
+    const childPrices = variants.map((v) => v.price).filter((p) => p != null && p > 0);
+
+    products.push({
+      itemCode: parentCode,
+      name:
+        stripSizeFromText(field(parentRow, 'name')) ||
+        field(parentRow, 'name') ||
+        parentCode,
+      description:
+        stripSizeFromText(field(parentRow, 'description')) ||
+        field(parentRow, 'description') ||
+        field(parentRow, 'name'),
+      price: parentPrice ?? (childPrices.length ? Math.min(...childPrices) : null),
+      cost: parseMoney(field(parentRow, 'cost')),
+      audience: field(parentRow, 'audience') || field(firstChild, 'audience') || 'men',
+      categorySlug: field(parentRow, 'category') || field(firstChild, 'category') || '',
+      photos: splitPhotos(field(parentRow, 'photos')),
+      driveFolder: field(parentRow, 'drive_folder', 'drivefolder', 'drive folder'),
+      isSaleActive: parseBool(
+        field(parentRow, 'is_sale', 'is sale', 'is_sale_active') ||
+          field(firstChild, 'is_sale', 'is sale')
+      ),
+      salePrice: parseMoney(
+        field(parentRow, 'sale_price', 'sale price') ||
+          field(firstChild, 'sale_price', 'sale price')
+      ),
+      variants,
+      __row: parentRow.__row,
+      __childCount: variants.length,
+    });
+  }
+
+  return products;
 }
 
 function downloadTemplate() {
   const sheet = XLSX.utils.aoa_to_sheet([HEADERS, ...TEMPLATE_ROWS]);
   sheet['!cols'] = [
-    { wch: 28 },
+    { wch: 18 },
+    { wch: 14 },
+    { wch: 36 },
     { wch: 42 },
     { wch: 8 },
     { wch: 10 },
     { wch: 12 },
+    { wch: 18 },
+    { wch: 10 },
+    { wch: 8 },
     { wch: 16 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 24 },
-    { wch: 36 },
+    { wch: 40 },
     { wch: 8 },
     { wch: 10 },
+    { wch: 8 },
   ];
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, 'Products');
-  XLSX.writeFile(workbook, 'futurefit-products-template.xlsx');
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Website');
+  XLSX.writeFile(workbook, 'futurefit-clr-template.xlsx');
 }
 
 async function readUploadFile(file) {
@@ -230,36 +381,45 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
       setResult(null);
       toast.success(`Loaded ${parsed.length} row${parsed.length === 1 ? '' : 's'}`);
     } catch {
-      toast.error('Use an Excel file (.xlsx, .xls) or CSV with the template columns');
+      toast.error('Use an Excel file (.xlsx, .xls) or CSV with the CLR template columns');
     }
   };
 
   const upload = async () => {
     if (!rows.length) return toast.error('Choose an Excel or CSV file first');
-    const products = csvRowsToProducts(rows);
-    const invalid = products.filter(
-      (p) => !p.name || !p.description || !Number.isFinite(p.price) || !p.sizeStocks.length
-    );
-    if (invalid.length) {
-      return toast.error(
-        `${invalid.length} row${invalid.length === 1 ? '' : 's'} missing name, description, price, or sizes`
-      );
+    const products = sheetRowsToProducts(rows);
+    const parseErrors = products.filter((p) => p.__error);
+    const ready = products.filter((p) => !p.__error);
+
+    if (!ready.length) {
+      return toast.error(parseErrors[0]?.__error || 'No valid parent/child groups found');
     }
 
     setUploading(true);
     try {
       const { data } = await api.post('/products/bulk', {
-        products: products.map(({ __row, ...product }) => product),
+        products: ready.map(({ __row, __childCount, __error, ...product }) => product),
       });
-      setResult(data);
-      if (data.created) {
-        toast.success(`Imported ${data.created} product${data.created === 1 ? '' : 's'}`);
+      const mergedErrors = [
+        ...parseErrors.map((p) => ({
+          row: p.__row,
+          name: p.itemCode,
+          message: p.__error,
+        })),
+        ...(data.errors || []),
+      ];
+      setResult({ ...data, errors: mergedErrors, failed: mergedErrors.length });
+      const touched = (data.created || 0) + (data.updated || 0);
+      if (touched) {
+        toast.success(
+          `${data.created || 0} created · ${data.updated || 0} updated`
+        );
         onComplete?.();
       }
-      if (data.failed && !data.created) {
+      if (mergedErrors.length && !touched) {
         toast.error('Import failed — check errors below');
-      } else if (data.failed) {
-        toast.warn(`${data.failed} row${data.failed === 1 ? '' : 's'} failed`);
+      } else if (mergedErrors.length) {
+        toast.warn(`${mergedErrors.length} group${mergedErrors.length === 1 ? '' : 's'} failed`);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Bulk upload failed');
@@ -268,13 +428,15 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
     }
   };
 
+  const previewGroups = rows.length ? sheetRowsToProducts(rows).filter((p) => !p.__error) : [];
+
   return (
     <Modal open={open} onClose={handleClose} title="Bulk upload products" wide>
       <div className="space-y-5">
         <p className="text-sm text-timber-500">
-          Upload an Excel sheet (.xlsx) or CSV to create many products at once. Download the
-          template, fill in the &quot;Products&quot; sheet, then upload it here. Photo URLs can be
-          pipe-separated; each row can also include a Google Drive folder link.
+          Upload the CLR Excel sheet (Item ID + Parent SKU). Parents list on the storefront;
+          children are color × size with their own Item ID, price, cost, and stock. Existing Item
+          IDs are updated; new ones are created.
         </p>
 
         <div className="flex flex-wrap gap-2">
@@ -298,37 +460,43 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
         {fileLabel ? (
           <p className="text-xs text-timber-500">
             Selected: <span className="font-medium text-timber-700">{fileLabel}</span>
+            {rows.length ? ` · ${rows.length} rows · ${previewGroups.length} parents` : ''}
           </p>
         ) : null}
 
-        {rows.length > 0 && !result ? (
+        {previewGroups.length > 0 && !result ? (
           <div className="rounded border border-timber-100 bg-timber-50/50 p-4">
             <p className="text-sm font-medium text-timber-800">
-              {rows.length} product{rows.length === 1 ? '' : 's'} ready to import
+              {previewGroups.length} parent{previewGroups.length === 1 ? '' : 's'} ready
+              (create or update)
             </p>
             <div className="mt-3 max-h-48 overflow-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-timber-200 text-timber-500">
+                    <th className="py-2 pe-3">Parent ID</th>
                     <th className="py-2 pe-3">Name</th>
-                    <th className="py-2 pe-3">Price</th>
-                    <th className="py-2 pe-3">Dept</th>
-                    <th className="py-2">Sizes</th>
+                    <th className="py-2 pe-3">Children</th>
+                    <th className="py-2">Price</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.slice(0, 8).map((row) => (
-                    <tr key={row.__row} className="border-b border-timber-100">
+                  {previewGroups.slice(0, 10).map((row) => (
+                    <tr key={row.itemCode} className="border-b border-timber-100">
+                      <td className="py-2 pe-3 font-mono text-[11px] text-timber-800">
+                        {row.itemCode}
+                      </td>
                       <td className="py-2 pe-3 font-medium text-timber-800">{row.name}</td>
-                      <td className="py-2 pe-3 tabular-nums">{row.price}</td>
-                      <td className="py-2 pe-3">{row.audience || 'men'}</td>
-                      <td className="py-2">{row.sizes || '—'}</td>
+                      <td className="py-2 pe-3 tabular-nums">{row.__childCount}</td>
+                      <td className="py-2 tabular-nums">{row.price ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              {rows.length > 8 ? (
-                <p className="mt-2 text-[11px] text-timber-400">+ {rows.length - 8} more</p>
+              {previewGroups.length > 10 ? (
+                <p className="mt-2 text-[11px] text-timber-400">
+                  + {previewGroups.length - 10} more
+                </p>
               ) : null}
             </div>
           </div>
@@ -337,7 +505,9 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
         {result ? (
           <div className="space-y-3 rounded border border-timber-100 p-4">
             <p className="text-sm text-timber-800">
-              <span className="font-semibold text-green-700">{result.created}</span> created
+              <span className="font-semibold text-green-700">{result.created || 0}</span> created
+              {' · '}
+              <span className="font-semibold text-timber-800">{result.updated || 0}</span> updated
               {result.failed ? (
                 <>
                   {' '}
@@ -348,8 +518,8 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
             {result.errors?.length ? (
               <ul className="max-h-40 space-y-1 overflow-auto text-xs text-red-600">
                 {result.errors.map((err) => (
-                  <li key={`${err.row}-${err.name}`}>
-                    Row {err.row}
+                  <li key={`${err.row}-${err.name}-${err.message}`}>
+                    {err.row != null ? `Row ${err.row}` : 'Group'}
                     {err.name ? ` (${err.name})` : ''}: {err.message}
                   </li>
                 ))}
@@ -375,7 +545,7 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
                   Importing…
                 </>
               ) : (
-                `Import ${rows.length || ''} product${rows.length === 1 ? '' : 's'}`
+                `Import ${previewGroups.length || ''} parent${previewGroups.length === 1 ? '' : 's'}`
               )}
             </button>
           ) : (
