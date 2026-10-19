@@ -20,6 +20,7 @@ const {
   upsertParentWithVariants,
   patchByItemCode,
   syncParentPriceFromChildren,
+  applyParentPriceToChildren,
 } = require('../utils/bulkCatalog');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
@@ -670,6 +671,14 @@ const ALLOWED_UPDATE = [
 
 const updateProduct = async (req, res) => {
   try {
+    const before = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      select: { price: true, isSaleActive: true },
+    });
+    if (!before) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
     const data = {};
     for (const key of ALLOWED_UPDATE) {
       if (req.body[key] !== undefined) data[key] = req.body[key];
@@ -693,12 +702,8 @@ const updateProduct = async (req, res) => {
     const saleQtyLimit = parseSaleQtyLimit(req.body.saleQtyLimit);
     if (saleQtyLimit !== undefined) data.saleQtyLimit = saleQtyLimit;
     if (data.isSaleActive === true || req.body.resetSaleCount === true) {
-      const current = await prisma.product.findUnique({
-        where: { id: req.params.id },
-        select: { isSaleActive: true },
-      });
       // Switching a sale on starts a fresh count toward its stock cap
-      if (!current?.isSaleActive || req.body.resetSaleCount === true) data.saleQtySold = 0;
+      if (!before.isSaleActive || req.body.resetSaleCount === true) data.saleQtySold = 0;
     }
     if (data.photos) {
       data.photos = await resolvePhotoLinks(data.photos);
@@ -731,8 +736,17 @@ const updateProduct = async (req, res) => {
       data.categoryId = resolved.categoryId;
       if (!req.body.type) data.type = resolved.type;
     }
+
+    const incomingPrice =
+      data.price != null && data.price !== '' ? Number(data.price) : null;
+    const parentPriceChanged =
+      incomingPrice != null &&
+      Number.isFinite(incomingPrice) &&
+      incomingPrice > 0 &&
+      Number(before.price) !== incomingPrice;
+
     if (req.body.variants !== undefined) {
-      const variantRows = normalizeVariants(req.body);
+      let variantRows = normalizeVariants(req.body);
       if (!variantRows.length) {
         return res.status(400).json({ message: 'Add at least one color/size variant' });
       }
@@ -741,9 +755,15 @@ const updateProduct = async (req, res) => {
           row.photos = await resolvePhotoLinks(row.photos);
         }
       }
+      if (parentPriceChanged) {
+        // Parent price edit wins — stamp every child with the new price.
+        variantRows = variantRows.map((row) => ({ ...row, price: incomingPrice }));
+        data.price = incomingPrice;
+      } else {
+        const uniformPrice = uniformChildPrice(variantRows);
+        if (uniformPrice != null) data.price = uniformPrice;
+      }
       Object.assign(data, applyVariants(variantRows));
-      const uniformPrice = uniformChildPrice(variantRows);
-      if (uniformPrice != null) data.price = uniformPrice;
     } else if (
       req.body.sizeStocks !== undefined ||
       req.body.sizes !== undefined ||
@@ -755,13 +775,21 @@ const updateProduct = async (req, res) => {
       }
       Object.assign(data, applySizeStocks(sizeRows));
     }
+
     let product = await prisma.product.update({
       where: { id: req.params.id },
       data,
       select: PRODUCT_SELECT,
     });
-    // If variants weren't in this payload but children already share one price, keep parent in sync.
-    if (req.body.variants === undefined && product.variants?.length) {
+
+    if (parentPriceChanged && product.variants?.length) {
+      await applyParentPriceToChildren(product.id, incomingPrice);
+      product = await prisma.product.findUnique({
+        where: { id: product.id },
+        select: PRODUCT_SELECT,
+      });
+    } else if (req.body.variants === undefined && product.variants?.length) {
+      // No parent price change — keep parent aligned if children already share one price.
       const synced = await syncParentPriceFromChildren(product.id);
       if (synced != null && Number(product.price) !== synced) {
         product = await prisma.product.findUnique({
@@ -770,6 +798,7 @@ const updateProduct = async (req, res) => {
         });
       }
     }
+
     if (
       product.isSaleActive &&
       product.saleQtyLimit != null &&

@@ -313,6 +313,17 @@ const syncParentPriceFromChildren = async (productId) => {
   return uniform;
 };
 
+/** Push a parent price onto every child variant. */
+const applyParentPriceToChildren = async (productId, price) => {
+  const n = parseMoney(price);
+  if (n == null || n <= 0) return 0;
+  const result = await prisma.productVariant.updateMany({
+    where: { productId },
+    data: { price: n },
+  });
+  return result.count;
+};
+
 /**
  * Update an existing parent Product or child ProductVariant by Item ID.
  * Only fields present on `body` are written (partial CLR rows / price lists).
@@ -381,9 +392,13 @@ const patchByItemCode = async (body = {}) => {
       where: { id: existing.id },
       data,
     });
-    // Children with one shared price win over a patched parent price.
     if (existing._count.variants) {
-      await syncParentPriceFromChildren(existing.id);
+      if (data.price != null && data.price > 0) {
+        // Parent price change wins — push to every child.
+        await applyParentPriceToChildren(existing.id, data.price);
+      } else {
+        await syncParentPriceFromChildren(existing.id);
+      }
     }
     const product = await prisma.product.findUnique({
       where: { id: existing.id },
@@ -457,6 +472,7 @@ module.exports = {
   upsertParentWithVariants,
   patchByItemCode,
   syncParentPriceFromChildren,
+  applyParentPriceToChildren,
   softResolvePhotos,
   prepareVariantRows,
 };

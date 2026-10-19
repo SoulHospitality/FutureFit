@@ -743,7 +743,15 @@ export default function StaffProducts() {
                 step="0.01"
                 className="input"
                 value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                onChange={(e) => {
+                  const price = e.target.value;
+                  setForm((f) => ({
+                    ...f,
+                    price,
+                    // Parent price edit applies to every child row in the form.
+                    variantRows: (f.variantRows || []).map((row) => ({ ...row, price })),
+                  }));
+                }}
               />
             </div>
             <div>
@@ -830,8 +838,8 @@ export default function StaffProducts() {
                 <div>
                   <label className="label !mb-0">Child variants (color × size)</label>
                   <p className="mt-1 text-xs text-timber-400">
-                    Storefront shows the parent; each child can have its own price, cost, and stock.
-                    If every child price matches, the parent price is set to that amount.
+                    Storefront shows the parent; children can have their own prices. Changing the
+                    parent price updates every child; if every child matches, the parent follows.
                   </p>
                 </div>
                 <div className="max-h-72 space-y-2 overflow-y-auto">
