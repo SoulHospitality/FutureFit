@@ -556,7 +556,14 @@ const bulkCreateProducts = async (req, res) => {
         // Partial CLR rows (e.g. Item ID + price/cost only) update existing SKUs.
         if (row?.mode === 'patch' || row?.patch === true) {
           const result = await patchByItemCode(row);
-          updated.push(serializeProduct(result.product, { staff: true }));
+          const p = result.product;
+          updated.push({
+            id: p.id,
+            itemCode: p.itemCode,
+            name: p.name,
+            price: p.price != null ? Number(p.price) : null,
+            cost: p.cost != null ? Number(p.cost) : null,
+          });
           continue;
         }
         // New CLR format: parent + nested children. Legacy flat rows still create.
@@ -625,7 +632,12 @@ const bulkCreateProducts = async (req, res) => {
 
     if (created.length || updated.length) bustProductCache();
     const ok = created.length + updated.length;
-    res.status(ok ? 201 : 400).json({
+    // 201 = something written; 200 = request ok but every row failed (show errors in UI);
+    // 400 only for malformed payloads (handled above).
+    res.status(ok ? 201 : 200).json({
+      message: ok
+        ? undefined
+        : errors[0]?.message || 'No products were imported',
       created: created.length,
       updated: updated.length,
       failed: errors.length,

@@ -282,20 +282,13 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
   return { created: false, product };
 };
 
-const PATCH_PRODUCT_INCLUDE = {
-  variants: { orderBy: { sortOrder: 'asc' } },
-  sizeStocks: true,
-  category: {
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      audience: true,
-      parentId: true,
-      parent: { select: { id: true, name: true, slug: true } },
-    },
-  },
-  reviews: { where: { isVisible: true }, select: { rating: true, isVisible: true } },
+/** Lightweight row returned from bulk patches (staff list refetches full products). */
+const PATCH_RESULT_SELECT = {
+  id: true,
+  itemCode: true,
+  name: true,
+  price: true,
+  cost: true,
 };
 
 /**
@@ -365,7 +358,7 @@ const patchByItemCode = async (body = {}) => {
     const product = await prisma.product.update({
       where: { id: existing.id },
       data,
-      include: PATCH_PRODUCT_INCLUDE,
+      select: PATCH_RESULT_SELECT,
     });
     return { created: false, patched: true, kind: 'product', product };
   }
@@ -412,7 +405,7 @@ const patchByItemCode = async (body = {}) => {
 
     const product = await prisma.product.findUnique({
       where: { id: variant.productId },
-      include: PATCH_PRODUCT_INCLUDE,
+      select: PATCH_RESULT_SELECT,
     });
     return { created: false, patched: true, kind: 'variant', product };
   }

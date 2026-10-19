@@ -515,6 +515,30 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
     }
   };
 
+  const finishUpload = (data, parseErrors) => {
+    const mergedErrors = [
+      ...parseErrors.map((p) => ({
+        row: p.__row,
+        name: p.itemCode,
+        message: p.__error,
+      })),
+      ...(data.errors || []),
+    ];
+    setResult({ ...data, errors: mergedErrors, failed: mergedErrors.length });
+    const touched = (data.created || 0) + (data.updated || 0);
+    if (touched) {
+      toast.success(`${data.created || 0} created · ${data.updated || 0} updated`);
+      onComplete?.();
+    }
+    if (mergedErrors.length && !touched) {
+      toast.error(
+        data.message || mergedErrors[0]?.message || 'Import failed — check errors below'
+      );
+    } else if (mergedErrors.length) {
+      toast.warn(`${mergedErrors.length} group${mergedErrors.length === 1 ? '' : 's'} failed`);
+    }
+  };
+
   const upload = async () => {
     if (!rows.length) return toast.error('Choose an Excel or CSV file first');
     const products = sheetRowsToProducts(rows);
@@ -527,32 +551,22 @@ export default function BulkUploadModal({ open, onClose, onComplete }) {
 
     setUploading(true);
     try {
-      const { data } = await api.post('/products/bulk', {
-        products: ready.map(({ __childCount, __error, __patch, ...product }) => product),
-      });
-      const mergedErrors = [
-        ...parseErrors.map((p) => ({
-          row: p.__row,
-          name: p.itemCode,
-          message: p.__error,
-        })),
-        ...(data.errors || []),
-      ];
-      setResult({ ...data, errors: mergedErrors, failed: mergedErrors.length });
-      const touched = (data.created || 0) + (data.updated || 0);
-      if (touched) {
-        toast.success(
-          `${data.created || 0} created · ${data.updated || 0} updated`
-        );
-        onComplete?.();
-      }
-      if (mergedErrors.length && !touched) {
-        toast.error('Import failed — check errors below');
-      } else if (mergedErrors.length) {
-        toast.warn(`${mergedErrors.length} group${mergedErrors.length === 1 ? '' : 's'} failed`);
-      }
+      const { data } = await api.post(
+        '/products/bulk',
+        {
+          products: ready.map(({ __childCount, __error, __patch, ...product }) => product),
+        },
+        // Bulk returns 200 when every row fails (with an errors[]); still treat as a result.
+        { validateStatus: (status) => status >= 200 && status < 300 }
+      );
+      finishUpload(data || {}, parseErrors);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Bulk upload failed');
+      const data = err.response?.data;
+      if (data && (Array.isArray(data.errors) || data.failed != null)) {
+        finishUpload(data, parseErrors);
+      } else {
+        toast.error(data?.message || 'Bulk upload failed');
+      }
     } finally {
       setUploading(false);
     }
