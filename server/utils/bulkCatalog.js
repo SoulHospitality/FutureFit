@@ -8,6 +8,7 @@ const {
   colorsFromVariants,
   sizesFromVariants,
   photoByColorFromVariants,
+  uniformChildPrice,
 } = require('./variants');
 
 const softResolvePhotos = async (links = []) => {
@@ -83,12 +84,16 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
 
   const childPrices = variantRows.map((v) => v.price).filter((p) => p != null && p > 0);
   const bodyPrice = parseMoney(body.price);
+  const uniformPrice = uniformChildPrice(variantRows);
+  // When every child shares one price, parent must match; else sheet/min fallback.
   const parentPrice =
-    bodyPrice != null && bodyPrice > 0
-      ? bodyPrice
-      : childPrices.length
-        ? Math.min(...childPrices)
-        : null;
+    uniformPrice != null
+      ? uniformPrice
+      : bodyPrice != null && bodyPrice > 0
+        ? bodyPrice
+        : childPrices.length
+          ? Math.min(...childPrices)
+          : null;
 
   const { audience, categoryId, type } = await resolveAudienceAndCategory(body);
   const category = categoryId
@@ -250,6 +255,7 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
   const allVariants = await prisma.productVariant.findMany({
     where: { productId: existing.id },
   });
+  const uniformAll = uniformChildPrice(allVariants);
   await prisma.product.update({
     where: { id: existing.id },
     data: {
@@ -257,6 +263,7 @@ const upsertParentWithVariants = async (body, { resolveAudienceAndCategory }) =>
       colors: colorsFromVariants(allVariants),
       sizes: sizesFromVariants(allVariants),
       photoByColor: photoByColorFromVariants(allVariants) || photoByColor,
+      ...(uniformAll != null ? { price: uniformAll } : {}),
     },
   });
 
@@ -289,6 +296,21 @@ const PATCH_RESULT_SELECT = {
   name: true,
   price: true,
   cost: true,
+};
+
+/** When every child shares one price, write that onto the parent. */
+const syncParentPriceFromChildren = async (productId) => {
+  const variants = await prisma.productVariant.findMany({
+    where: { productId },
+    select: { price: true },
+  });
+  const uniform = uniformChildPrice(variants);
+  if (uniform == null) return null;
+  await prisma.product.update({
+    where: { id: productId },
+    data: { price: uniform },
+  });
+  return uniform;
 };
 
 /**
@@ -355,9 +377,16 @@ const patchByItemCode = async (body = {}) => {
       throw err;
     }
 
-    const product = await prisma.product.update({
+    await prisma.product.update({
       where: { id: existing.id },
       data,
+    });
+    // Children with one shared price win over a patched parent price.
+    if (existing._count.variants) {
+      await syncParentPriceFromChildren(existing.id);
+    }
+    const product = await prisma.product.findUnique({
+      where: { id: existing.id },
       select: PATCH_RESULT_SELECT,
     });
     return { created: false, patched: true, kind: 'product', product };
@@ -395,12 +424,19 @@ const patchByItemCode = async (body = {}) => {
     if (data.stock != null) {
       const all = await prisma.productVariant.findMany({
         where: { productId: variant.productId },
-        select: { stock: true },
+        select: { stock: true, price: true },
       });
+      const parentData = {
+        stock: all.reduce((n, v) => n + v.stock, 0),
+      };
+      const uniform = uniformChildPrice(all);
+      if (uniform != null) parentData.price = uniform;
       await prisma.product.update({
         where: { id: variant.productId },
-        data: { stock: all.reduce((n, v) => n + v.stock, 0) },
+        data: parentData,
       });
+    } else if (has('price')) {
+      await syncParentPriceFromChildren(variant.productId);
     }
 
     const product = await prisma.product.findUnique({
@@ -420,6 +456,7 @@ const patchByItemCode = async (body = {}) => {
 module.exports = {
   upsertParentWithVariants,
   patchByItemCode,
+  syncParentPriceFromChildren,
   softResolvePhotos,
   prepareVariantRows,
 };

@@ -125,6 +125,24 @@ const photoByColorFromVariants = (variants = []) => {
   return Object.keys(map).length ? map : null;
 };
 
+const moneyKey = (value) => {
+  if (value === '' || value == null) return null;
+  const n = Math.round(Number(value) * 100) / 100;
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
+
+/**
+ * If every child has an explicit price and they all match, return that price.
+ * Otherwise null (mixed / missing child prices — leave parent alone).
+ */
+const uniformChildPrice = (variants = []) => {
+  if (!Array.isArray(variants) || !variants.length) return null;
+  const prices = variants.map((v) => moneyKey(v.price));
+  if (prices.some((p) => p == null)) return null;
+  const first = prices[0];
+  return prices.every((p) => p === first) ? first : null;
+};
+
 module.exports = {
   normalizeVariants,
   variantWrites,
@@ -134,5 +152,6 @@ module.exports = {
   colorsFromVariants,
   sizesFromVariants,
   photoByColorFromVariants,
+  uniformChildPrice,
   sizeRank,
 };

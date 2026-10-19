@@ -314,6 +314,18 @@ export default function StaffProducts() {
     }
   };
 
+  const uniformVariantPrice = (rows = []) => {
+    const prices = rows
+      .map((row) => {
+        if (row.price === '' || row.price == null) return null;
+        const n = Math.round(Number(row.price) * 100) / 100;
+        return Number.isFinite(n) && n > 0 ? n : null;
+      });
+    if (!prices.length || prices.some((p) => p == null)) return null;
+    const first = prices[0];
+    return prices.every((p) => p === first) ? first : null;
+  };
+
   const save = async (e) => {
     e.preventDefault();
     const variants = (form.variantRows || [])
@@ -346,10 +358,11 @@ export default function StaffProducts() {
       const url = String(form.photoByColor?.[c] || '').trim();
       if (url) photoByColor[c] = url;
     });
+    const sharedChildPrice = uniformVariantPrice(variants);
     const payload = {
       name: form.name,
       description: form.description,
-      price: Number(form.price),
+      price: sharedChildPrice != null ? sharedChildPrice : Number(form.price),
       type: form.type,
       audience: form.audience,
       status: form.status === 'draft' ? 'draft' : 'active',
@@ -407,12 +420,17 @@ export default function StaffProducts() {
   ).reduce((n, row) => n + (Number(row.stock) || 0), 0);
 
   const updateVariantRow = (index, field, value) => {
-    setForm((f) => ({
-      ...f,
-      variantRows: f.variantRows.map((row, i) =>
+    setForm((f) => {
+      const variantRows = f.variantRows.map((row, i) =>
         i === index ? { ...row, [field]: value } : row
-      ),
-    }));
+      );
+      const next = { ...f, variantRows };
+      if (field === 'price') {
+        const shared = uniformVariantPrice(variantRows);
+        if (shared != null) next.price = shared;
+      }
+      return next;
+    });
   };
 
   return (
@@ -813,6 +831,7 @@ export default function StaffProducts() {
                   <label className="label !mb-0">Child variants (color × size)</label>
                   <p className="mt-1 text-xs text-timber-400">
                     Storefront shows the parent; each child can have its own price, cost, and stock.
+                    If every child price matches, the parent price is set to that amount.
                   </p>
                 </div>
                 <div className="max-h-72 space-y-2 overflow-y-auto">

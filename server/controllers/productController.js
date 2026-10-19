@@ -12,10 +12,15 @@ const {
   sizesFromVariants,
   photoByColorFromVariants,
   totalVariantStock,
+  uniformChildPrice,
 } = require('../utils/variants');
 const { typeFromCategory, ratingSummary, AUDIENCES } = require('../utils/catalog');
 const { nextItemCode, cleanItemCode } = require('../utils/itemCode');
-const { upsertParentWithVariants, patchByItemCode } = require('../utils/bulkCatalog');
+const {
+  upsertParentWithVariants,
+  patchByItemCode,
+  syncParentPriceFromChildren,
+} = require('../utils/bulkCatalog');
 const { listProductReviews, createProductReview } = require('./reviewController');
 
 const serializeProduct = (p, { includeReviews = false, staff = false } = {}) => {
@@ -353,10 +358,11 @@ const buildProductCreateData = async (body) => {
   const nextAudience = (maxAudience._max[audienceField] ?? -1) + 1;
 
   const stockRows = variantRows.length ? variantRows : sizeRows;
+  const uniformPrice = uniformChildPrice(variantRows);
   return {
     name: String(name).trim(),
     description: String(description).trim(),
-    price,
+    price: uniformPrice != null ? uniformPrice : price,
     cost: parseCost(body.cost) ?? null,
     type,
     audience,
@@ -736,6 +742,8 @@ const updateProduct = async (req, res) => {
         }
       }
       Object.assign(data, applyVariants(variantRows));
+      const uniformPrice = uniformChildPrice(variantRows);
+      if (uniformPrice != null) data.price = uniformPrice;
     } else if (
       req.body.sizeStocks !== undefined ||
       req.body.sizes !== undefined ||
@@ -752,6 +760,16 @@ const updateProduct = async (req, res) => {
       data,
       select: PRODUCT_SELECT,
     });
+    // If variants weren't in this payload but children already share one price, keep parent in sync.
+    if (req.body.variants === undefined && product.variants?.length) {
+      const synced = await syncParentPriceFromChildren(product.id);
+      if (synced != null && Number(product.price) !== synced) {
+        product = await prisma.product.findUnique({
+          where: { id: product.id },
+          select: PRODUCT_SELECT,
+        });
+      }
+    }
     if (
       product.isSaleActive &&
       product.saleQtyLimit != null &&
