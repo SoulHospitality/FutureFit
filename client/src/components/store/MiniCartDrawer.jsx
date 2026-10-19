@@ -3,20 +3,24 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { formatMoney, getImageUrl, calcShipping, FREE_SHIPPING_MIN, AUDIENCES } from '../../utils/helpers';
-import { useBagOffers } from '../../utils/offers';
+import { nextOfferHint, useActiveOffers, useBagOffers, loadActiveOffers } from '../../utils/offers';
 
 export default function MiniCartDrawer() {
   const { items, updateQty, removeItem, subtotal, drawerOpen, closeDrawer } = useCart();
+  const activeOffers = useActiveOffers();
   const offers = useBagOffers(items);
+  const offerHint = nextOfferHint(items, activeOffers);
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
   const itemCount = items.reduce((s, i) => s + i.qty, 0);
   const shippingLabel =
     shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
+  const bagTotal = (shipping == null ? subtotal : subtotal + shipping) - offers.discount;
 
   useEffect(() => {
     if (!drawerOpen) return undefined;
+    loadActiveOffers({ force: true });
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e) => {
@@ -178,11 +182,18 @@ export default function MiniCartDrawer() {
                   <span className="tabular-nums font-medium text-clay">−{formatMoney(o.discount)}</span>
                 </div>
               ))}
+              {offers.discount <= 0 && offerHint?.kind === 'progress' ? (
+                <p className="text-xs font-medium text-clay">{offerHint.message}</p>
+              ) : null}
               <div className="flex justify-between">
                 <span className="text-timber-500">Shipping</span>
                 <span className={`tabular-nums ${shipping === 0 ? 'font-semibold text-clay' : 'text-timber-900'}`}>
                   {shippingLabel}
                 </span>
+              </div>
+              <div className="flex justify-between border-t border-timber-100 pt-2 font-semibold">
+                <span>Total</span>
+                <span className="tabular-nums text-timber-900">{formatMoney(bagTotal)}</span>
               </div>
             </div>
             <Link to="/checkout" onClick={closeDrawer} className="btn-wheat btn-lg mt-4 w-full">

@@ -10,9 +10,6 @@ const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Base64 slide uploads need a higher body limit than the global 2mb cap
-router.use(express.json({ limit: '8mb' }));
-
 router.get('/', listSlides);
 router.get('/cloudinary-status', protect, adminOnly, cloudinaryStatus);
 router.post('/', protect, adminOnly, createSlide);

@@ -35,6 +35,16 @@ const listSlides = async (req, res) => {
   }
 };
 
+const slideErrorMessage = (error) => {
+  if (error?.type === 'entity.too.large' || error?.status === 413) {
+    return 'Image is too large. Try a smaller file (under ~8MB) or paste a hosted image URL.';
+  }
+  if (/Cloudinary is not configured/i.test(error?.message || '')) {
+    return 'Cloudinary is not configured. Paste a hosted image URL, or add CLOUDINARY_* env vars.';
+  }
+  return error?.message || 'Could not save slide';
+};
+
 const createSlide = async (req, res) => {
   try {
     const { title, description, sortOrder, imageUrl, imageData } = req.body;
@@ -62,19 +72,24 @@ const createSlide = async (req, res) => {
     cache.invalidate('slides');
     res.status(201).json(slide);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const status = error?.status === 413 ? 413 : 500;
+    res.status(status).json({ message: slideErrorMessage(error) });
   }
 };
 
 const updateSlide = async (req, res) => {
   try {
+    const existing = await prisma.slide.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ message: 'Slide not found' });
+
     const data = {};
     if (req.body.title !== undefined) data.title = req.body.title;
     if (req.body.description !== undefined) data.description = req.body.description;
     if (req.body.sortOrder !== undefined) data.sortOrder = Number(req.body.sortOrder) || 0;
     if (req.body.device !== undefined) data.device = normalizeDevice(req.body.device);
+
+    const device = data.device || existing.device || 'desktop';
     if (req.body.imageData) {
-      const device = data.device || normalizeDevice(req.body.device);
       data.cloudinaryUrl = await uploadImage(
         req.body.imageData,
         device === 'mobile' ? 'futurefit/slides/mobile' : 'futurefit/slides/desktop'
@@ -82,6 +97,7 @@ const updateSlide = async (req, res) => {
     } else if (req.body.imageUrl) {
       data.cloudinaryUrl = req.body.imageUrl;
     }
+
     const slide = await prisma.slide.update({
       where: { id: req.params.id },
       data,
@@ -89,7 +105,8 @@ const updateSlide = async (req, res) => {
     cache.invalidate('slides');
     res.json(slide);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    const status = error?.status === 413 ? 413 : 500;
+    res.status(status).json({ message: slideErrorMessage(error) });
   }
 };
 

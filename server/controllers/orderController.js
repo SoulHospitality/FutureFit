@@ -521,6 +521,7 @@ const serializeOrder = (order) => ({
   shippingPrice: Number(order.shippingPrice),
   discountAmount: Number(order.discountAmount),
   offerDiscount: Number(order.offerDiscount || 0),
+  appliedOffers: Array.isArray(order.appliedOffers) ? order.appliedOffers : [],
   totalPrice: Number(order.totalPrice),
   items: order.items?.map((i) => ({ ...i, price: Number(i.price) })),
   customerName: order.user?.name || order.guestName || null,

@@ -21,6 +21,7 @@ import {
   paymentStatusMeta,
   fulfillmentStatusMeta,
 } from '../../utils/helpers';
+import { couponDiscountFromOrder, offerLinesFromOrder } from '../../utils/offers';
 
 const NEXT = {
   pending: ['confirmed', 'canceled'],
@@ -254,24 +255,26 @@ export default function StaffOrderDetail() {
                 <dt className="text-zinc-500">Subtotal</dt>
                 <dd className="tabular-nums">{formatMoney(order.itemsPrice)}</dd>
               </div>
+              {offerLinesFromOrder(order).map((o) => (
+                <div key={o.offerId} className="flex justify-between">
+                  <dt className="text-zinc-500">{o.name}</dt>
+                  <dd className="tabular-nums text-emerald-700">−{formatMoney(o.discount)}</dd>
+                </div>
+              ))}
+              {couponDiscountFromOrder(order) > 0.009 && (
+                <div className="flex justify-between">
+                  <dt className="text-zinc-500">
+                    Promo code {order.couponCode ? `(${order.couponCode})` : ''}
+                  </dt>
+                  <dd className="tabular-nums text-emerald-700">
+                    −{formatMoney(couponDiscountFromOrder(order))}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-zinc-500">Shipping</dt>
                 <dd className="tabular-nums">{formatMoney(order.shippingPrice)}</dd>
               </div>
-              {(Array.isArray(order.appliedOffers) ? order.appliedOffers : []).map((o) => (
-                <div key={o.offerId} className="flex justify-between">
-                  <dt className="text-zinc-500">Offer: {o.name}</dt>
-                  <dd className="tabular-nums text-emerald-700">−{formatMoney(o.discount)}</dd>
-                </div>
-              ))}
-              {Number(order.discountAmount) - Number(order.offerDiscount || 0) > 0.009 && (
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">Discount {order.couponCode ? `(${order.couponCode})` : ''}</dt>
-                  <dd className="tabular-nums text-emerald-700">
-                    −{formatMoney(Number(order.discountAmount) - Number(order.offerDiscount || 0))}
-                  </dd>
-                </div>
-              )}
               <div className="flex justify-between border-t border-zinc-100 pt-2 font-semibold">
                 <dt>Total</dt>
                 <dd className="tabular-nums">{formatMoney(order.totalPrice)}</dd>

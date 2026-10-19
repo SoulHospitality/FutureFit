@@ -60,13 +60,16 @@ const publicOffers = async (req, res) => {
   try {
     const offers = await getActiveOffers();
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
-    res.json(offers.map(({ id, name, type, appliesTo, productIds }) => ({
-      id,
-      name,
-      type,
-      appliesTo,
-      productIds: appliesTo === 'selected' ? productIds : [],
-    })));
+    res.json(
+      offers.map(({ id, name, type, appliesTo, productIds, isActive }) => ({
+        id,
+        name,
+        type,
+        appliesTo: appliesTo === 'selected' ? 'selected' : 'all',
+        productIds: appliesTo === 'selected' ? productIds || [] : [],
+        isActive: isActive !== false,
+      }))
+    );
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

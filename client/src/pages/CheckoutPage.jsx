@@ -17,7 +17,13 @@ import {
 import { getStoreSessionKey } from '../utils/sessionKey';
 import { getAttribution } from '../utils/attribution';
 import { trackInitiateCheckout } from '../utils/tracking';
-import { useBagOffers } from '../utils/offers';
+import {
+  nextOfferHint,
+  offerLinesFromOrder,
+  useActiveOffers,
+  useBagOffers,
+  loadActiveOffers,
+} from '../utils/offers';
 
 const ADDRESS_FIELDS = [
   { key: 'state', label: 'Governorate' },
@@ -85,21 +91,36 @@ export default function CheckoutPage() {
   );
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState('');
+  const activeOffers = useActiveOffers();
   const bagOffers = useBagOffers(items);
+  const offerHint = nextOfferHint(items, activeOffers);
 
   const itemsTotal = quote?.itemsPrice ?? subtotal;
-  const offerLines = quote?.appliedOffers ?? bagOffers.applied;
-  const offerTotal = quote?.offerDiscount ?? bagOffers.discount;
+  const offerLines =
+    quote != null
+      ? offerLinesFromOrder(quote)
+      : bagOffers.applied;
+  const offerTotal =
+    quote != null ? Number(quote.offerDiscount) || 0 : bagOffers.discount;
   const couponDiscount = quote?.couponDiscount || 0;
   const couponError = appliedCoupon ? quote?.couponError || '' : '';
+  // Prefer the server quote so checkout matches the placed order / bill
   const shipping = calcShipping(itemsTotal, form.state);
-  const shippingAmount = shipping ?? 0;
-  const total = Math.max(0, itemsTotal + shippingAmount - offerTotal - couponDiscount);
+  const shippingAmount =
+    quote?.shippingPrice != null ? Number(quote.shippingPrice) : shipping ?? 0;
+  const total =
+    quote?.totalPrice != null
+      ? Number(quote.totalPrice)
+      : Math.max(0, itemsTotal + shippingAmount - offerTotal - couponDiscount);
   const pricesChanged = quote != null && Math.abs(quote.itemsPrice - subtotal) > 0.009;
 
   useEffect(() => {
     sessionStorage.setItem(FORM_KEY, JSON.stringify(form));
   }, [form]);
+
+  useEffect(() => {
+    loadActiveOffers({ force: true });
+  }, []);
 
   // Server price check: sale caps, automatic offers and the promo code
   useEffect(() => {
@@ -664,6 +685,9 @@ export default function CheckoutPage() {
                     <span className="tabular-nums font-medium text-clay">−{formatMoney(o.discount)}</span>
                   </div>
                 ))}
+                {offerTotal <= 0 && offerHint?.kind === 'progress' ? (
+                  <p className="text-xs font-medium text-clay">{offerHint.message}</p>
+                ) : null}
                 {couponDiscount > 0 && (
                   <div className="flex justify-between gap-3">
                     <span className="font-medium text-clay">Promo {quote?.couponCode}</span>
@@ -673,11 +697,15 @@ export default function CheckoutPage() {
                 <div className="flex justify-between">
                   <span className="text-timber-500">Shipping</span>
                   <span className="tabular-nums">
-                    {shipping === 0
-                      ? 'Free'
-                      : shipping == null
-                        ? 'Select governorate'
-                        : `${formatMoney(shipping)} · free over ${formatMoney(FREE_SHIPPING_MIN)}`}
+                    {quote != null && form.state
+                      ? shippingAmount === 0
+                        ? 'Free'
+                        : formatMoney(shippingAmount)
+                      : shipping === 0
+                        ? 'Free'
+                        : shipping == null
+                          ? 'Select governorate'
+                          : `${formatMoney(shipping)} · free over ${formatMoney(FREE_SHIPPING_MIN)}`}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-timber-100 pt-3 text-base font-medium">

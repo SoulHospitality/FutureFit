@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api/axios';
 import BrandLoader from '../components/ui/BrandLoader';
 import { formatMoney, getImageUrl, orderStatusBadge, orderStatusLabel } from '../utils/helpers';
+import { couponDiscountFromOrder, offerLinesFromOrder } from '../utils/offers';
 
 export default function OrderPage() {
   const { id } = useParams();
@@ -43,19 +44,19 @@ export default function OrderPage() {
         ))}
         <div className="border-t border-timber-100 pt-4 space-y-1 text-sm">
           <div className="flex justify-between"><span>Items</span><span>{formatMoney(order.itemsPrice)}</span></div>
-          <div className="flex justify-between"><span>Shipping</span><span>{formatMoney(order.shippingPrice)}</span></div>
-          {(Array.isArray(order.appliedOffers) ? order.appliedOffers : []).map((o) => (
+          {offerLinesFromOrder(order).map((o) => (
             <div key={o.offerId} className="flex justify-between text-green-700">
               <span>{o.name}</span>
               <span>-{formatMoney(o.discount)}</span>
             </div>
           ))}
-          {Number(order.discountAmount) - Number(order.offerDiscount || 0) > 0.009 && (
+          {couponDiscountFromOrder(order) > 0.009 && (
             <div className="flex justify-between text-green-700">
               <span>Discount {order.couponCode && `(${order.couponCode})`}</span>
-              <span>-{formatMoney(Number(order.discountAmount) - Number(order.offerDiscount || 0))}</span>
+              <span>-{formatMoney(couponDiscountFromOrder(order))}</span>
             </div>
           )}
+          <div className="flex justify-between"><span>Shipping</span><span>{formatMoney(order.shippingPrice)}</span></div>
           <div className="flex justify-between font-bold text-base pt-2">
             <span>Total</span><span>{formatMoney(order.totalPrice)}</span>
           </div>

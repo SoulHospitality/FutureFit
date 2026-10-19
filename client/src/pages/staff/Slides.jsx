@@ -34,6 +34,44 @@ const DEVICE_TABS = [
 
 const emptyForm = { title: '', description: '', imageUrl: '' };
 
+/** Resize/compress before base64 upload so large phone photos don't hit the API body limit. */
+function fileToSlideDataUri(file, device) {
+  const maxW = device === 'mobile' ? 1440 : 2400;
+  const maxH = device === 'mobile' ? 2560 : 1440;
+  const quality = 0.85;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not load image'));
+      img.onload = () => {
+        let { width, height } = img;
+        const scale = Math.min(1, maxW / width, maxH / height);
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(reader.result);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        try {
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch {
+          resolve(reader.result);
+        }
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function StaffSlides({ embedded = false, onChanged } = {}) {
   const [device, setDevice] = useState('desktop');
   const [slides, setSlides] = useState([]);
@@ -42,6 +80,7 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [fileData, setFileData] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [savingOrder, setSavingOrder] = useState(false);
 
   const tab = DEVICE_TABS.find((t) => t.key === device) || DEVICE_TABS[0];
@@ -61,12 +100,22 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
     load();
   }, []);
 
-  const onFile = (e) => {
+  const onFile = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setFileData(reader.result);
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const dataUri = await fileToSlideDataUri(file, device);
+      setFileData(dataUri);
+      toast.success('Image ready to save');
+    } catch (err) {
+      toast.error(err.message || 'Could not prepare image');
+      setFileData(null);
+    }
   };
 
   const openCreate = () => {
@@ -89,14 +138,18 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
 
   const save = async (e) => {
     e.preventDefault();
+    if (!editing && !fileData && !form.imageUrl.trim()) {
+      return toast.error('Upload an image or paste an image URL');
+    }
+    setSaving(true);
     try {
       const payload = {
         title: form.title,
         description: form.description,
         device,
         sortOrder: editing ? editing.sortOrder ?? visible.length : visible.length,
-        imageUrl: form.imageUrl || undefined,
-        imageData: fileData || undefined,
+        ...(form.imageUrl.trim() ? { imageUrl: form.imageUrl.trim() } : {}),
+        ...(fileData ? { imageData: fileData } : {}),
       };
       if (editing) await api.put(`/slides/${editing.id}`, payload);
       else await api.post('/slides', payload);
@@ -107,10 +160,15 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
       load();
       onChanged?.();
     } catch (err) {
+      const status = err.response?.status;
       toast.error(
         err.response?.data?.message ||
-          'Failed — set Cloudinary keys or paste an image URL'
+          (status === 413
+            ? 'Image is too large — try a smaller file or paste a URL'
+            : 'Failed — set Cloudinary keys or paste an image URL')
       );
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -286,6 +344,23 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
           <div>
             <label className="label">{editing ? 'Replace image (optional)' : 'Upload (Cloudinary)'}</label>
             <input type="file" accept="image/*" onChange={onFile} className="input" />
+            {fileData ? (
+              <img
+                src={fileData}
+                alt=""
+                className={`mt-3 rounded-lg object-cover bg-zinc-100 ${
+                  device === 'mobile' ? 'mx-auto aspect-[9/16] w-24' : 'aspect-video max-w-xs'
+                }`}
+              />
+            ) : editing?.cloudinaryUrl ? (
+              <img
+                src={getImageUrl(editing.cloudinaryUrl, { width: 480, aspect: thumbAspect })}
+                alt=""
+                className={`mt-3 rounded-lg object-cover bg-zinc-100 ${
+                  device === 'mobile' ? 'mx-auto aspect-[9/16] w-24' : 'aspect-video max-w-xs'
+                }`}
+              />
+            ) : null}
             <p className="mt-1.5 text-xs text-zinc-500">
               Recommended:{' '}
               <span className="font-medium text-zinc-700">
@@ -303,8 +378,8 @@ export default function StaffSlides({ embedded = false, onChanged } = {}) {
               placeholder="https://…"
             />
           </div>
-          <button type="submit" className="btn-wheat w-full">
-            Save slide
+          <button type="submit" className="btn-wheat w-full" disabled={saving}>
+            {saving ? 'Saving…' : 'Save slide'}
           </button>
         </form>
       </Modal>

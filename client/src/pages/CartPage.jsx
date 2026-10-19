@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Pencil, Truck, ShieldCheck, Trash2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -10,19 +10,25 @@ import {
   FREE_SHIPPING_MIN,
 } from '../utils/helpers';
 import EmptyState from '../components/ui/EmptyState';
-import { useBagOffers } from '../utils/offers';
+import { nextOfferHint, useActiveOffers, useBagOffers, loadActiveOffers } from '../utils/offers';
 
 export default function CartPage() {
   const { items, updateQty, updateItem, removeItem, subtotal } = useCart();
   const navigate = useNavigate();
   const [editingItem, setEditingItem] = useState(null);
+  const activeOffers = useActiveOffers();
   const offers = useBagOffers(items);
+  const offerHint = nextOfferHint(items, activeOffers);
   const shipping = calcShipping(subtotal);
   const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
   const shippingLabel =
     shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
   const displayTotal = (shipping == null ? subtotal : subtotal + shipping) - offers.discount;
+
+  useEffect(() => {
+    loadActiveOffers({ force: true });
+  }, []);
 
   if (!items.length) {
     return (
@@ -197,6 +203,9 @@ export default function CartPage() {
                 <span className="tabular-nums font-medium text-clay">−{formatMoney(o.discount)}</span>
               </div>
             ))}
+            {offers.discount <= 0 && offerHint?.kind === 'progress' ? (
+              <p className="text-xs font-medium text-clay">{offerHint.message}</p>
+            ) : null}
             <div className="flex justify-between text-sm">
               <span className="text-timber-500">Shipping</span>
               <span className="tabular-nums">{shippingLabel}</span>

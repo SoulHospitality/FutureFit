@@ -29,7 +29,12 @@ const app = express();
 app.disable('x-powered-by');
 app.use(compression());
 app.use(cors());
-// Keep JSON small by default; uploads/base64 slides use a higher limit only on those routes
+
+// Base64 image payloads (slides / site assets) need a higher limit. These must be
+// mounted BEFORE the global 2mb JSON parser — otherwise Express rejects the body first.
+app.use('/api/slides', express.json({ limit: '15mb' }), express.urlencoded({ limit: '15mb', extended: true }));
+app.use('/api/upload', express.json({ limit: '15mb' }), express.urlencoded({ limit: '15mb', extended: true }));
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ limit: '2mb', extended: true }));
 
@@ -59,6 +64,17 @@ app.get('/api/health', (req, res) => {
 
 app.get('/', (req, res) => {
   res.send('FutureFit API is running');
+});
+
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (err?.type === 'entity.too.large' || err?.status === 413) {
+    return res.status(413).json({
+      message: 'Upload is too large. Use a smaller image or paste a hosted image URL.',
+    });
+  }
+  console.error(err);
+  res.status(err.status || 500).json({ message: err.message || 'Server error' });
 });
 
 module.exports = app;

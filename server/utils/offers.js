@@ -17,8 +17,12 @@ const generosity = (type) => {
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
-const offerCovers = (offer, productId) =>
-  offer.appliesTo === 'all' || (offer.productIds || []).includes(productId);
+const offerCovers = (offer, productId) => {
+  if (!offer || offer.isActive === false) return false;
+  if (offer.appliesTo !== 'selected') return true;
+  const id = String(productId || '');
+  return (offer.productIds || []).some((pid) => String(pid) === id);
+};
 
 /**
  * lines: [{ productId, price, qty }] at the unit price the customer pays.
@@ -30,13 +34,16 @@ const applyOffers = (lines, offers) => {
   const units = [];
   for (const line of lines || []) {
     const qty = Math.max(0, Math.floor(Number(line.qty) || 0));
+    const price = Number(line.price) || 0;
+    const productId = String(line.productId || '');
+    if (!productId || qty < 1 || price < 0) continue;
     for (let i = 0; i < qty; i += 1) {
-      units.push({ productId: line.productId, price: Number(line.price) || 0, used: false });
+      units.push({ productId, price, used: false });
     }
   }
 
   const sorted = [...(offers || [])]
-    .filter((o) => o.isActive !== false && OFFER_TYPES[o.type])
+    .filter((o) => o && o.isActive !== false && OFFER_TYPES[o.type])
     .sort((a, b) => generosity(b.type) - generosity(a.type));
 
   const applied = [];
@@ -46,14 +53,17 @@ const applyOffers = (lines, offers) => {
     const groupSize = buy + 1;
     const eligible = units
       .filter((u) => !u.used && offerCovers(offer, u.productId))
-      .sort((a, b) => b.price - a.price);
+      .sort((a, b) => b.price - a.price || a.productId.localeCompare(b.productId));
     const groups = Math.floor(eligible.length / groupSize);
     if (!groups) continue;
 
     let discount = 0;
     for (let g = 0; g < groups; g += 1) {
       const group = eligible.slice(g * groupSize, (g + 1) * groupSize);
-      group.forEach((u) => { u.used = true; });
+      group.forEach((u) => {
+        u.used = true;
+      });
+      // Cheapest unit in the group (last after high→low sort) is the discounted one
       discount += (group[group.length - 1].price * pct) / 100;
     }
     discount = round2(discount);
