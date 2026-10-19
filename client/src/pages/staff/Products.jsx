@@ -444,7 +444,7 @@ export default function StaffProducts() {
       </div>
 
       <div className="table-wrapper">
-        <div className="flex flex-wrap items-center gap-2 border-b border-timber-100 px-3 py-2.5">
+        <div className="sticky left-0 z-20 flex flex-wrap items-center gap-2 border-b border-zinc-100 bg-white px-3 py-2.5">
           <div className="relative min-w-[180px] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-timber-400" />
             <input
@@ -460,7 +460,7 @@ export default function StaffProducts() {
             {q.trim() ? ` of ${products.length}` : ''} product{filtered.length === 1 ? '' : 's'}
           </p>
         </div>
-        <table className="table">
+        <table className="table min-w-[720px]">
           <thead>
             <tr>
               <th>Item</th>
@@ -470,7 +470,9 @@ export default function StaffProducts() {
               <th>Cost</th>
               <th>Stock</th>
               <th>Sale</th>
-              <th></th>
+              <th className="sticky right-0 z-10 bg-zinc-50/95 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.12)]">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -493,8 +495,8 @@ export default function StaffProducts() {
                     className={`${isDraft ? 'bg-timber-50/70' : ''} ${canExpand ? 'cursor-pointer' : ''}`}
                     onClick={() => canExpand && toggleExpanded(p.id)}
                   >
-                    <td>
-                      <div className="flex items-center gap-3">
+                    <td className="!whitespace-normal">
+                      <div className="flex max-w-[min(28rem,55vw)] items-center gap-3">
                         {canExpand ? (
                           <ChevronDown
                             className={`h-4 w-4 shrink-0 text-timber-400 transition ${
@@ -502,15 +504,17 @@ export default function StaffProducts() {
                             }`}
                           />
                         ) : (
-                          <span className="inline-block w-4" />
+                          <span className="inline-block w-4 shrink-0" />
                         )}
                         <img
                           src={getImageUrl(p.photos?.[0])}
                           alt=""
-                          className="w-10 h-10 rounded object-cover bg-timber-100"
+                          className="h-10 w-10 shrink-0 rounded object-cover bg-timber-100"
                         />
-                        <span>
-                          <span className="block font-medium">{p.name}</span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium" title={p.name}>
+                            {p.name}
+                          </span>
                           {p.itemCode ? (
                             <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
                               {p.itemCode}
@@ -553,12 +557,19 @@ export default function StaffProducts() {
                         </span>
                       )}
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <div className="flex gap-1">
+                    <td
+                      className={`sticky right-0 z-10 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.12)] ${
+                        isDraft ? 'bg-timber-50/95' : 'bg-white'
+                      }`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex justify-end gap-1">
                         <button
                           type="button"
                           className="btn-ghost btn-sm"
                           onClick={() => openEdit(p)}
+                          aria-label={`Edit ${p.name}`}
+                          title="Edit"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -566,6 +577,8 @@ export default function StaffProducts() {
                           type="button"
                           className="btn-ghost btn-sm text-red-600"
                           onClick={() => remove(p.id)}
+                          aria-label={`Delete ${p.name}`}
+                          title="Delete"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -616,7 +629,8 @@ export default function StaffProducts() {
                             </button>
                           </div>
                         </td>
-                        <td colSpan={2} />
+                        <td />
+                        <td className="sticky right-0 z-10 bg-timber-50/95 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)]" />
                       </tr>
                     ))}
                   {isOpen &&
@@ -649,7 +663,8 @@ export default function StaffProducts() {
                             </button>
                           </div>
                         </td>
-                        <td colSpan={2} />
+                        <td />
+                        <td className="sticky right-0 z-10 bg-timber-50/95 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)]" />
                       </tr>
                     ))}
                 </Fragment>

@@ -155,7 +155,7 @@
     @apply rounded-xl border border-zinc-200/80 bg-white px-4 py-3 shadow-[0_1px_0_rgba(0,0,0,0.04)];
   }
   .staff-shell .table-wrapper {
-    @apply overflow-hidden rounded-xl border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)];
+    @apply overflow-x-auto rounded-xl border border-zinc-200/80 bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)] [scrollbar-width:thin];
   }
   .staff-shell .table thead tr { @apply border-b border-zinc-100 bg-zinc-50/80; }
   .staff-shell .table th {
