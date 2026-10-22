@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   getPublicConfig,
+  trackWebsiteEvent,
   getAdminSettings,
   updateSettings,
   testMetaConnection,
@@ -16,6 +17,7 @@ const router = express.Router();
 
 // Public — storefront config + crawler files (proxied from the storefront domain by Vercel)
 router.get('/public', getPublicConfig);
+router.post('/event', trackWebsiteEvent);
 router.get('/sitemap.xml', sitemap);
 router.get('/robots.txt', robots);
 router.get('/feed.xml', productFeed);

@@ -13,6 +13,7 @@ import EmptyState from '../components/ui/EmptyState';
 import BrandLoader from '../components/ui/BrandLoader';
 import { usePageMeta } from '../utils/seo';
 import { useSiteCopy } from '../utils/websiteContent';
+import { trackViewItemList } from '../utils/tracking';
 
 const SORT_OPTIONS = [
   { value: 'recommended', label: 'Recommended' },
@@ -368,17 +369,41 @@ export default function ShopPage() {
   }, [params]);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setVisibleCount(24);
     const query = new URLSearchParams();
     if (audience) query.set('audience', audience);
     if (selectedCategory) query.set('category', selectedCategory);
     if (searchQuery) query.set('q', searchQuery);
+    const label = audience ? audienceLabel(audience) : selectedCategory || 'Shop';
     api
       .get(`/products?${query.toString()}`)
-      .then((r) => setAllProducts(Array.isArray(r.data) ? r.data : []))
-      .catch(() => setAllProducts([]))
-      .finally(() => setLoading(false));
+      .then((r) => {
+        const products = Array.isArray(r.data) ? r.data : [];
+        if (cancelled) return;
+        setAllProducts(products);
+        trackViewItemList({
+          name: label,
+          category: [audience, selectedCategory].filter(Boolean).join(' / ') || 'shop',
+          products,
+        });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAllProducts([]);
+        trackViewItemList({
+          name: label,
+          category: [audience, selectedCategory].filter(Boolean).join(' / ') || 'shop',
+          products: [],
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [audience, selectedCategory, searchQuery]);
 
   const audienceCategories = useMemo(

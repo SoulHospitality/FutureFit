@@ -17,6 +17,35 @@
       content="FutureFit — Setting trends with every stitch. Premium apparel from Egypt."
     />
     <title>FutureFit — Setting Trends With Every Stitch</title>
+    <!-- Meta Pixel: must be in the first HTML response. Events Manager's checker
+         does not wait for the React app, so a pixel loaded only after the API
+         call is reported as "events not firing". -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '1438304991608229');
+      window.__ffMetaFirst = {
+        pixelId: '1438304991608229',
+        path: location.pathname + location.search,
+        eventId: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('ff-' + Date.now())
+      };
+      fbq('track', 'PageView', {}, { eventID: window.__ffMetaFirst.eventId });
+    </script>
+    <noscript>
+      <img
+        height="1"
+        width="1"
+        style="display:none"
+        alt=""
+        src="https://www.facebook.com/tr?id=1438304991608229&ev=PageView&noscript=1"
+      />
+    </noscript>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

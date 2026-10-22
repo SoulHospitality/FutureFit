@@ -35,7 +35,7 @@ const compact = (obj) =>
 const sendMetaPurchase = async (orderOrId) => {
   try {
     const settings = await getSettings();
-    const { metaPixelId, metaCapiToken, metaTestEventCode } = settings.tracking;
+    const { metaPixelId, metaCapiToken } = settings.tracking;
     if (!metaPixelId || !metaCapiToken) return { skipped: true };
 
     const order =
@@ -89,7 +89,8 @@ const sendMetaPurchase = async (orderOrId) => {
       },
     };
 
-    const body = { data: [event], ...(metaTestEventCode ? { test_event_code: metaTestEventCode } : {}) };
+    // Live purchases stay in Events Manager. The test code is only for the staff test button.
+    const body = { data: [event] };
     const res = await fetch(
       `https://graph.facebook.com/${GRAPH_VERSION}/${metaPixelId}/events?access_token=${encodeURIComponent(metaCapiToken)}`,
       {
@@ -111,4 +112,96 @@ const sendMetaPurchase = async (orderOrId) => {
   }
 };
 
-module.exports = { sendMetaPurchase };
+const ALLOWED_EVENTS = new Set(['PageView', 'ViewContent', 'AddToCart']);
+
+const cleanId = (value) => String(value || '').trim().slice(0, 80);
+
+const cleanCustomData = (raw) => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const contentIds = Array.isArray(raw.content_ids)
+    ? raw.content_ids.map(cleanId).filter(Boolean).slice(0, 20)
+    : [];
+  const contents = Array.isArray(raw.contents)
+    ? raw.contents
+        .slice(0, 20)
+        .map((row) => {
+          const id = cleanId(row?.id);
+          if (!id) return null;
+          const quantity = Math.max(1, Math.min(99, Math.floor(Number(row.quantity) || 1)));
+          const itemPrice = Number(row.item_price);
+          return {
+            id,
+            quantity,
+            ...(Number.isFinite(itemPrice) && itemPrice >= 0 ? { item_price: itemPrice } : {}),
+          };
+        })
+        .filter(Boolean)
+    : [];
+  const value = Number(raw.value);
+  const contentType = raw.content_type === 'product_group' ? 'product_group' : raw.content_type === 'product' ? 'product' : '';
+  const out = compact({
+    currency: 'EGP',
+    value: Number.isFinite(value) && value >= 0 ? Math.min(value, 10_000_000) : undefined,
+    content_name: raw.content_name ? String(raw.content_name).slice(0, 200) : undefined,
+    content_category: raw.content_category ? String(raw.content_category).slice(0, 120) : undefined,
+    content_type: contentType || undefined,
+    content_ids: contentIds.length ? contentIds : undefined,
+    contents: contents.length ? contents : undefined,
+    num_items: contents.length
+      ? contents.reduce((sum, row) => sum + row.quantity, 0)
+      : undefined,
+  });
+  return Object.keys(out).length ? out : undefined;
+};
+
+/**
+ * Browser funnel events (PageView, shop list, product view, add to cart) mirrored
+ * server-side so Meta still receives them when the pixel is blocked.
+ * event_id matches the pixel call so Meta counts the pair once.
+ */
+const sendMetaWebsiteEvent = async ({ eventName, eventId, eventSourceUrl, customData, fbp, fbc, clientIp, userAgent }) => {
+  try {
+    if (!ALLOWED_EVENTS.has(eventName)) return { skipped: true };
+    const settings = await getSettings();
+    const { metaPixelId, metaCapiToken } = settings.tracking;
+    if (!metaPixelId || !metaCapiToken) return { skipped: true };
+
+    const custom = cleanCustomData(customData);
+    const event = {
+      event_name: eventName,
+      event_time: Math.floor(Date.now() / 1000),
+      event_id: String(eventId || '').slice(0, 80),
+      action_source: 'website',
+      event_source_url: String(eventSourceUrl || siteUrlFrom(settings)).slice(0, 500),
+      user_data: compact({
+        client_ip_address: clientIp || undefined,
+        client_user_agent: userAgent ? String(userAgent).slice(0, 500) : undefined,
+        fbp: fbp ? String(fbp).slice(0, 120) : undefined,
+        fbc: fbc ? String(fbc).slice(0, 200) : undefined,
+      }),
+      ...(custom ? { custom_data: custom } : {}),
+    };
+    if (!event.event_id || !event.user_data.client_user_agent) return { skipped: true };
+
+    const res = await fetch(
+      `https://graph.facebook.com/${GRAPH_VERSION}/${metaPixelId}/events?access_token=${encodeURIComponent(metaCapiToken)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: [event] }),
+        signal: AbortSignal.timeout(8000),
+      }
+    );
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.warn(`Meta CAPI ${eventName} failed:`, json?.error?.message || res.status);
+      return { ok: false };
+    }
+    return { ok: true, eventsReceived: json.events_received };
+  } catch (err) {
+    console.warn('Meta CAPI website event error:', err.message);
+    return { ok: false };
+  }
+};
+
+module.exports = { sendMetaPurchase, sendMetaWebsiteEvent };

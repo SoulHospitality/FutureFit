@@ -8,6 +8,7 @@ const {
   adminView,
   siteUrlFrom,
 } = require('../utils/marketing');
+const { sendMetaWebsiteEvent } = require('../utils/metaCapi');
 
 const AUDIENCES = ['men', 'women', 'boys', 'girls', 'baby'];
 
@@ -86,6 +87,65 @@ const testMetaConnection = async (_req, res) => {
     const json = await r.json().catch(() => ({}));
     if (!r.ok) return res.status(400).json({ message: json?.error?.message || `Meta returned ${r.status}` });
     res.json({ ok: true, eventsReceived: json.events_received });
+  } catch (err) {
+    sendError(res, err);
+  }
+};
+
+const EVENT_NAMES = new Set(['PageView', 'ViewContent', 'AddToCart']);
+const hits = new Map();
+
+const clientIp = (req) => {
+  const forwarded = String(req.headers['x-forwarded-for'] || '')
+    .split(',')[0]
+    .trim();
+  return forwarded || req.socket?.remoteAddress || '';
+};
+
+const tooManyEvents = (ip) => {
+  const now = Date.now();
+  const row = hits.get(ip) || { n: 0, reset: now + 60_000 };
+  if (now > row.reset) {
+    row.n = 0;
+    row.reset = now + 60_000;
+  }
+  row.n += 1;
+  hits.set(ip, row);
+  if (hits.size > 5000) {
+    for (const [key, value] of hits) {
+      if (now > value.reset) hits.delete(key);
+    }
+  }
+  return row.n > 120;
+};
+
+/** Storefront funnel events for Meta Conversions API. */
+const trackWebsiteEvent = async (req, res) => {
+  try {
+    const eventName = String(req.body?.eventName || '');
+    const eventId = String(req.body?.eventId || '');
+    if (!EVENT_NAMES.has(eventName) || !/^[\w-]{8,80}$/.test(eventId)) {
+      return res.status(400).json({ message: 'Invalid event' });
+    }
+    const ip = clientIp(req);
+    if (tooManyEvents(ip || 'unknown')) {
+      return res.status(429).json({ message: 'Too many events' });
+    }
+    const source = String(req.body?.eventSourceUrl || '');
+    if (source && !/^https?:\/\//i.test(source)) {
+      return res.status(400).json({ message: 'Invalid event source' });
+    }
+    await sendMetaWebsiteEvent({
+      eventName,
+      eventId,
+      eventSourceUrl: source,
+      customData: req.body?.customData,
+      fbp: req.body?.fbp,
+      fbc: req.body?.fbc,
+      clientIp: ip,
+      userAgent: req.headers['user-agent'],
+    });
+    res.json({ ok: true });
   } catch (err) {
     sendError(res, err);
   }
@@ -373,6 +433,7 @@ ${items}
 
 module.exports = {
   getPublicConfig,
+  trackWebsiteEvent,
   getAdminSettings,
   updateSettings,
   testMetaConnection,

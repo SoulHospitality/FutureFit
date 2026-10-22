@@ -2,7 +2,13 @@
  * One place for every ads / analytics platform. Pages call trackViewContent, trackAddToCart …
  * and this fans the event out to whichever platforms have an ID in Staff → Marketing:
  * Google Analytics 4, Google Ads, Google Tag Manager, Meta Pixel, TikTok Pixel, Microsoft Clarity.
+ *
+ * Meta events are also posted to /marketing/event so Conversions API receives them
+ * when the browser pixel is blocked. The same event id lets Meta count them once.
  */
+
+import api from '../api/axios';
+import { getAttribution } from './attribution';
 
 const CURRENCY = 'EGP';
 const MAX_QUEUE = 60;
@@ -152,8 +158,31 @@ const gtmEvent = (event, ecommerce) => {
 };
 const fbq = (event, data, eventID) => {
   if (!window.fbq || !ids.metaPixelId) return;
-  if (eventID) window.fbq('track', event, data, { eventID });
-  else window.fbq('track', event, data);
+  const payload = data && typeof data === 'object' ? data : undefined;
+  if (eventID && payload) window.fbq('track', event, payload, { eventID });
+  else if (eventID) window.fbq('track', event, {}, { eventID });
+  else if (payload) window.fbq('track', event, payload);
+  else window.fbq('track', event);
+};
+
+const eventId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `ff-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+/** Mirror a standard Meta event to Conversions API. Never blocks the storefront. */
+const mirrorMeta = (eventName, customData, id) => {
+  const attr = getAttribution() || {};
+  api
+    .post('/marketing/event', {
+      eventName,
+      eventId: id,
+      eventSourceUrl: window.location.href.slice(0, 500),
+      fbp: attr.fbp || '',
+      fbc: attr.fbc || '',
+      customData: customData || undefined,
+    })
+    .catch(() => {});
 };
 const ttq = (event, data, eventId) => {
   if (!window.ttq || !ids.tiktokPixelId) return;
@@ -178,7 +207,18 @@ const gaItem = ({ id, name, price, qty = 1, category }) => ({
 
 export function trackPageView() {
   run(() => {
-    fbq('PageView');
+    const path = window.location.pathname + window.location.search;
+    const first = window.__ffMetaFirst;
+    // The base pixel in index.html already sent this PageView. Reuse its event
+    // id for the server copy so Meta counts the visit once.
+    if (first && first.path === path && String(ids.metaPixelId || '') === String(first.pixelId)) {
+      window.__ffMetaFirst = null;
+      mirrorMeta('PageView', null, first.eventId);
+    } else {
+      const id = eventId();
+      fbq('PageView', null, id);
+      mirrorMeta('PageView', null, id);
+    }
     if (window.ttq && ids.tiktokPixelId) window.ttq.page();
     if (ids.gtmId && window.dataLayer) {
       window.dataLayer.push({
@@ -199,19 +239,46 @@ export function trackViewContent(product) {
     const item = gaItem({ id: product.id, name: product.name, price: value, category });
     gtagEvent('view_item', { currency: CURRENCY, value, items: [item] });
     gtmEvent('view_item', { currency: CURRENCY, value, items: [item] });
-    fbq('ViewContent', {
+    const view = {
       content_ids: [String(product.id)],
       content_name: product.name,
       content_type: 'product',
+      ...(category ? { content_category: category } : {}),
       value,
       currency: CURRENCY,
-    });
+      contents: [{ id: String(product.id), quantity: 1, item_price: value }],
+    };
+    const id = eventId();
+    fbq('ViewContent', view, id);
+    mirrorMeta('ViewContent', view, id);
     ttq('ViewContent', {
       contents: [{ content_id: String(product.id), content_name: product.name, price: value, quantity: 1 }],
       content_type: 'product',
       value,
       currency: CURRENCY,
     });
+  });
+}
+
+/** Shop / department listing. Meta records this as ViewContent with content_type product_group. */
+export function trackViewItemList({ name = 'Shop', category = 'shop', products = [] } = {}) {
+  run(() => {
+    const productIds = products.slice(0, 10).map((p) => String(p.id)).filter(Boolean);
+    const contents = products.slice(0, 10).map((p) => ({
+      id: String(p.id),
+      quantity: 1,
+      item_price: unitPrice(p),
+    }));
+    const view = {
+      content_name: name || 'Shop',
+      content_category: category || 'shop',
+      content_type: 'product_group',
+      ...(productIds.length ? { content_ids: productIds, contents } : {}),
+      currency: CURRENCY,
+    };
+    const id = eventId();
+    fbq('ViewContent', view, id);
+    mirrorMeta('ViewContent', view, id);
   });
 }
 
@@ -222,14 +289,17 @@ export function trackAddToCart({ productId, name, price, qty = 1 }) {
     const item = gaItem({ id: productId, name, price, qty: quantity });
     gtagEvent('add_to_cart', { currency: CURRENCY, value, items: [item] });
     gtmEvent('add_to_cart', { currency: CURRENCY, value, items: [item] });
-    fbq('AddToCart', {
+    const cart = {
       content_ids: [String(productId)],
       content_name: name,
       content_type: 'product',
       value,
       currency: CURRENCY,
-      contents: [{ id: String(productId), quantity }],
-    });
+      contents: [{ id: String(productId), quantity, item_price: Number(price) || 0 }],
+    };
+    const id = eventId();
+    fbq('AddToCart', cart, id);
+    mirrorMeta('AddToCart', cart, id);
     ttq('AddToCart', {
       contents: [{ content_id: String(productId), content_name: name, price: Number(price) || 0, quantity }],
       content_type: 'product',
