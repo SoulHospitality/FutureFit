@@ -813,7 +813,15 @@ const updateProduct = async (req, res) => {
     bustProductCache();
     res.json(serializeProduct(product, { staff: true }));
   } catch (error) {
-    if (error.code === 'P2002') return res.status(400).json({ message: 'That item ID is already used' });
+    if (error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target)
+        ? error.meta.target.join(' ')
+        : String(error.meta?.target || '');
+      if (/color|size/i.test(target)) {
+        return res.status(400).json({ message: 'That colour and size already exist on this product' });
+      }
+      return res.status(400).json({ message: 'That item ID is already used' });
+    }
     if (error.status) return res.status(error.status).json({ message: error.message });
     res.status(500).json({ message: error.message });
   }

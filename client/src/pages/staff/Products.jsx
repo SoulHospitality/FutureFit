@@ -60,8 +60,19 @@ const variantRowsFromProduct = (p) => {
     stock: v.stock ?? 0,
     price: v.price ?? '',
     cost: v.cost ?? '',
+    photos: v.photos || [],
   }));
 };
+
+const blankVariantRow = (product) => ({
+  itemCode: '',
+  color: '',
+  size: '',
+  stock: 0,
+  price: product?.price ?? '',
+  cost: product?.cost ?? '',
+  photos: [],
+});
 
 const queueKey = (id, color, size) => `${id}::${color || ''}::${size || ''}`;
 
@@ -245,13 +256,15 @@ export default function StaffProducts() {
     setOpen(true);
   };
 
-  const openEdit = (p) => {
+  const openEdit = (p, { addChild = false } = {}) => {
     const map = {};
     if (p.photoByColor && typeof p.photoByColor === 'object') {
       Object.entries(p.photoByColor).forEach(([color, value]) => {
         map[color] = Array.isArray(value) ? value[0] || '' : value || '';
       });
     }
+    const variantRows = variantRowsFromProduct(p);
+    if (addChild) variantRows.push(blankVariantRow(p));
     setEditing(p);
     setForm({
       name: p.name,
@@ -266,7 +279,7 @@ export default function StaffProducts() {
       colors: (p.colors || []).join(', '),
       photoByColor: map,
       sizeRows: sizeRowsFromProduct(p),
-      variantRows: variantRowsFromProduct(p),
+      variantRows,
       isSaleActive: p.isSaleActive,
       salePrice: p.salePrice ?? '',
       saleQtyLimit: p.saleQtyLimit ?? '',
@@ -328,7 +341,27 @@ export default function StaffProducts() {
 
   const save = async (e) => {
     e.preventDefault();
-    const variants = (form.variantRows || [])
+    const variantSource = form.variantRows || [];
+    if (
+      variantSource.length &&
+      variantSource.some(
+        (row) =>
+          !String(row.itemCode || '').trim() ||
+          !String(row.color || '').trim() ||
+          !String(row.size || '').trim()
+      )
+    ) {
+      return toast.error('Each child needs an item ID, colour, and size');
+    }
+    const variantKeys = new Set();
+    for (const row of variantSource) {
+      const key = `${String(row.color || '').trim().toLowerCase()}::${String(row.size || '').trim().toLowerCase()}`;
+      if (variantKeys.has(key)) {
+        return toast.error('Each child needs its own colour and size');
+      }
+      variantKeys.add(key);
+    }
+    const variants = variantSource
       .map((row) => ({
         itemCode: String(row.itemCode || '').trim(),
         color: String(row.color || '').trim(),
@@ -336,6 +369,7 @@ export default function StaffProducts() {
         stock: Math.max(0, Number(row.stock) || 0),
         price: row.price === '' || row.price == null ? null : Number(row.price),
         cost: row.cost === '' || row.cost == null ? null : Number(row.cost),
+        photos: row.photos || [],
       }))
       .filter((row) => row.color && row.size && row.itemCode);
     const sizeStocks = form.sizeRows
@@ -397,6 +431,33 @@ export default function StaffProducts() {
     setProducts((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const removeChild = async (product, variant) => {
+    if ((product.variants || []).length <= 1) {
+      toast.error('A parent needs at least one child');
+      return;
+    }
+    const label = variant.itemCode || `${variant.color} / ${variant.size}`;
+    if (!window.confirm(`Delete child ${label}?`)) return;
+    const variants = product.variants
+      .filter((row) => (variant.id ? row.id !== variant.id : row.itemCode !== variant.itemCode))
+      .map((row) => ({
+        itemCode: row.itemCode,
+        color: row.color,
+        size: row.size,
+        stock: row.stock,
+        price: row.price,
+        cost: row.cost,
+        photos: row.photos || [],
+      }));
+    try {
+      const { data } = await api.put(`/products/${product.id}`, { variants });
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? data : p)));
+      toast.success('Child deleted');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not delete child');
+    }
+  };
+
   const exportSheet = async () => {
     setExporting(true);
     try {
@@ -430,6 +491,20 @@ export default function StaffProducts() {
         if (shared != null) next.price = shared;
       }
       return next;
+    });
+  };
+
+  const addVariantRow = () => {
+    setForm((f) => ({
+      ...f,
+      variantRows: [...(f.variantRows || []), blankVariantRow(f)],
+    }));
+  };
+
+  const removeVariantRow = (index) => {
+    setForm((f) => {
+      if (f.variantRows.length <= 1 && editing?.variants?.length) return f;
+      return { ...f, variantRows: f.variantRows.filter((_, i) => i !== index) };
     });
   };
 
@@ -648,9 +723,41 @@ export default function StaffProducts() {
                           </div>
                         </td>
                         <td />
-                        <td className="sticky right-0 z-10 bg-timber-50/95 shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)]" />
+                        <td
+                          className="sticky right-0 z-10 bg-timber-50/95 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm text-red-600"
+                            onClick={() => removeChild(p, row)}
+                            disabled={p.variants.length <= 1}
+                            aria-label={`Delete child ${row.itemCode || row.color}`}
+                            title={
+                              p.variants.length <= 1
+                                ? 'A parent needs at least one child'
+                                : 'Delete child'
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
+                  {isOpen && hasVariants && (
+                    <tr className="bg-timber-50/40">
+                      <td colSpan={8} className="!py-2">
+                        <button
+                          type="button"
+                          className="btn-outline btn-sm ml-10"
+                          onClick={() => openEdit(p, { addChild: true })}
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add child
+                        </button>
+                      </td>
+                    </tr>
+                  )}
                   {isOpen &&
                     !hasVariants &&
                     legacySizes.map((row) => (
@@ -835,18 +942,24 @@ export default function StaffProducts() {
 
             {form.variantRows?.length > 0 ? (
               <div className="md:col-span-2 rounded-xl border border-timber-100 bg-cream/50 p-4 space-y-3">
-                <div>
-                  <label className="label !mb-0">Child variants (color × size)</label>
-                  <p className="mt-1 text-xs text-timber-400">
-                    Storefront shows the parent; children can have their own prices. Changing the
-                    parent price updates every child; if every child matches, the parent follows.
-                  </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <label className="label !mb-0">Child variants (color × size)</label>
+                    <p className="mt-1 text-xs text-timber-400">
+                      Storefront shows the parent; children can have their own prices. Changing the
+                      parent price updates every child; if every child matches, the parent follows.
+                    </p>
+                  </div>
+                  <button type="button" className="btn-outline btn-sm shrink-0" onClick={addVariantRow}>
+                    <Plus className="w-3 h-3" />
+                    Add child
+                  </button>
                 </div>
                 <div className="max-h-72 space-y-2 overflow-y-auto">
                   {form.variantRows.map((row, index) => (
                     <div
                       key={index}
-                      className="grid grid-cols-[7rem_1fr_4rem_4.5rem_5rem_5rem] gap-2"
+                      className="grid grid-cols-[7rem_1fr_4rem_4.5rem_5rem_5rem_auto] gap-2"
                     >
                       <input
                         className="input font-mono text-xs"
@@ -895,6 +1008,20 @@ export default function StaffProducts() {
                         onChange={(e) => updateVariantRow(index, 'cost', e.target.value)}
                         placeholder="Cost"
                       />
+                      <button
+                        type="button"
+                        className="btn-ghost btn-sm text-red-600"
+                        onClick={() => removeVariantRow(index)}
+                        disabled={form.variantRows.length <= 1 && editing?.variants?.length > 0}
+                        aria-label="Remove child"
+                        title={
+                          form.variantRows.length <= 1 && editing?.variants?.length > 0
+                            ? 'A parent needs at least one child'
+                            : 'Remove child'
+                        }
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
