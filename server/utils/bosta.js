@@ -18,120 +18,59 @@ const normalizeEgyptPhone = (phone) => {
   return p;
 };
 
-/** Latin-script text is safe for Bosta city/zone catalog names. */
-const isLatinText = (value) => {
-  const s = String(value || '').trim();
-  if (!s) return false;
-  return /^[\p{Script=Latin}\d\s.'\-_/]+$/u.test(s);
-};
-
-/** Common free-text / Arabic districts → Bosta-friendly English names. */
-const DISTRICT_ALIASES = {
-  'new cairo': 'New Cairo',
-  'القاهره الجديده': 'New Cairo',
-  'القاهرة الجديدة': 'New Cairo',
-  'القاهره الجديدة': 'New Cairo',
-  'القاهرة الجديده': 'New Cairo',
-  'التجمع': 'New Cairo',
-  'التجمع الخامس': 'New Cairo',
-  'rehab': 'El Rehab',
-  'el rehab': 'El Rehab',
-  الرحاب: 'El Rehab',
-  'nasr city': 'Nasr City',
-  'مدينة نصر': 'Nasr City',
-  maadi: 'Maadi',
-  المعادي: 'Maadi',
-  '6th of october': '6th of October',
-  'sixth of october': '6th of October',
-  '6 october': '6th of October',
-  'أكتوبر': '6th of October',
-  'sheikh zayed': 'Sheikh Zayed',
-  'الشيخ زايد': 'Sheikh Zayed',
-  heliopolis: 'Heliopolis',
-  مصرالجديدة: 'Heliopolis',
-  'مصر الجديدة': 'Heliopolis',
-  mokattam: 'Mokattam',
-  المقطم: 'Mokattam',
-  dokki: 'Dokki',
-  الدقي: 'Dokki',
-  mohandessin: 'Mohandessin',
-  المهندسين: 'Mohandessin',
-  zamalek: 'Zamalek',
-  الزمالك: 'Zamalek',
-};
-
 const normalizeDistrictKey = (value) =>
   String(value || '')
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
 
-const resolveDistrictName = (city, fallback) => {
+/** Checkout "Other" is not a place — the street is the area. */
+const isUnspecifiedArea = (value) =>
+  /^(other|أخرى|اخرى|n\/a|na|-|—)$/i.test(String(value || '').trim());
+
+/** Area text is sent exactly as the customer entered it. Nothing is renamed. */
+const resolveDistrictName = (city) => {
   const raw = String(city || '').trim();
-  if (!raw) return fallback;
-  const aliased = DISTRICT_ALIASES[normalizeDistrictKey(raw)];
-  if (aliased) return aliased;
-  // Latin free-text district names are fine; Arabic unknown → use fallback city
-  if (isLatinText(raw)) return raw;
-  return fallback;
+  if (!raw || isUnspecifiedArea(raw)) return '';
+  return raw;
 };
 
 /**
  * Map checkout address → Bosta drop-off fields.
- * Bosta requires districtId or districtName (error 777).
- * Arabic / free-form areas are sent as districtName + firstLine; zone stays Latin.
+ * Governorate → Bosta city. Area → district. Street stays firstLine, unchanged.
  */
 const resolveDropOffAddress = (address = {}) => {
   const state = String(address.state || '').trim();
-  const city = String(address.city || '').trim();
+  const cityRaw = String(address.city || '').trim();
   const street = String(address.street || '').trim();
   const zip = String(address.zip || '').trim();
-  const country = String(address.country || 'Egypt').trim();
 
-  const dropCity = isLatinText(state) ? state : isLatinText(city) ? city : 'Cairo';
-  const dropZone = isLatinText(city) ? city : dropCity;
-  const districtName = resolveDistrictName(city, dropZone || dropCity);
-  const districtNote = city && city !== districtName ? city : '';
-  const firstLine =
-    [street, districtNote, zip].filter(Boolean).join(', ') || `${dropCity}, Egypt`;
+  if (!state) {
+    const err = new Error('Governorate is required before creating a Bosta shipment');
+    err.status = 400;
+    throw err;
+  }
+
+  const areaLabel = resolveDistrictName(cityRaw);
+  const streetAlreadyHasArea =
+    areaLabel && street.toLowerCase().includes(areaLabel.toLowerCase());
+  // Visible line is the website address: street, area, governorate.
+  const firstLine = [street, streetAlreadyHasArea ? '' : areaLabel, state]
+    .filter(Boolean)
+    .join(', ');
 
   return {
-    city: dropCity,
-    zone: dropZone,
-    districtName,
-    firstLine: firstLine.slice(0, 180),
-    secondLine: country || 'Egypt',
+    city: state,
+    zone: areaLabel || state,
+    districtName: areaLabel || state,
+    district: areaLabel || state,
+    unspecifiedArea: !areaLabel,
+    firstLine: firstLine.slice(0, 250),
+    secondLine: [areaLabel, zip, state, 'Egypt'].filter(Boolean).join(' · ').slice(0, 180),
+    customerStreet: street,
+    customerCity: cityRaw,
+    customerState: state,
   };
-};
-
-const GOVERNORATE_CITY_CODES = {
-  Cairo: 'EG-01',
-  Giza: 'EG-02',
-  Alexandria: 'EG-03',
-  Dakahlia: 'EG-05',
-  'Red Sea': 'EG-31',
-  Beheira: 'EG-18',
-  Fayoum: 'EG-15',
-  Gharbia: 'EG-09',
-  Ismailia: 'EG-19',
-  Menofia: 'EG-10',
-  Minya: 'EG-24',
-  Qalyubia: 'EG-04',
-  'New Valley': 'EG-32',
-  Suez: 'EG-20',
-  Aswan: 'EG-28',
-  Assiut: 'EG-25',
-  'Beni Suef': 'EG-22',
-  'Port Said': 'EG-21',
-  Damietta: 'EG-11',
-  Sharqia: 'EG-13',
-  'South Sinai': 'EG-30',
-  'Kafr El Sheikh': 'EG-14',
-  Matrouh: 'EG-33',
-  Luxor: 'EG-29',
-  Qena: 'EG-27',
-  'North Sinai': 'EG-34',
-  Sohag: 'EG-26',
 };
 
 const normalizeMatch = (value) =>
@@ -140,25 +79,61 @@ const normalizeMatch = (value) =>
     .replace(/[^a-z0-9\u0600-\u06ff]+/gi, '')
     .trim();
 
-const pickNamed = (list, wanted) => {
-  const want = normalizeMatch(wanted);
-  if (!want || !Array.isArray(list)) return null;
-  return (
-    list.find((item) => {
-      const names = [
-        item?.name,
-        item?.Name,
-        item?.nameEn,
-        item?.nameAr,
-        item?.districtName,
-        item?.zoneName,
-        item?.cityName,
-      ]
-        .filter(Boolean)
-        .map(normalizeMatch);
-      return names.some((n) => n === want || n.includes(want) || want.includes(n));
-    }) || null
+/**
+ * Spelling variants for the same governorate. Used only to find that governorate
+ * in Bosta's live city list. Never used to pick a different governorate.
+ */
+const GOVERNORATE_ALIASES = {
+  cairo: ['cairo', 'القاهرة', 'القاهره'],
+  giza: ['giza', 'الجيزة', 'الجيزه'],
+  alexandria: ['alexandria', 'الاسكندرية', 'الإسكندرية'],
+  dakahlia: ['dakahlia', 'dakahliah', 'الدقهلية'],
+  'red sea': ['redsea', 'البحراحمر', 'البحرالأحمر'],
+  beheira: ['beheira', 'behera', 'elbeheira', 'البحيرة'],
+  fayoum: ['fayoum', 'faiyum', 'fayum', 'الفيوم'],
+  gharbia: ['gharbia', 'gharbiya', 'الغربية'],
+  ismailia: ['ismailia', 'ismailiya', 'الإسماعيلية', 'الاسماعيلية'],
+  menofia: ['menofia', 'menoufia', 'monufia', 'المنوفية'],
+  minya: ['minya', 'menya', 'المنيا'],
+  qalyubia: ['qalyubia', 'qaliubia', 'kalubia', 'القليوبية'],
+  'new valley': ['newvalley', 'elwadielgedid', 'الواديالجديد'],
+  suez: ['suez', 'السويس'],
+  aswan: ['aswan', 'أسوان', 'اسوان'],
+  assiut: ['assiut', 'assuit', 'asyut', 'أسيوط', 'اسيوط'],
+  'beni suef': ['benisuef', 'banisuef', 'benisuif', 'بنيسويف'],
+  'port said': ['portsaid', 'بورسعيد'],
+  damietta: ['damietta', 'dumyat', 'دمياط'],
+  sharqia: ['sharqia', 'sharkia', 'sharqiya', 'الشرقية'],
+  'south sinai': ['southsinai', 'جنوبسيناء'],
+  'kafr el sheikh': ['kafrelsheikh', 'كفرالشيخ'],
+  matrouh: ['matrouh', 'matruh', 'مطروح'],
+  luxor: ['luxor', 'الأقصر', 'الاقصر'],
+  qena: ['qena', 'qina', 'قنا'],
+  'north sinai': ['northsinai', 'شمالسيناء'],
+  sohag: ['sohag', 'suhag', 'سوهاج'],
+};
+
+const governorateAliasSet = (state) => {
+  const key = normalizeDistrictKey(state);
+  const list = GOVERNORATE_ALIASES[key] || [state];
+  return new Set(list.map((name) => normalizeMatch(name)));
+};
+
+const catalogNames = (item) =>
+  [item?.name, item?.Name, item?.nameEn, item?.nameAr, item?.alias, item?.cityName].filter(Boolean);
+
+/**
+ * Pick the one Bosta city that is this governorate.
+ * Match is exact against the city's own name/alias. Codes are taken from that
+ * record afterwards — a stale local code table is never used.
+ */
+const findGovernorateCity = (cities, state) => {
+  const aliases = governorateAliasSet(state);
+  const hits = (Array.isArray(cities) ? cities : []).filter((city) =>
+    catalogNames(city).some((name) => aliases.has(normalizeMatch(name)))
   );
+  if (hits.length === 1) return hits[0];
+  return null;
 };
 
 /** Cache Bosta city catalog briefly to avoid hammering on retries. */
@@ -181,32 +156,10 @@ const listCities = async () => {
   return normalized;
 };
 
-const listCityDistricts = async (cityId) => {
-  if (!cityId) return [];
-  for (const path of [
-    `/api/v2/cities/${cityId}/districts`,
-    `/api/v2/cities/${cityId}/zones`,
-  ]) {
-    try {
-      const data = await request('GET', path);
-      const list =
-        data?.data?.districts ||
-        data?.data?.zones ||
-        data?.data ||
-        data?.districts ||
-        data?.zones ||
-        (Array.isArray(data) ? data : []);
-      if (Array.isArray(list) && list.length) return list;
-    } catch {
-      /* try next path */
-    }
-  }
-  return [];
-};
-
 /**
- * Resolve Bosta catalog IDs so create-delivery accepts the address.
- * Newer Bosta validation: districtName requires peer cityId (error 777).
+ * Attach the governorate's Bosta city id without changing the street or area.
+ * District ids are not sent: Bosta treats a district id as the delivery place
+ * and that was swapping areas in every governorate, not only Cairo.
  */
 const enrichDropOffAddress = async (dropOff) => {
   const enriched = { ...dropOff };
@@ -217,13 +170,8 @@ const enrichDropOffAddress = async (dropOff) => {
     throw err;
   }
 
-  const cityCodeHint = GOVERNORATE_CITY_CODES[dropOff.city] || GOVERNORATE_CITY_CODES.Cairo;
-  const cityHit =
-    pickNamed(cities, dropOff.city) ||
-    cities.find((c) => String(c?.code || c?.cityCode || '') === String(cityCodeHint || '')) ||
-    pickNamed(cities, 'Cairo') ||
-    cities[0];
-
+  const state = dropOff.customerState || dropOff.city;
+  const cityHit = findGovernorateCity(cities, state);
   const cityId =
     cityHit?._id ||
     cityHit?.id ||
@@ -231,59 +179,79 @@ const enrichDropOffAddress = async (dropOff) => {
     cityHit?.cityID ||
     null;
 
-  if (!cityId) {
+  if (!cityHit || !cityId) {
     const err = new Error(
-      'Bosta cityId missing for this address. Check BOSTA_API_KEY can read /api/v2/cities.'
+      `Bosta has no city for governorate "${state}". The shipment was not created.`
     );
-    err.status = 502;
+    err.status = 400;
     throw err;
   }
 
+  const code = String(cityHit.code || cityHit.cityCode || '').trim();
   enriched.cityId = String(cityId);
-  if (cityHit?.nameEn || cityHit?.name) {
-    enriched.city = cityHit.nameEn || cityHit.name;
-  } else if (cityCodeHint) {
-    enriched.city = cityCodeHint;
-  }
+  // Bosta routes on this city's code. The code comes from the matched governorate record.
+  enriched.city = code || cityHit.name || state;
+  enriched.governorateName = cityHit.name || state;
 
-  const districts = await listCityDistricts(cityId);
-  const districtHit =
-    pickNamed(districts, dropOff.districtName) ||
-    pickNamed(districts, dropOff.zone) ||
-    pickNamed(districts, 'New Cairo') ||
-    pickNamed(districts, dropOff.city) ||
-    districts[0] ||
-    null;
-
-  if (districtHit) {
-    const districtId =
-      districtHit.districtId ||
-      districtHit._id ||
-      districtHit.id ||
-      districtHit.zoneId ||
-      null;
-    const districtName =
-      districtHit.districtName ||
-      districtHit.name ||
-      districtHit.nameEn ||
-      districtHit.zoneName ||
-      enriched.districtName;
-    // Prefer IDs — Bosta pairs cityId with districtId/districtName
-    if (districtId) enriched.districtId = String(districtId);
-    if (districtName) {
-      enriched.districtName = districtName;
-      enriched.zone = districtName;
-    }
-    const zoneId = districtHit.zoneId || districtHit.zone?._id || null;
-    if (zoneId) enriched.zoneId = String(zoneId);
-  }
-
-  if (!enriched.districtName && !enriched.districtId) {
-    enriched.districtName = enriched.zone || 'New Cairo';
-  }
-  if (!enriched.buildingNumber) enriched.buildingNumber = '1';
+  // Area stays the customer's words in every governorate.
+  const area = dropOff.unspecifiedArea
+    ? String(dropOff.customerStreet || '').trim().slice(0, 120) || state
+    : dropOff.districtName || dropOff.zone || state;
+  enriched.districtName = area;
+  enriched.district = area;
+  enriched.zone = area;
+  delete enriched.districtId;
+  delete enriched.zoneId;
+  delete enriched.buildingNumber;
+  delete enriched.unspecifiedArea;
+  delete enriched.customerStreet;
+  delete enriched.customerCity;
+  delete enriched.customerState;
 
   return enriched;
+};
+
+/**
+ * Refuse to create a shipment when the payload would not be the address on the order.
+ */
+const assertDropOffMatchesCustomer = (dropOff, address = {}) => {
+  const street = String(address.street || '').trim();
+  const city = String(address.city || '').trim();
+  const state = String(address.state || '').trim();
+  const line = String(dropOff.firstLine || '');
+  const district = String(dropOff.districtName || dropOff.district || '');
+
+  if (street && !line.includes(street)) {
+    const err = new Error('Refusing to ship: Bosta address dropped the customer street');
+    err.status = 409;
+    throw err;
+  }
+
+  if (city && !isUnspecifiedArea(city)) {
+    const expected = resolveDistrictName(city);
+    const districtOk = normalizeMatch(district) === normalizeMatch(expected);
+    const lineOk = normalizeMatch(line).includes(normalizeMatch(expected));
+    if (!districtOk || !lineOk) {
+      const err = new Error(
+        `Refusing to ship: Bosta area "${district}" does not match the order area "${city}"`
+      );
+      err.status = 409;
+      throw err;
+    }
+  }
+
+  if (state) {
+    const governorateOk =
+      normalizeMatch(dropOff.city) === normalizeMatch(state) ||
+      normalizeMatch(line).includes(normalizeMatch(state));
+    if (!governorateOk) {
+      const err = new Error(
+        `Refusing to ship: Bosta governorate "${dropOff.city}" does not match "${state}"`
+      );
+      err.status = 409;
+      throw err;
+    }
+  }
 };
 
 const extractBostaError = (data, status) => {
@@ -367,6 +335,16 @@ const createDelivery = async ({
   }
 
   const dropOffAddress = await enrichDropOffAddress(resolveDropOffAddress(address));
+  assertDropOffMatchesCustomer(dropOffAddress, address);
+  const writtenAddress = [
+    address.street,
+    isUnspecifiedArea(address.city) ? '' : address.city,
+    address.state,
+    address.zip,
+  ]
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .join(', ');
 
   if (!dropOffAddress.cityId) {
     const err = new Error('Bosta requires cityId on dropOffAddress');
@@ -378,7 +356,10 @@ const createDelivery = async ({
     type: 10,
     cod: Math.max(0, Math.round(Number(codAmount) || 0)),
     businessReference: `${process.env.BOSTA_REF_PREFIX || 'FF'}-${orderId}`,
-    notes: notes || `FutureFit order ${orderId}`,
+    notes: [notes || `FutureFit order ${orderId}`, writtenAddress && `Deliver to: ${writtenAddress}`]
+      .filter(Boolean)
+      .join(' · ')
+      .slice(0, 500),
     webhookUrl: `${apiPublicUrl()}/api/bosta/webhook`,
     receiver: {
       firstName,
@@ -488,4 +469,6 @@ module.exports = {
   mapBostaStateToOrderStatus,
   normalizeEgyptPhone,
   resolveDropOffAddress,
+  assertDropOffMatchesCustomer,
+  findGovernorateCity,
 };

@@ -99,14 +99,7 @@ const fulfillOrderWithBosta = async (
       codAmount,
       itemsCount: (order.items || []).reduce((n, i) => n + (i.qty || 0), 0),
       description: (order.items || []).map((i) => i.name).join(', ').slice(0, 180),
-      notes: [
-        `FutureFit order ${order.id}`,
-        order.shippingAddress?.city
-          ? `District: ${order.shippingAddress.city}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      notes: `FutureFit order ${order.id}`,
     });
 
     order = await prisma.order.update({
@@ -146,14 +139,19 @@ const createShipment = async (req, res) => {
       if (!existing) {
         return res.status(404).json({ message: 'Order not found' });
       }
+      const prev = existing.shippingAddress || {};
+      const next = { ...prev };
+      for (const key of ['street', 'city', 'state', 'zip', 'country', 'phone']) {
+        const value = String(override[key] ?? '').trim();
+        if (!value) continue;
+        const previous = String(prev[key] ?? '').trim();
+        // Ignore client fallbacks that invent Cairo / New Cairo when the order had no area.
+        if (!previous && (value === 'New Cairo' || (key === 'state' && value === 'Cairo'))) continue;
+        next[key] = value;
+      }
       await prisma.order.update({
         where: { id: req.params.id },
-        data: {
-          shippingAddress: {
-            ...(existing.shippingAddress || {}),
-            ...override,
-          },
-        },
+        data: { shippingAddress: next },
       });
     }
 
