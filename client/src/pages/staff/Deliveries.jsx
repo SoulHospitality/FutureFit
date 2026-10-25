@@ -14,6 +14,27 @@ import {
   paymentStatusMeta,
 } from '../../utils/helpers';
 
+function addressLines(addr) {
+  if (!addr || typeof addr !== 'object') return { street: '', area: '', country: '' };
+  const street = String(addr.street || '').trim();
+  const area = [addr.city, addr.state, addr.zip].filter(Boolean).join(', ');
+  const country = addr.country && String(addr.country).trim() !== 'Egypt' ? String(addr.country).trim() : '';
+  return { street, area, country };
+}
+
+function AddressCell({ address }) {
+  const { street, area, country } = addressLines(address);
+  if (!street && !area) return '—';
+  const full = [street, area, country].filter(Boolean).join(' · ');
+  return (
+    <div className="space-y-0.5 text-xs leading-snug" title={full}>
+      {street ? <p className="font-medium text-zinc-800">{street}</p> : null}
+      {area ? <p className="text-zinc-500">{area}</p> : null}
+      {country ? <p className="text-zinc-400">{country}</p> : null}
+    </div>
+  );
+}
+
 const NEXT = {
   pending: ['confirmed', 'canceled'],
   confirmed: ['out_for_delivery', 'canceled', 'problem'],
@@ -138,7 +159,7 @@ export default function StaffDeliveries() {
                 <th>Date</th>
                 <th>Customer</th>
                 <th>Phone</th>
-                <th>Region</th>
+                <th>Address</th>
                 <th>Total</th>
                 <th>Payment</th>
                 <th>Delivery</th>
@@ -161,8 +182,8 @@ export default function StaffDeliveries() {
                     <td className="text-zinc-500">{formatStaffDate(o.createdAt)}</td>
                     <td>{o.customerName || o.user?.name || o.guestName || 'Guest'}</td>
                     <td>{o.customerPhone || o.user?.phone || o.guestPhone || '—'}</td>
-                    <td className="max-w-[160px] truncate text-zinc-500">
-                      {o.shippingAddress?.city || 'Egypt'}
+                    <td className="min-w-[220px] max-w-[320px] !whitespace-normal text-zinc-700">
+                      <AddressCell address={o.shippingAddress} />
                     </td>
                     <td className="tabular-nums">{formatMoney(o.totalPrice)}</td>
                     <td>
