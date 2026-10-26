@@ -57,7 +57,9 @@ export function getAttribution() {
   const fbp = readCookie('_fbp');
   let fbc = readCookie('_fbc');
   if (!fbc && stored.fbclid) {
-    fbc = `fb.1.${new Date(stored.capturedAt || Date.now()).getTime()}.${stored.fbclid}`;
+    const ts = new Date(stored.capturedAt || Date.now()).getTime();
+    const click = String(stored.fbclid).replace(/[^\w-]/g, '').slice(0, 200);
+    if (click && Number.isFinite(ts)) fbc = `fb.1.${ts}.${click}`;
   }
   const out = { ...stored, ...(fbp ? { fbp } : {}), ...(fbc ? { fbc } : {}) };
   return Object.keys(out).length ? out : undefined;

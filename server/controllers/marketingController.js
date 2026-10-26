@@ -92,7 +92,13 @@ const testMetaConnection = async (_req, res) => {
   }
 };
 
-const EVENT_NAMES = new Set(['PageView', 'ViewContent', 'AddToCart']);
+const EVENT_NAMES = new Set([
+  'PageView',
+  'ViewContent',
+  'AddToCart',
+  'InitiateCheckout',
+  'Purchase',
+]);
 const hits = new Map();
 
 const clientIp = (req) => {
@@ -116,7 +122,7 @@ const tooManyEvents = (ip) => {
       if (now > value.reset) hits.delete(key);
     }
   }
-  return row.n > 120;
+  return row.n > 2000;
 };
 
 /** Storefront funnel events for Meta Conversions API. */
@@ -124,7 +130,7 @@ const trackWebsiteEvent = async (req, res) => {
   try {
     const eventName = String(req.body?.eventName || '');
     const eventId = String(req.body?.eventId || '');
-    if (!EVENT_NAMES.has(eventName) || !/^[\w-]{8,80}$/.test(eventId)) {
+    if (!EVENT_NAMES.has(eventName) || !/^[\w.:-]{8,80}$/.test(eventId)) {
       return res.status(400).json({ message: 'Invalid event' });
     }
     const ip = clientIp(req);

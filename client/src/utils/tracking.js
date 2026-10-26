@@ -157,7 +157,8 @@ const gtmEvent = (event, ecommerce) => {
   window.dataLayer.push({ event, ecommerce });
 };
 const fbq = (event, data, eventID) => {
-  if (!window.fbq || !ids.metaPixelId) return;
+  // The pixel is in index.html, so this must not wait for the marketing config.
+  if (typeof window === 'undefined' || !window.fbq) return;
   const payload = data && typeof data === 'object' ? data : undefined;
   if (eventID && payload) window.fbq('track', event, payload, { eventID });
   else if (eventID) window.fbq('track', event, {}, { eventID });
@@ -172,17 +173,18 @@ const eventId = () =>
 
 /** Mirror a standard Meta event to Conversions API. Never blocks the storefront. */
 const mirrorMeta = (eventName, customData, id) => {
+  if (typeof window === 'undefined' || !id) return;
   const attr = getAttribution() || {};
-  api
-    .post('/marketing/event', {
-      eventName,
-      eventId: id,
-      eventSourceUrl: window.location.href.slice(0, 500),
-      fbp: attr.fbp || '',
-      fbc: attr.fbc || '',
-      customData: customData || undefined,
-    })
-    .catch(() => {});
+  const body = {
+    eventName,
+    eventId: id,
+    eventSourceUrl: window.location.href.slice(0, 500),
+    fbp: attr.fbp || '',
+    fbc: attr.fbc || '',
+    customData: customData || undefined,
+  };
+  const send = () => api.post('/marketing/event', body);
+  send().catch(() => send().catch(() => {}));
 };
 const ttq = (event, data, eventId) => {
   if (!window.ttq || !ids.tiktokPixelId) return;
@@ -206,19 +208,23 @@ const gaItem = ({ id, name, price, qty = 1, category }) => ({
 // ── Public events ───────────────────────────────────────────────────────────
 
 export function trackPageView() {
+  const path = window.location.pathname + window.location.search;
+  const page = {
+    content_name: typeof document !== 'undefined' ? document.title || 'FutureFit' : 'FutureFit',
+    content_category: path.slice(0, 120),
+  };
+  const first = window.__ffMetaFirst;
+  // The base pixel in index.html already sent this PageView. Reuse its event
+  // id for the server copy so Meta counts the visit once, with the page details.
+  if (first && first.path === path) {
+    window.__ffMetaFirst = null;
+    mirrorMeta('PageView', page, first.eventId);
+  } else {
+    const id = eventId();
+    fbq('PageView', page, id);
+    mirrorMeta('PageView', page, id);
+  }
   run(() => {
-    const path = window.location.pathname + window.location.search;
-    const first = window.__ffMetaFirst;
-    // The base pixel in index.html already sent this PageView. Reuse its event
-    // id for the server copy so Meta counts the visit once.
-    if (first && first.path === path && String(ids.metaPixelId || '') === String(first.pixelId)) {
-      window.__ffMetaFirst = null;
-      mirrorMeta('PageView', null, first.eventId);
-    } else {
-      const id = eventId();
-      fbq('PageView', null, id);
-      mirrorMeta('PageView', null, id);
-    }
     if (window.ttq && ids.tiktokPixelId) window.ttq.page();
     if (ids.gtmId && window.dataLayer) {
       window.dataLayer.push({
@@ -233,24 +239,24 @@ export function trackPageView() {
 
 export function trackViewContent(product) {
   if (!product?.id) return;
+  const value = unitPrice(product);
+  const category = product.category?.name;
+  const view = {
+    content_ids: [String(product.id)],
+    content_name: product.name,
+    content_type: 'product',
+    ...(category ? { content_category: category } : {}),
+    value,
+    currency: CURRENCY,
+    contents: [{ id: String(product.id), quantity: 1, item_price: value }],
+  };
+  const id = eventId();
+  fbq('ViewContent', view, id);
+  mirrorMeta('ViewContent', view, id);
   run(() => {
-    const value = unitPrice(product);
-    const category = product.category?.name;
     const item = gaItem({ id: product.id, name: product.name, price: value, category });
     gtagEvent('view_item', { currency: CURRENCY, value, items: [item] });
     gtmEvent('view_item', { currency: CURRENCY, value, items: [item] });
-    const view = {
-      content_ids: [String(product.id)],
-      content_name: product.name,
-      content_type: 'product',
-      ...(category ? { content_category: category } : {}),
-      value,
-      currency: CURRENCY,
-      contents: [{ id: String(product.id), quantity: 1, item_price: value }],
-    };
-    const id = eventId();
-    fbq('ViewContent', view, id);
-    mirrorMeta('ViewContent', view, id);
     ttq('ViewContent', {
       contents: [{ content_id: String(product.id), content_name: product.name, price: value, quantity: 1 }],
       content_type: 'product',
@@ -262,44 +268,43 @@ export function trackViewContent(product) {
 
 /** Shop / department listing. Meta records this as ViewContent with content_type product_group. */
 export function trackViewItemList({ name = 'Shop', category = 'shop', products = [] } = {}) {
-  run(() => {
-    const productIds = products.slice(0, 10).map((p) => String(p.id)).filter(Boolean);
-    const contents = products.slice(0, 10).map((p) => ({
-      id: String(p.id),
-      quantity: 1,
-      item_price: unitPrice(p),
-    }));
-    const view = {
-      content_name: name || 'Shop',
-      content_category: category || 'shop',
-      content_type: 'product_group',
-      ...(productIds.length ? { content_ids: productIds, contents } : {}),
-      currency: CURRENCY,
-    };
-    const id = eventId();
-    fbq('ViewContent', view, id);
-    mirrorMeta('ViewContent', view, id);
-  });
+  const productIds = products.slice(0, 10).map((p) => String(p.id)).filter(Boolean);
+  const contents = products.slice(0, 10).map((p) => ({
+    id: String(p.id),
+    quantity: 1,
+    item_price: unitPrice(p),
+  }));
+  const view = {
+    content_name: name || 'Shop',
+    content_category: category || 'shop',
+    content_type: 'product_group',
+    ...(productIds.length ? { content_ids: productIds, contents } : {}),
+    currency: CURRENCY,
+  };
+  const id = eventId();
+  fbq('ViewContent', view, id);
+  mirrorMeta('ViewContent', view, id);
 }
 
 export function trackAddToCart({ productId, name, price, qty = 1 }) {
+  const quantity = Number(qty) || 1;
+  const value = (Number(price) || 0) * quantity;
+  const cart = {
+    content_ids: [String(productId)],
+    content_name: name,
+    content_type: 'product',
+    value,
+    currency: CURRENCY,
+    num_items: quantity,
+    contents: [{ id: String(productId), quantity, item_price: Number(price) || 0 }],
+  };
+  const id = eventId();
+  fbq('AddToCart', cart, id);
+  mirrorMeta('AddToCart', cart, id);
   run(() => {
-    const quantity = Number(qty) || 1;
-    const value = (Number(price) || 0) * quantity;
     const item = gaItem({ id: productId, name, price, qty: quantity });
     gtagEvent('add_to_cart', { currency: CURRENCY, value, items: [item] });
     gtmEvent('add_to_cart', { currency: CURRENCY, value, items: [item] });
-    const cart = {
-      content_ids: [String(productId)],
-      content_name: name,
-      content_type: 'product',
-      value,
-      currency: CURRENCY,
-      contents: [{ id: String(productId), quantity, item_price: Number(price) || 0 }],
-    };
-    const id = eventId();
-    fbq('AddToCart', cart, id);
-    mirrorMeta('AddToCart', cart, id);
     ttq('AddToCart', {
       contents: [{ content_id: String(productId), content_name: name, price: Number(price) || 0, quantity }],
       content_type: 'product',
@@ -310,18 +315,27 @@ export function trackAddToCart({ productId, name, price, qty = 1 }) {
 }
 
 export function trackInitiateCheckout({ items = [], value = 0 } = {}) {
+  const total = Number(value) || 0;
+  const checkout = {
+    content_ids: items.map((i) => String(i.productId)),
+    content_name: items.map((i) => i.name).filter(Boolean).join(', ').slice(0, 200),
+    content_type: 'product',
+    contents: items.map((i) => ({
+      id: String(i.productId),
+      quantity: Number(i.qty) || 1,
+      item_price: Number(i.price) || 0,
+    })),
+    num_items: items.reduce((s, i) => s + (Number(i.qty) || 0), 0),
+    value: total,
+    currency: CURRENCY,
+  };
+  const id = eventId();
+  fbq('InitiateCheckout', checkout, id);
+  mirrorMeta('InitiateCheckout', checkout, id);
   run(() => {
-    const total = Number(value) || 0;
     const gaItems = items.map((i) => gaItem({ id: i.productId, name: i.name, price: i.price, qty: i.qty }));
     gtagEvent('begin_checkout', { currency: CURRENCY, value: total, items: gaItems });
     gtmEvent('begin_checkout', { currency: CURRENCY, value: total, items: gaItems });
-    fbq('InitiateCheckout', {
-      content_ids: items.map((i) => String(i.productId)),
-      contents: items.map((i) => ({ id: String(i.productId), quantity: Number(i.qty) || 1 })),
-      num_items: items.reduce((s, i) => s + (Number(i.qty) || 0), 0),
-      value: total,
-      currency: CURRENCY,
-    });
     ttq('InitiateCheckout', {
       contents: items.map((i) => ({
         content_id: String(i.productId),
@@ -347,10 +361,26 @@ export function trackPurchase(order) {
     /* ignore */
   }
 
+  const items = order.items || [];
+  const value = Number(order.totalPrice) || 0;
+  const orderId = String(order.id);
+  const purchaseMeta = {
+    content_ids: items.map((i) => String(i.productId)),
+    contents: items.map((i) => ({
+      id: String(i.productId),
+      quantity: Number(i.qty) || 1,
+      item_price: Number(i.price) || 0,
+    })),
+    content_type: 'product',
+    content_name: items.map((i) => i.name).filter(Boolean).join(', ').slice(0, 200),
+    num_items: items.reduce((s, i) => s + (Number(i.qty) || 0), 0),
+    value,
+    currency: CURRENCY,
+    order_id: orderId,
+  };
+  fbq('Purchase', purchaseMeta, orderId);
+  mirrorMeta('Purchase', purchaseMeta, orderId);
   run(() => {
-    const items = order.items || [];
-    const value = Number(order.totalPrice) || 0;
-    const orderId = String(order.id);
     const gaItems = items.map((i) => gaItem({ id: i.productId, name: i.name, price: i.price, qty: i.qty }));
     const purchase = {
       transaction_id: orderId,
@@ -370,18 +400,6 @@ export function trackPurchase(order) {
         transaction_id: orderId,
       });
     }
-    fbq(
-      'Purchase',
-      {
-        content_ids: items.map((i) => String(i.productId)),
-        contents: items.map((i) => ({ id: String(i.productId), quantity: Number(i.qty) || 1 })),
-        content_type: 'product',
-        num_items: items.reduce((s, i) => s + (Number(i.qty) || 0), 0),
-        value,
-        currency: CURRENCY,
-      },
-      orderId
-    );
     ttq(
       'CompletePayment',
       {
