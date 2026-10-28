@@ -35,7 +35,10 @@
         path: location.pathname + location.search,
         eventId: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('ff-' + Date.now())
       };
-      fbq('track', 'PageView', {}, { eventID: window.__ffMetaFirst.eventId });
+      fbq('track', 'PageView', {
+        content_name: document.title || 'FutureFit',
+        content_category: window.__ffMetaFirst.path
+      }, { eventID: window.__ffMetaFirst.eventId });
     </script>
     <noscript>
       <img

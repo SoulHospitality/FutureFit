@@ -156,14 +156,79 @@ const gtmEvent = (event, ecommerce) => {
   window.dataLayer.push({ ecommerce: null });
   window.dataLayer.push({ event, ecommerce });
 };
+const META_PIXEL_FALLBACK = '1438304991608229';
+
+const metaPixelId = () =>
+  ids.metaPixelId || window.__ffMetaFirst?.pixelId || META_PIXEL_FALLBACK;
+
+/** The pixel's currency list omits EGP, so it drops Purchase instead of sending it. */
+const allowEgp = () => {
+  try {
+    const mod = window.fbq?.getFbeventsModules?.('SignalsEventValidation');
+    if (mod?.VALID_CURRENCY_CODES) mod.VALID_CURRENCY_CODES.EGP = 1;
+  } catch {
+    /* pixel script not ready */
+  }
+};
+
 const fbq = (event, data, eventID) => {
   // The pixel is in index.html, so this must not wait for the marketing config.
   if (typeof window === 'undefined' || !window.fbq) return;
+  allowEgp();
   const payload = data && typeof data === 'object' ? data : undefined;
   if (eventID && payload) window.fbq('track', event, payload, { eventID });
   else if (eventID) window.fbq('track', event, {}, { eventID });
   else if (payload) window.fbq('track', event, payload);
   else window.fbq('track', event);
+};
+
+/**
+ * The loaded pixel counts events and then never requests facebook.com/tr again.
+ * This hit is the one Events Manager actually receives. The event id matches
+ * the pixel call and the server copy, so Meta counts the action once.
+ */
+const sendPixelHit = (event, data, eventID) => {
+  try {
+    const params = new URLSearchParams();
+    params.set('id', String(metaPixelId()));
+    params.set('ev', event);
+    params.set('dl', window.location.href.slice(0, 500));
+    params.set('rl', document.referrer || '');
+    params.set('if', 'false');
+    params.set('ts', String(Date.now()));
+    if (eventID) params.set('eid', String(eventID));
+    const attr = getAttribution() || {};
+    if (attr.fbp) params.set('fbp', attr.fbp);
+    if (attr.fbc) params.set('fbc', attr.fbc);
+    if (data && typeof data === 'object') {
+      for (const [key, value] of Object.entries(data)) {
+        if (value == null || value === '') continue;
+        const encoded = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        params.set(`cd[${key}]`, encoded.slice(0, 2000));
+      }
+    }
+    const url = `https://www.facebook.com/tr/?${params.toString()}`;
+    if (url.length < 2000) {
+      const img = new Image();
+      img.src = url;
+      return;
+    }
+    if (navigator.sendBeacon) {
+      params.set('rqm', 'formPOST');
+      navigator.sendBeacon('https://www.facebook.com/tr/', params);
+      return;
+    }
+    const img = new Image();
+    img.src = url.slice(0, 2000);
+  } catch {
+    /* never break the store */
+  }
+};
+
+const trackMeta = (event, data, eventID) => {
+  fbq(event, data, eventID);
+  sendPixelHit(event, data, eventID);
+  mirrorMeta(event, data, eventID);
 };
 
 const eventId = () =>
@@ -218,11 +283,9 @@ export function trackPageView() {
   // id for the server copy so Meta counts the visit once, with the page details.
   if (first && first.path === path) {
     window.__ffMetaFirst = null;
-    mirrorMeta('PageView', page, first.eventId);
+    trackMeta('PageView', page, first.eventId);
   } else {
-    const id = eventId();
-    fbq('PageView', page, id);
-    mirrorMeta('PageView', page, id);
+    trackMeta('PageView', page, eventId());
   }
   run(() => {
     if (window.ttq && ids.tiktokPixelId) window.ttq.page();
@@ -250,9 +313,7 @@ export function trackViewContent(product) {
     currency: CURRENCY,
     contents: [{ id: String(product.id), quantity: 1, item_price: value }],
   };
-  const id = eventId();
-  fbq('ViewContent', view, id);
-  mirrorMeta('ViewContent', view, id);
+  trackMeta('ViewContent', view, eventId());
   run(() => {
     const item = gaItem({ id: product.id, name: product.name, price: value, category });
     gtagEvent('view_item', { currency: CURRENCY, value, items: [item] });
@@ -281,9 +342,7 @@ export function trackViewItemList({ name = 'Shop', category = 'shop', products =
     ...(productIds.length ? { content_ids: productIds, contents } : {}),
     currency: CURRENCY,
   };
-  const id = eventId();
-  fbq('ViewContent', view, id);
-  mirrorMeta('ViewContent', view, id);
+  trackMeta('ViewContent', view, eventId());
 }
 
 export function trackAddToCart({ productId, name, price, qty = 1 }) {
@@ -298,9 +357,7 @@ export function trackAddToCart({ productId, name, price, qty = 1 }) {
     num_items: quantity,
     contents: [{ id: String(productId), quantity, item_price: Number(price) || 0 }],
   };
-  const id = eventId();
-  fbq('AddToCart', cart, id);
-  mirrorMeta('AddToCart', cart, id);
+  trackMeta('AddToCart', cart, eventId());
   run(() => {
     const item = gaItem({ id: productId, name, price, qty: quantity });
     gtagEvent('add_to_cart', { currency: CURRENCY, value, items: [item] });
@@ -329,9 +386,7 @@ export function trackInitiateCheckout({ items = [], value = 0 } = {}) {
     value: total,
     currency: CURRENCY,
   };
-  const id = eventId();
-  fbq('InitiateCheckout', checkout, id);
-  mirrorMeta('InitiateCheckout', checkout, id);
+  trackMeta('InitiateCheckout', checkout, eventId());
   run(() => {
     const gaItems = items.map((i) => gaItem({ id: i.productId, name: i.name, price: i.price, qty: i.qty }));
     gtagEvent('begin_checkout', { currency: CURRENCY, value: total, items: gaItems });
@@ -378,8 +433,7 @@ export function trackPurchase(order) {
     currency: CURRENCY,
     order_id: orderId,
   };
-  fbq('Purchase', purchaseMeta, orderId);
-  mirrorMeta('Purchase', purchaseMeta, orderId);
+  trackMeta('Purchase', purchaseMeta, orderId);
   run(() => {
     const gaItems = items.map((i) => gaItem({ id: i.productId, name: i.name, price: i.price, qty: i.qty }));
     const purchase = {
