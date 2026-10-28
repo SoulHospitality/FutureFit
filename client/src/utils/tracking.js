@@ -156,7 +156,7 @@ const gtmEvent = (event, ecommerce) => {
   window.dataLayer.push({ ecommerce: null });
   window.dataLayer.push({ event, ecommerce });
 };
-const META_PIXEL_FALLBACK = '1438304991608229';
+const META_PIXEL_FALLBACK = '2382660579164058';
 
 const metaPixelId = () =>
   ids.metaPixelId || window.__ffMetaFirst?.pixelId || META_PIXEL_FALLBACK;

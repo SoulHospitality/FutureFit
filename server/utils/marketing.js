@@ -20,7 +20,7 @@ const defaults = () => ({
     ga4Id: '',
     googleAdsId: '',
     googleAdsPurchaseLabel: '',
-    metaPixelId: process.env.META_PIXEL_ID || '1438304991608229',
+    metaPixelId: process.env.META_PIXEL_ID || '2382660579164058',
     metaCapiToken: '',
     metaTestEventCode: '',
     tiktokPixelId: '',
