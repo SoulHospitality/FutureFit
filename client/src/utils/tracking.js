@@ -117,6 +117,8 @@ function bootGoogle({ ga4Id, googleAdsId, gtmId }) {
 export function initTracking(tracking) {
   if (ready || typeof window === 'undefined' || !tracking) return;
   ids = { ...tracking };
+  const pinned = pagePixelId();
+  if (pinned) ids.metaPixelId = pinned;
   try {
     if (ids.gtmId || ids.ga4Id || ids.googleAdsId) bootGoogle(ids);
     if (ids.metaPixelId) bootMeta(ids.metaPixelId);
@@ -158,8 +160,11 @@ const gtmEvent = (event, ecommerce) => {
 };
 const META_PIXEL_FALLBACK = '2382660579164058';
 
-const metaPixelId = () =>
-  ids.metaPixelId || window.__ffMetaFirst?.pixelId || META_PIXEL_FALLBACK;
+/** The pixel printed in index.html wins over a saved marketing config. */
+const pagePixelId = () =>
+  (typeof window !== 'undefined' && (window.__ffMetaPixel || window.__ffMetaFirst?.pixelId)) || '';
+
+const metaPixelId = () => pagePixelId() || ids.metaPixelId || META_PIXEL_FALLBACK;
 
 /** The pixel's currency list omits EGP, so it drops Purchase instead of sending it. */
 const allowEgp = () => {
