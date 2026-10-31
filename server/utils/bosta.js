@@ -143,7 +143,14 @@ const listCities = async () => {
   if (citiesCache.list && Date.now() - citiesCache.at < 10 * 60 * 1000) {
     return citiesCache.list;
   }
-  const data = await request('GET', '/api/v2/cities');
+  let data;
+  try {
+    data = await request('GET', '/api/v2/cities');
+  } catch (err) {
+    // Governorates rarely change — a stale catalog beats failing the shipment.
+    if (citiesCache.list?.length) return citiesCache.list;
+    throw err;
+  }
   const list =
     data?.data?.list ||
     data?.data?.cities ||
@@ -152,7 +159,7 @@ const listCities = async () => {
     data?.list ||
     (Array.isArray(data) ? data : []);
   const normalized = Array.isArray(list) ? list : [];
-  citiesCache = { at: Date.now(), list: normalized };
+  if (normalized.length) citiesCache = { at: Date.now(), list: normalized };
   return normalized;
 };
 
@@ -193,9 +200,11 @@ const enrichDropOffAddress = async (dropOff) => {
   enriched.city = code || cityHit.name || state;
   enriched.governorateName = cityHit.name || state;
 
-  // Area stays the customer's words in every governorate.
+  // Area stays the customer's words in every governorate. With checkout "Other"
+  // there is no area: Bosta rejects a whole street as a district name, so the
+  // governorate is the district and the street stays in firstLine.
   const area = dropOff.unspecifiedArea
-    ? String(dropOff.customerStreet || '').trim().slice(0, 120) || state
+    ? enriched.governorateName
     : dropOff.districtName || dropOff.zone || state;
   enriched.districtName = area;
   enriched.district = area;
@@ -275,6 +284,13 @@ const extractBostaError = (data, status) => {
   }
 };
 
+const REQUEST_TIMEOUT_MS = 20000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Connection never reached Bosta — safe to resend even a POST. */
+const isConnectError = (err) =>
+  ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ECONNRESET'].includes(err?.cause?.code);
+
 const request = async (method, path, body) => {
   if (!isConfigured()) {
     const err = new Error('Bosta is not configured');
@@ -283,24 +299,54 @@ const request = async (method, path, body) => {
   }
 
   const url = `${BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-  const res = await fetch(url, {
-    method,
-    headers: {
-      Authorization: API_KEY,
-      'Content-Type': 'application/json',
-      'X-Requested-By': 'futurefit',
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
+  // GETs retry on any transient failure. A POST only retries when Bosta cannot
+  // have created anything (no connection, 429, 503) so shipments never duplicate.
+  const maxAttempts = 3;
+  for (let attempt = 1; ; attempt += 1) {
+    let res;
+    try {
+      res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: API_KEY,
+          'Content-Type': 'application/json',
+          'X-Requested-By': 'futurefit',
+        },
+        body: body != null ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (cause) {
+      const retry = method === 'GET' || isConnectError(cause);
+      if (retry && attempt < maxAttempts) {
+        await sleep(attempt * 1000);
+        continue;
+      }
+      const timedOut = cause?.name === 'TimeoutError';
+      const err = new Error(
+        timedOut
+          ? `Bosta did not answer within ${REQUEST_TIMEOUT_MS / 1000}s`
+          : `Could not reach Bosta: ${cause?.cause?.code || cause?.message || 'network error'}`
+      );
+      err.status = 502;
+      // A timed-out POST may still have been created on Bosta's side.
+      err.maybeCreated = method !== 'GET' && timedOut;
+      throw err;
+    }
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) return data;
+
+    const retry =
+      res.status === 429 || res.status === 503 || (method === 'GET' && res.status >= 500);
+    if (retry && attempt < maxAttempts) {
+      await sleep(attempt * 1500);
+      continue;
+    }
     const err = new Error(extractBostaError(data, res.status));
     err.status = res.status >= 400 && res.status < 500 ? res.status : 502;
     err.payload = data;
     throw err;
   }
-  return data;
 };
 
 const splitName = (fullName) => {
@@ -382,12 +428,19 @@ const createDelivery = async ({
 
   const data = await request('POST', '/api/v2/deliveries?apiVersion=1', payload);
   const inner = data?.data || data;
+  const deliveryId = inner?._id || inner?.id || inner?.deliveryId || null;
+  const trackingNumber = inner?.trackingNumber || inner?.tracking_number || null;
 
-  return {
-    deliveryId: inner?._id || inner?.id || inner?.deliveryId || null,
-    trackingNumber: inner?.trackingNumber || inner?.tracking_number || null,
-    raw: data,
-  };
+  if (!deliveryId && !trackingNumber) {
+    const err = new Error(
+      `Bosta answered without a tracking number. Check the Bosta dashboard for ${payload.businessReference} before retrying.`
+    );
+    err.status = 502;
+    err.maybeCreated = true;
+    throw err;
+  }
+
+  return { deliveryId, trackingNumber, raw: data };
 };
 
 /** Map Bosta webhook state (numeric code or label) → FutureFit OrderStatus */

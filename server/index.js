@@ -2,6 +2,7 @@ const app = require('./app');
 const prisma = require('./lib/prisma');
 const { backfillMissingSizeStocks } = require('./utils/sizeStock');
 const { ensureDefaultCategories } = require('./utils/catalog');
+const { startBostaSyncSweeper } = require('./controllers/bostaController');
 
 const PORT = process.env.PORT || 5000;
 const MAX_DB_ATTEMPTS = 5;
@@ -40,6 +41,7 @@ const start = async () => {
 
     const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      startBostaSyncSweeper();
     });
 
     const shutdown = async (signal) => {

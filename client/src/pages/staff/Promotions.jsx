@@ -389,8 +389,8 @@ function CodesTab() {
 
   const toggle = async (c) => {
     try {
-      await api.put(`/coupons/${c.id}`, { isActive: !c.isActive });
-      load();
+    await api.put(`/coupons/${c.id}`, { isActive: !c.isActive });
+    load();
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -400,7 +400,7 @@ function CodesTab() {
     if (!window.confirm(`Delete promo code ${c.code}?`)) return;
     try {
       await api.delete(`/coupons/${c.id}`);
-      load();
+    load();
     } catch (err) {
       toast.error(errMsg(err));
     }
@@ -431,9 +431,9 @@ function CodesTab() {
             {coupons.map((c) => {
               const usedUp = c.maxUses != null && c.usedCount >= c.maxUses;
               return (
-                <tr key={c.id}>
-                  <td className="font-mono font-semibold">{c.code}</td>
-                  <td>{c.discountPercentage}%</td>
+              <tr key={c.id}>
+                <td className="font-mono font-semibold">{c.code}</td>
+                <td>{c.discountPercentage}%</td>
                   <td className="tabular-nums">
                     {c.usedCount || 0}
                     {c.maxUses != null ? ` / ${c.maxUses}` : ''}
@@ -443,21 +443,21 @@ function CodesTab() {
                       </span>
                     )}
                   </td>
-                  <td>
-                    <button type="button" className={c.isActive ? 'badge-green' : 'badge-gray'} onClick={() => toggle(c)}>
-                      {c.isActive ? 'Active' : 'Off'}
-                    </button>
-                  </td>
-                  <td>
+                <td>
+                  <button type="button" className={c.isActive ? 'badge-green' : 'badge-gray'} onClick={() => toggle(c)}>
+                    {c.isActive ? 'Active' : 'Off'}
+                  </button>
+                </td>
+                <td>
                     <div className="flex justify-end gap-1">
                       <button type="button" className="btn-ghost btn-sm" onClick={() => openEdit(c)} aria-label="Edit promo code">
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button type="button" className="btn-ghost btn-sm text-red-600" onClick={() => remove(c)} aria-label="Delete promo code">
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                  </button>
                     </div>
-                  </td>
+                </td>
                 </tr>
               );
             })}

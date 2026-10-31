@@ -307,6 +307,12 @@ model Order {
   bostaTrackingNumber String?
   shippingCarrier     String?
   shippingStatus      String?
+  /// Last Bosta sync failure (cleared once the shipment exists)
+  bostaSyncError      String?
+  bostaSyncAttempts   Int       @default(0)
+  bostaLastAttemptAt  DateTime?
+  /// Set while a sync is talking to Bosta so two callers never create two shipments
+  bostaSyncLockedAt   DateTime?
   /// Marketing source captured at checkout (UTM params, click IDs, referrer, landing page).
   attribution     Json?
   createdAt       DateTime    @default(now())

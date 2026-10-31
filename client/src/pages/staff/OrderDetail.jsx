@@ -101,6 +101,7 @@ export default function StaffOrderDetail() {
       await load();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Bosta sync failed');
+      await load();
     } finally {
       setBusy('');
     }
@@ -397,6 +398,12 @@ export default function StaffOrderDetail() {
                     ? 'Tap Retry Bosta sync to create the shipment. Check the phone number if it fails.'
                     : 'Capture payment first for prepaid orders, or use Retry if this is COD.'}
                 </p>
+                {order.bostaSyncError && (
+                  <p className="mt-1.5 break-words text-xs text-red-700">
+                    Last error{order.bostaSyncAttempts > 1 ? ` (${order.bostaSyncAttempts} tries)` : ''}:{' '}
+                    {order.bostaSyncError}
+                  </p>
+                )}
               </div>
             )}
             {!isBostaSynced(order) && order.status !== 'canceled' && (

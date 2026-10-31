@@ -17,6 +17,14 @@ const orderInclude = {
   user: { select: { id: true, name: true, email: true, phone: true } },
 };
 
+const MAX_AUTO_ATTEMPTS = 5;
+const SYNC_LOCK_MS = 2 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const SWEEP_BASE_GAP_MS = 10 * 60 * 1000;
+/** Leave fresh orders to the checkout / payment flow that is shipping them now. */
+const SWEEP_MIN_AGE_MS = 3 * 60 * 1000;
+const SWEEP_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
+
 const isCodMethod = (method) =>
   /cash\s*on\s*delivery|\bcod\b/i.test(String(method || ''));
 
@@ -85,6 +93,29 @@ const fulfillOrderWithBosta = async (
   const isPaymob = isPaymobMethod(order.paymentMethod);
   const codAmount = cod && !order.isPaid && !isPaymob ? Number(order.totalPrice) : 0;
 
+  // Claim the order in the database so a concurrent caller (Paymob callback +
+  // redirect, sweeper + staff retry, a second instance) cannot ship it twice.
+  const now = new Date();
+  const claim = await prisma.order.updateMany({
+    where: {
+      id: order.id,
+      bostaDeliveryId: null,
+      bostaTrackingNumber: null,
+      OR: [
+        { bostaSyncLockedAt: null },
+        { bostaSyncLockedAt: { lt: new Date(now.getTime() - SYNC_LOCK_MS) } },
+      ],
+    },
+    data: { bostaSyncLockedAt: now, bostaLastAttemptAt: now },
+  });
+  if (!claim.count) {
+    const fresh = await prisma.order.findUnique({ where: { id: order.id }, include: orderInclude });
+    if (fresh?.bostaDeliveryId || fresh?.bostaTrackingNumber) {
+      return { order: fresh, shipped: false, skipped: 'already_shipped' };
+    }
+    return { order: fresh || order, shipped: false, skipped: 'in_progress' };
+  }
+
   try {
     const result = await bosta.createDelivery({
       orderId: order.id,
@@ -110,15 +141,94 @@ const fulfillOrderWithBosta = async (
         shippingCarrier: 'bosta',
         shippingStatus: 'created',
         status: order.status === 'pending' ? 'confirmed' : order.status,
+        bostaSyncError: null,
+        bostaSyncLockedAt: null,
+        bostaSyncAttempts: { increment: 1 },
       },
       include: orderInclude,
     });
 
     return { order, shipped: true, trackingNumber: order.bostaTrackingNumber };
   } catch (err) {
-    console.error('Auto Bosta sync failed for', order.id, err.message);
-    return { order, shipped: false, skipped: 'bosta_error', error: err.message };
+    console.error('Bosta sync failed for', order.id, err.message);
+    // Our own checks (bad phone, missing governorate, address mismatch) and a
+    // shipment that may already exist on Bosta need a person, not another try.
+    const needsStaff = err.maybeCreated || err.status === 400 || err.status === 409;
+    const message = String(err.message || 'Bosta shipment failed').slice(0, 500);
+    order = await prisma.order
+      .update({
+        where: { id: order.id },
+        data: {
+          bostaSyncError: message,
+          bostaSyncLockedAt: null,
+          bostaSyncAttempts: needsStaff
+            ? Math.max(MAX_AUTO_ATTEMPTS, (order.bostaSyncAttempts || 0) + 1)
+            : { increment: 1 },
+        },
+        include: orderInclude,
+      })
+      .catch((dbErr) => {
+        console.error('Could not record Bosta sync failure for', order.id, dbErr.message);
+        return order;
+      });
+    return { order, shipped: false, skipped: 'bosta_error', error: message };
   }
+};
+
+/**
+ * Background retry for orders whose automatic Bosta sync failed or never ran
+ * (server restart mid-request, Bosta outage, timeout). Each order gets
+ * MAX_AUTO_ATTEMPTS tries with growing gaps; after that staff use Retry Bosta.
+ */
+const sweepUnsyncedOrders = async () => {
+  if (!bosta.isConfigured()) return { checked: 0, shipped: 0 };
+  const now = Date.now();
+  const candidates = await prisma.order.findMany({
+    where: {
+      status: { in: ['pending', 'confirmed'] },
+      bostaDeliveryId: null,
+      bostaTrackingNumber: null,
+      bostaSyncAttempts: { lt: MAX_AUTO_ATTEMPTS },
+      createdAt: { gte: new Date(now - SWEEP_LOOKBACK_MS), lte: new Date(now - SWEEP_MIN_AGE_MS) },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 25,
+    include: orderInclude,
+  });
+
+  let shipped = 0;
+  let checked = 0;
+  for (const order of candidates) {
+    if (!isCodMethod(order.paymentMethod) && !order.isPaid) continue;
+    const wait = SWEEP_BASE_GAP_MS * 2 ** Math.max(0, (order.bostaSyncAttempts || 0) - 1);
+    const last = order.bostaLastAttemptAt ? order.bostaLastAttemptAt.getTime() : 0;
+    if (order.bostaSyncAttempts > 0 && now - last < wait) continue;
+    checked += 1;
+    const result = await fulfillOrderWithBosta(order, { confirm: true });
+    if (result.shipped) shipped += 1;
+  }
+  if (checked) console.log(`Bosta sweep: ${shipped}/${checked} unsynced orders shipped`);
+  return { checked, shipped };
+};
+
+let sweepTimer = null;
+const startBostaSyncSweeper = () => {
+  if (sweepTimer || process.env.BOSTA_SYNC_SWEEP === 'off') return;
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await sweepUnsyncedOrders();
+    } catch (err) {
+      console.error('Bosta sweep failed:', err.message);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(tick, 60 * 1000).unref();
+  sweepTimer = setInterval(tick, SWEEP_INTERVAL_MS);
+  sweepTimer.unref();
 };
 
 /** Staff: create Bosta shipment for an order (manual retry) */
@@ -164,6 +274,11 @@ const createShipment = async (req, res) => {
         message: 'Shipment already created',
         trackingNumber: result.order.bostaTrackingNumber,
         deliveryId: result.order.bostaDeliveryId,
+      });
+    }
+    if (result.skipped === 'in_progress') {
+      return res.status(409).json({
+        message: 'A Bosta sync for this order is already running. Refresh in a minute.',
       });
     }
     if (result.skipped === 'bosta_error') {
@@ -291,6 +406,8 @@ module.exports = {
   createShipment,
   handleWebhook,
   fulfillOrderWithBosta,
+  sweepUnsyncedOrders,
+  startBostaSyncSweeper,
   isCodMethod,
   isPaymobMethod,
   isInstaPayMethod,

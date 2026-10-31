@@ -222,7 +222,11 @@ export default function StaffDeliveries() {
                               className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
                               disabled={shippingId === o.id}
                               onClick={() => retryBosta(o)}
-                              title="Retry Bosta sync (only if auto-sync failed)"
+                              title={
+                                o.bostaSyncError
+                                  ? `Last Bosta error: ${o.bostaSyncError}`
+                                  : 'Retry Bosta sync (only if auto-sync failed)'
+                              }
                             >
                               <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
                               {shippingId === o.id ? 'Syncing…' : 'Retry sync'}
