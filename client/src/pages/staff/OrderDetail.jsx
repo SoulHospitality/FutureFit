@@ -93,6 +93,7 @@ export default function StaffOrderDetail() {
   };
 
   const [bostaAreas, setBostaAreas] = useState(null);
+  const [areasError, setAreasError] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
   const [areaId, setAreaId] = useState('');
   const needsBosta = order && !isBostaSynced(order) && order.status !== 'canceled';
@@ -103,9 +104,13 @@ export default function StaffOrderDetail() {
       .get(`/bosta/orders/${id}/districts`)
       .then(({ data }) => {
         setBostaAreas(data);
+        setAreasError('');
         setAreaId(data.selectedId || '');
       })
-      .catch(() => setBostaAreas(null));
+      .catch((err) => {
+        setBostaAreas(null);
+        setAreasError(err.response?.data?.message || err.message || 'Could not load Bosta areas');
+      });
   }, [id, needsBosta]);
 
   const filteredAreas = (bostaAreas?.districts || []).filter((d) => {
@@ -430,6 +435,11 @@ export default function StaffOrderDetail() {
                   </p>
                 )}
               </div>
+            )}
+            {needsBosta && !bostaAreas && areasError && (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                Could not load the Bosta area list: {areasError}
+              </p>
             )}
             {needsBosta && bostaAreas && (
               <div className="mt-3 space-y-1.5">

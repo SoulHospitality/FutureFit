@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { RefreshCw, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
@@ -45,6 +45,7 @@ const NEXT = {
 };
 
 export default function StaffDeliveries() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('');
   const [deletingId, setDeletingId] = useState(null);
@@ -106,7 +107,10 @@ export default function StaffDeliveries() {
           : 'Bosta synced'
       );
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Bosta sync failed');
+      const message = err.response?.data?.message || 'Bosta sync failed';
+      toast.error(message);
+      // Only the order page can pick a Bosta area.
+      if (/choose the bosta area/i.test(message)) navigate(`/staff/orders/${order.id}`);
     } finally {
       setShippingId(null);
     }

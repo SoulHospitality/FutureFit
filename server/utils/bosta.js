@@ -284,12 +284,19 @@ const districtsCache = new Map();
 const listCityDistricts = async (cityId) => {
   const cached = districtsCache.get(cityId);
   if (cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) return cached.list;
+  const path = `/api/v2/cities/${encodeURIComponent(cityId)}/districts`;
   let data;
   try {
-    data = await request('GET', `/api/v2/cities/${encodeURIComponent(cityId)}/districts`);
+    data = await request('GET', path);
   } catch (err) {
     if (cached?.list?.length) return cached.list;
-    throw err;
+    // The catalog is public; if the business key is refused here, read it without one.
+    console.error('Bosta districts with API key failed:', err.status, err.message);
+    const res = await fetch(`${BASE_URL}${path}`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    }).catch(() => null);
+    data = res?.ok ? await res.json().catch(() => null) : null;
+    if (!data) throw err;
   }
   const list = Array.isArray(data?.data) ? data.data : data?.data?.list || [];
   if (list.length) districtsCache.set(cityId, { at: Date.now(), list });
