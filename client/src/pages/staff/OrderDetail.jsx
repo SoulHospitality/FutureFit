@@ -437,9 +437,14 @@ export default function StaffOrderDetail() {
                   Bosta area · {bostaAreas.governorate}
                 </label>
                 <p className="text-xs text-zinc-500">
-                  Customer wrote: {order.shippingAddress?.city || '—'}
+                  Customer wrote: {order.shippingAddress?.street || '—'}, {order.shippingAddress?.city || '—'}
                   {bostaAreas.selectedSource === 'street' && ' (matched from the street)'}
                 </p>
+                {!areaId && (
+                  <p className="text-xs font-medium text-amber-800">
+                    Bosta needs an area from its list. Pick the one this street is in, then retry.
+                  </p>
+                )}
                 <input
                   type="search"
                   value={areaFilter}
@@ -450,7 +455,9 @@ export default function StaffOrderDetail() {
                 <select
                   value={areaId}
                   onChange={(e) => setAreaId(e.target.value)}
-                  className="w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm"
+                  className={`w-full rounded-lg border px-2.5 py-1.5 text-sm ${
+                    areaId ? 'border-zinc-200' : 'border-amber-400'
+                  }`}
                 >
                   <option value="">Choose the Bosta area…</option>
                   {filteredAreas.map((d) => (
@@ -465,12 +472,16 @@ export default function StaffOrderDetail() {
             {!isBostaSynced(order) && order.status !== 'canceled' && (
               <button
                 type="button"
-                disabled={busy === 'bosta'}
+                disabled={busy === 'bosta' || (bostaAreas && !areaId)}
                 onClick={retryBosta}
                 className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                {busy === 'bosta' ? 'Syncing…' : 'Retry Bosta sync'}
+                {busy === 'bosta'
+                  ? 'Syncing…'
+                  : bostaAreas && !areaId
+                    ? 'Choose a Bosta area first'
+                    : 'Retry Bosta sync'}
               </button>
             )}
             <div className="mt-3 flex flex-wrap gap-1">

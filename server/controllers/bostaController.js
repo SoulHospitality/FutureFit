@@ -171,7 +171,7 @@ const fulfillOrderWithBosta = async (
         console.error('Could not record Bosta sync failure for', order.id, dbErr.message);
         return order;
       });
-    return { order, shipped: false, skipped: 'bosta_error', error: message };
+    return { order, shipped: false, skipped: 'bosta_error', error: message, errorStatus: err.status };
   }
 };
 
@@ -299,7 +299,9 @@ const createShipment = async (req, res) => {
       });
     }
     if (result.skipped === 'bosta_error') {
-      return res.status(502).json({ message: result.error || 'Bosta shipment failed' });
+      // Address problems are the order's, not a Bosta outage.
+      const status = result.errorStatus === 400 || result.errorStatus === 409 ? result.errorStatus : 502;
+      return res.status(status).json({ message: result.error || 'Bosta shipment failed' });
     }
 
     const updated = result.order;
