@@ -240,6 +240,23 @@ const createShipment = async (req, res) => {
       });
     }
 
+    const chosenDistrictId = String(req.body?.bostaDistrictId || '').trim();
+    if (chosenDistrictId) {
+      const existing = await prisma.order.findUnique({
+        where: { id: req.params.id },
+        select: { shippingAddress: true },
+      });
+      if (!existing) {
+        return res.status(404).json({ message: 'Order not found' });
+      }
+      await prisma.order.update({
+        where: { id: req.params.id },
+        data: {
+          shippingAddress: { ...(existing.shippingAddress || {}), bostaDistrictId: chosenDistrictId },
+        },
+      });
+    }
+
     const override = req.body?.shippingAddress;
     if (override && typeof override === 'object') {
       const existing = await prisma.order.findUnique({
@@ -303,6 +320,36 @@ const createShipment = async (req, res) => {
   } catch (err) {
     console.error('Bosta createShipment:', err);
     res.status(err.status || 500).json({ message: err.message || 'Bosta shipment failed' });
+  }
+};
+
+/** Staff: Bosta's areas for the order's governorate, with the one auto-matching would use. */
+const listOrderDistricts = async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: req.params.id },
+      select: { shippingAddress: true },
+    });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const address = order.shippingAddress || {};
+    const { cityHit, cityId } = await bosta.resolveGovernorateCity(String(address.state || '').trim());
+    const districts = (await bosta.listCityDistricts(cityId)).filter(
+      (d) => d.dropOffAvailability !== false
+    );
+    const resolved = bosta.resolveOrderDistrict(districts, address, cityHit.name);
+    res.json({
+      governorate: cityHit.name,
+      selectedId: resolved?.district.districtId || null,
+      selectedSource: resolved?.source || null,
+      districts: districts.map((d) => ({
+        id: d.districtId,
+        name: d.districtName,
+        nameAr: d.districtOtherName || '',
+        zone: d.zoneName,
+      })),
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Could not load Bosta areas' });
   }
 };
 
@@ -404,6 +451,7 @@ const handleWebhook = async (req, res) => {
 
 module.exports = {
   createShipment,
+  listOrderDistricts,
   handleWebhook,
   fulfillOrderWithBosta,
   sweepUnsyncedOrders,

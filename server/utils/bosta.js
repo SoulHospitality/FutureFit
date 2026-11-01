@@ -163,29 +163,148 @@ const listCities = async () => {
   return normalized;
 };
 
+/** Arabic spelling variants Bosta's catalog flattens (ة→ه, أ→ا, ى→ي). */
+const foldArabic = (value) =>
+  String(value || '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
+    .replace(/[ً-ْـ]/g, '');
+
+/** Words of a place name, lowercased, with the "El"/"Al"/"ال" article dropped. */
+const areaWords = (value) =>
+  foldArabic(String(value || '').toLowerCase())
+    .split(/[^a-z0-9؀-ۿ]+/)
+    .filter(Boolean)
+    .map((w) => w.replace(/^(el|al)(?=[a-z]{3})/, '').replace(/^ال(?=[؀-ۿ]{2})/, ''))
+    .filter((w) => !['el', 'al', 'ال'].includes(w));
+
+const areaKey = (value) => areaWords(value).join('');
+
+/** Spelling-insensitive key: "Shebin El Kom" and "Shebeen ElKom" agree. */
+const areaSkeleton = (value) => {
+  const key = areaKey(value);
+  return /[a-z]/.test(key) ? key.replace(/[aeiouy]+/g, '').replace(/(.)\1+/g, '$1') : key;
+};
+
 /**
- * Attach the governorate's Bosta city id without changing the street or area.
- * District ids are not sent: Bosta treats a district id as the delivery place
- * and that was swapping areas in every governorate, not only Cairo.
+ * Common names customers type that Bosta files under another name.
+ * Scoped to one governorate (keys are areaKey of the typed name), and each
+ * points at the same place — never a neighbour.
  */
-const enrichDropOffAddress = async (dropOff) => {
-  const enriched = { ...dropOff };
+const AREA_ALIASES = {
+  cairo: {
+    heliopolis: 'Masr ElGedida',
+    'مصرالجديده': 'Masr ElGedida',
+    downtown: 'Downtown Cairo',
+    wustbalad: 'Downtown Cairo',
+    'وسطالبلد': 'Downtown Cairo',
+    tagamoa: 'New Cairo',
+    'تجمع': 'New Cairo',
+    'تجمعالخامس': 'New Cairo',
+    fifthsettlement: 'New Cairo',
+    '5thsettlement': 'New Cairo',
+  },
+  giza: {
+    '6thofoctober': '6 October',
+    sixthofoctober: '6 October',
+    october: '6 October',
+    'اكتوبر': '6 October',
+    '6اكتوبر': '6 October',
+    'سادسمناكتوبر': '6 October',
+    hadayekahram: 'Pyramids Gardens',
+    hadaiqahram: 'Pyramids Gardens',
+    'حدائقالاهرام': 'Pyramids Gardens',
+  },
+};
+
+const districtNames = (d) => [d.districtName, d.districtOtherName].filter(Boolean);
+const zoneNames = (d) => [d.zoneName, d.zoneOtherName].filter(Boolean);
+
+/** A zone stands for its own same-named district when Bosta has one. */
+const zoneMainDistrict = (hits) =>
+  hits.find((d) => areaKey(d.districtName) === areaKey(d.zoneName)) || hits[0];
+
+/**
+ * Find the Bosta district for what the customer wrote, inside one governorate.
+ * Exact names first, then spelling-insensitive. A name that fits two different
+ * zones is never guessed between.
+ */
+const matchDistrict = (districts, area) => {
+  const usable = (Array.isArray(districts) ? districts : []).filter(
+    (d) => d.dropOffAvailability !== false
+  );
+  for (const fold of [areaKey, areaSkeleton]) {
+    const want = fold(area);
+    if (!want) continue;
+    for (const [namesOf, isZone] of [
+      [districtNames, false],
+      [zoneNames, true],
+    ]) {
+      const hits = usable.filter((d) => namesOf(d).some((n) => fold(n) === want));
+      if (!hits.length) continue;
+      if (!isZone && hits.length === 1) return hits[0];
+      if (new Set(hits.map((d) => d.zoneId)).size === 1) return zoneMainDistrict(hits);
+      return null;
+    }
+  }
+  return null;
+};
+
+/**
+ * Checkout "Other": look for one Bosta place named word-for-word in the street.
+ * Only used when every name found sits in the same zone.
+ */
+const matchDistrictInStreet = (districts, street) => {
+  const words = areaWords(street);
+  if (!words.length) return null;
+  const text = ` ${words.join(' ')} `;
+  const found = [];
+  for (const d of Array.isArray(districts) ? districts : []) {
+    if (d.dropOffAvailability === false) continue;
+    const names = [
+      ...districtNames(d).map((n) => [n, false]),
+      ...zoneNames(d).map((n) => [n, true]),
+    ];
+    for (const [name, isZone] of names) {
+      const phrase = areaWords(name).join(' ');
+      if (phrase.replace(/\s/g, '').length < 4 || /^[\d\s]+$/.test(phrase)) continue;
+      if (text.includes(` ${phrase} `)) found.push({ d, isZone, len: phrase.length });
+    }
+  }
+  if (!found.length || new Set(found.map((f) => f.d.zoneId)).size !== 1) return null;
+  const named = found.filter((f) => !f.isZone).sort((a, b) => b.len - a.len);
+  if (named.length) return named[0].d;
+  return zoneMainDistrict(found.map((f) => f.d));
+};
+
+/** Bosta's districts for one city (governorate), cached like the city list. */
+const districtsCache = new Map();
+
+const listCityDistricts = async (cityId) => {
+  const cached = districtsCache.get(cityId);
+  if (cached && Date.now() - cached.at < 6 * 60 * 60 * 1000) return cached.list;
+  let data;
+  try {
+    data = await request('GET', `/api/v2/cities/${encodeURIComponent(cityId)}/districts`);
+  } catch (err) {
+    if (cached?.list?.length) return cached.list;
+    throw err;
+  }
+  const list = Array.isArray(data?.data) ? data.data : data?.data?.list || [];
+  if (list.length) districtsCache.set(cityId, { at: Date.now(), list });
+  return list;
+};
+
+const resolveGovernorateCity = async (state) => {
   const cities = await listCities();
   if (!Array.isArray(cities) || !cities.length) {
     const err = new Error('Could not load Bosta cities catalog');
     err.status = 502;
     throw err;
   }
-
-  const state = dropOff.customerState || dropOff.city;
   const cityHit = findGovernorateCity(cities, state);
-  const cityId =
-    cityHit?._id ||
-    cityHit?.id ||
-    cityHit?.cityId ||
-    cityHit?.cityID ||
-    null;
-
+  const cityId = cityHit?._id || cityHit?.id || cityHit?.cityId || cityHit?.cityID || null;
   if (!cityHit || !cityId) {
     const err = new Error(
       `Bosta has no city for governorate "${state}". The shipment was not created.`
@@ -193,22 +312,90 @@ const enrichDropOffAddress = async (dropOff) => {
     err.status = 400;
     throw err;
   }
+  return { cityHit, cityId: String(cityId) };
+};
+
+/**
+ * Pick the Bosta district for an order: the one staff chose, else the
+ * customer's area, else (area "Other") a place named in the street.
+ */
+const resolveOrderDistrict = (districts, address = {}, governorateName = '') => {
+  const chosen = String(address.bostaDistrictId || '').trim();
+  if (chosen) {
+    const hit = districts.find((d) => d.districtId === chosen);
+    if (hit) return { district: hit, source: 'staff' };
+  }
+
+  const state = String(address.state || '').trim();
+  const area = resolveDistrictName(address.city);
+  const areaIsGovernorate =
+    area && [state, governorateName].some((name) => areaKey(name) === areaKey(area));
+
+  if (area && !areaIsGovernorate) {
+    const aliases = AREA_ALIASES[normalizeDistrictKey(state)] || {};
+    const hit =
+      matchDistrict(districts, area) ||
+      (aliases[areaKey(area)] ? matchDistrict(districts, aliases[areaKey(area)]) : null);
+    if (hit) return { district: hit, source: 'area' };
+  }
+
+  const fromStreet = matchDistrictInStreet(districts, address.street);
+  if (fromStreet) return { district: fromStreet, source: 'street' };
+
+  // Area is just the governorate ("Qena" in Qena): use the district of that
+  // exact name when Bosta has one, never a neighbouring zone.
+  if (areaIsGovernorate) {
+    const usable = districts.filter((d) => d.dropOffAvailability !== false);
+    for (const name of [area, governorateName]) {
+      const hits = usable.filter((d) =>
+        districtNames(d).some((n) => areaSkeleton(n) === areaSkeleton(name))
+      );
+      if (hits.length === 1) return { district: hits[0], source: 'area' };
+    }
+  }
+  return null;
+};
+
+/**
+ * Attach the governorate's Bosta city id and the matching Bosta district.
+ * Bosta rejects any district name that is not in its own catalog (code 3003),
+ * so the district is always Bosta's own record. District ids are not sent;
+ * the customer's own street and area words stay in firstLine for the courier.
+ */
+const enrichDropOffAddress = async (dropOff, address = {}) => {
+  const enriched = { ...dropOff };
+  const state = dropOff.customerState || dropOff.city;
+  const { cityHit, cityId } = await resolveGovernorateCity(state);
 
   const code = String(cityHit.code || cityHit.cityCode || '').trim();
-  enriched.cityId = String(cityId);
+  enriched.cityId = cityId;
   // Bosta routes on this city's code. The code comes from the matched governorate record.
   enriched.city = code || cityHit.name || state;
   enriched.governorateName = cityHit.name || state;
 
-  // Area stays the customer's words in every governorate. With checkout "Other"
-  // there is no area: Bosta rejects a whole street as a district name, so the
-  // governorate is the district and the street stays in firstLine.
-  const area = dropOff.unspecifiedArea
-    ? enriched.governorateName
-    : dropOff.districtName || dropOff.zone || state;
-  enriched.districtName = area;
-  enriched.district = area;
-  enriched.zone = area;
+  const districts = await listCityDistricts(cityId);
+  if (!districts.length) {
+    const err = new Error(`Could not load Bosta areas for ${enriched.governorateName}`);
+    err.status = 502;
+    throw err;
+  }
+  const resolved = resolveOrderDistrict(districts, address, enriched.governorateName);
+  if (!resolved) {
+    const typed = resolveDistrictName(address.city);
+    const err = new Error(
+      typed
+        ? `Bosta has no area matching "${typed}" in ${enriched.governorateName}. Choose the Bosta area on the order and retry.`
+        : 'The order has no area (checkout "Other"). Choose the Bosta area on the order and retry.'
+    );
+    err.status = 400;
+    err.code = 'district_required';
+    throw err;
+  }
+
+  enriched.districtName = resolved.district.districtName;
+  enriched.district = resolved.district.districtName;
+  enriched.zone = resolved.district.zoneName;
+  enriched.matchedDistrict = resolved.district;
   delete enriched.districtId;
   delete enriched.zoneId;
   delete enriched.buildingNumber;
@@ -228,7 +415,6 @@ const assertDropOffMatchesCustomer = (dropOff, address = {}) => {
   const city = String(address.city || '').trim();
   const state = String(address.state || '').trim();
   const line = String(dropOff.firstLine || '');
-  const district = String(dropOff.districtName || dropOff.district || '');
 
   if (street && !line.includes(street)) {
     const err = new Error('Refusing to ship: Bosta address dropped the customer street');
@@ -236,17 +422,12 @@ const assertDropOffMatchesCustomer = (dropOff, address = {}) => {
     throw err;
   }
 
-  if (city && !isUnspecifiedArea(city)) {
-    const expected = resolveDistrictName(city);
-    const districtOk = normalizeMatch(district) === normalizeMatch(expected);
-    const lineOk = normalizeMatch(line).includes(normalizeMatch(expected));
-    if (!districtOk || !lineOk) {
-      const err = new Error(
-        `Refusing to ship: Bosta area "${district}" does not match the order area "${city}"`
-      );
-      err.status = 409;
-      throw err;
-    }
+  // The district is Bosta's spelling; the courier must still read the customer's own area words.
+  const area = resolveDistrictName(city);
+  if (area && !normalizeMatch(line).includes(normalizeMatch(area))) {
+    const err = new Error(`Refusing to ship: Bosta address dropped the order area "${city}"`);
+    err.status = 409;
+    throw err;
   }
 
   if (state) {
@@ -380,8 +561,10 @@ const createDelivery = async ({
     throw err;
   }
 
-  const dropOffAddress = await enrichDropOffAddress(resolveDropOffAddress(address));
+  const dropOffAddress = await enrichDropOffAddress(resolveDropOffAddress(address), address);
   assertDropOffMatchesCustomer(dropOffAddress, address);
+  const matchedDistrict = dropOffAddress.matchedDistrict;
+  delete dropOffAddress.matchedDistrict;
   const writtenAddress = [
     address.street,
     isUnspecifiedArea(address.city) ? '' : address.city,
@@ -524,4 +707,7 @@ module.exports = {
   resolveDropOffAddress,
   assertDropOffMatchesCustomer,
   findGovernorateCity,
+  resolveGovernorateCity,
+  listCityDistricts,
+  resolveOrderDistrict,
 };

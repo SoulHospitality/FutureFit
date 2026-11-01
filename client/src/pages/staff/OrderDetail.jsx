@@ -92,10 +92,35 @@ export default function StaffOrderDetail() {
     }
   };
 
+  const [bostaAreas, setBostaAreas] = useState(null);
+  const [areaFilter, setAreaFilter] = useState('');
+  const [areaId, setAreaId] = useState('');
+  const needsBosta = order && !isBostaSynced(order) && order.status !== 'canceled';
+
+  useEffect(() => {
+    if (!needsBosta) return;
+    api
+      .get(`/bosta/orders/${id}/districts`)
+      .then(({ data }) => {
+        setBostaAreas(data);
+        setAreaId(data.selectedId || '');
+      })
+      .catch(() => setBostaAreas(null));
+  }, [id, needsBosta]);
+
+  const filteredAreas = (bostaAreas?.districts || []).filter((d) => {
+    const q = areaFilter.trim().toLowerCase();
+    if (!q || d.id === areaId) return true;
+    return [d.name, d.nameAr, d.zone].some((n) => n.toLowerCase().includes(q));
+  });
+
   const retryBosta = async () => {
     setBusy('bosta');
     try {
-      const { data } = await api.post(`/bosta/orders/${id}/ship`);
+      const { data } = await api.post(
+        `/bosta/orders/${id}/ship`,
+        areaId ? { bostaDistrictId: areaId } : {}
+      );
       setOrder((prev) => ({ ...prev, ...data }));
       toast.success(data.bostaTrackingNumber ? `Bosta · ${data.bostaTrackingNumber}` : 'Bosta synced');
       await load();
@@ -404,6 +429,37 @@ export default function StaffOrderDetail() {
                     {order.bostaSyncError}
                   </p>
                 )}
+              </div>
+            )}
+            {needsBosta && bostaAreas && (
+              <div className="mt-3 space-y-1.5">
+                <label className="block text-xs font-medium text-zinc-700">
+                  Bosta area · {bostaAreas.governorate}
+                </label>
+                <p className="text-xs text-zinc-500">
+                  Customer wrote: {order.shippingAddress?.city || '—'}
+                  {bostaAreas.selectedSource === 'street' && ' (matched from the street)'}
+                </p>
+                <input
+                  type="search"
+                  value={areaFilter}
+                  onChange={(e) => setAreaFilter(e.target.value)}
+                  placeholder="Search areas…"
+                  className="w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm"
+                />
+                <select
+                  value={areaId}
+                  onChange={(e) => setAreaId(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm"
+                >
+                  <option value="">Choose the Bosta area…</option>
+                  {filteredAreas.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.zone === d.name ? d.name : `${d.zone} · ${d.name}`}
+                      {d.nameAr ? ` (${d.nameAr})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
             {!isBostaSynced(order) && order.status !== 'canceled' && (
