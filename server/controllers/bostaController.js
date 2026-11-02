@@ -325,6 +325,30 @@ const createShipment = async (req, res) => {
   }
 };
 
+const toAreaOption = (d) => ({
+  id: d.districtId,
+  name: d.districtName,
+  nameAr: d.districtOtherName || '',
+  zone: d.zoneName,
+  zoneAr: d.zoneOtherName || '',
+});
+
+/** Public: Bosta's deliverable areas for a governorate, for checkout and saved addresses. */
+const listAreas = async (req, res) => {
+  try {
+    const state = String(req.query.governorate || '').trim();
+    if (!state) return res.status(400).json({ message: 'governorate is required' });
+    const { cityHit, cityId } = await bosta.resolveGovernorateCity(state);
+    const districts = (await bosta.listCityDistricts(cityId)).filter(
+      (d) => d.dropOffAvailability !== false && d.districtId && d.districtName
+    );
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json({ governorate: cityHit.name, areas: districts.map(toAreaOption) });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Could not load areas' });
+  }
+};
+
 /** Staff: Bosta's areas for the order's governorate, with the one auto-matching would use. */
 const listOrderDistricts = async (req, res) => {
   try {
@@ -453,6 +477,7 @@ const handleWebhook = async (req, res) => {
 
 module.exports = {
   createShipment,
+  listAreas,
   listOrderDistricts,
   handleWebhook,
   fulfillOrderWithBosta,

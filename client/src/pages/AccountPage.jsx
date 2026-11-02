@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { formatMoney, orderStatusBadge, orderStatusLabel, asArray, EGYPT_GOVERNORATES } from '../utils/helpers';
+import BostaAreaPicker from '../components/BostaAreaPicker';
 
 export default function AccountPage() {
   const { user, updateUser } = useAuth();
@@ -14,6 +15,7 @@ export default function AccountPage() {
     phone: user?.phone || '',
     street: user?.address?.street || '',
     city: user?.address?.city || '',
+    bostaDistrictId: user?.address?.bostaDistrictId || '',
     state: user?.address?.state || '',
     zip: user?.address?.zip || '',
     country: user?.address?.country || 'Egypt',
@@ -39,6 +41,7 @@ export default function AccountPage() {
         address: {
           street: form.street,
           city: form.city,
+          ...(form.bostaDistrictId ? { bostaDistrictId: form.bostaDistrictId } : {}),
           state: form.state,
           zip: form.zip,
           country: form.country,
@@ -56,6 +59,7 @@ export default function AccountPage() {
   const fieldLabel = (f) => {
     if (f === 'password') return 'New password (optional)';
     if (f === 'state') return 'Governorate';
+    if (f === 'city') return 'City / area';
     return f;
   };
 
@@ -72,7 +76,7 @@ export default function AccountPage() {
         </div>
 
         <form onSubmit={save} className="grid gap-4 border border-timber-200 p-6 md:grid-cols-2">
-          {['name', 'email', 'phone', 'password', 'street', 'city', 'state', 'zip', 'country'].map(
+          {['name', 'email', 'phone', 'password', 'state', 'city', 'street', 'zip', 'country'].map(
             (f) => (
               <div key={f} className={['street', 'password'].includes(f) ? 'md:col-span-2' : ''}>
                 <label className="label capitalize">{fieldLabel(f)}</label>
@@ -80,7 +84,13 @@ export default function AccountPage() {
                   <select
                     className="input"
                     value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    onChange={(e) =>
+                      setForm(
+                        e.target.value === form.state
+                          ? form
+                          : { ...form, state: e.target.value, city: '', bostaDistrictId: '' }
+                      )
+                    }
                     required
                   >
                     <option value="">Select governorate</option>
@@ -90,6 +100,13 @@ export default function AccountPage() {
                       </option>
                     ))}
                   </select>
+                ) : f === 'city' ? (
+                  <BostaAreaPicker
+                    governorate={form.state}
+                    city={form.city}
+                    bostaDistrictId={form.bostaDistrictId}
+                    onChange={(area) => setForm((prev) => ({ ...prev, ...area }))}
+                  />
                 ) : (
                   <input
                     type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}

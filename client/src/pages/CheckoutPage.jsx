@@ -12,8 +12,8 @@ import {
   FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
   EGYPT_GOVERNORATES,
-  citiesForGovernorate,
 } from '../utils/helpers';
+import BostaAreaPicker from '../components/BostaAreaPicker';
 import { getStoreSessionKey } from '../utils/sessionKey';
 import { getAttribution } from '../utils/attribution';
 import { trackInitiateCheckout } from '../utils/tracking';
@@ -58,6 +58,7 @@ const loadSavedForm = (user) => {
     email: user?.email || '',
     street: addr.street || '',
     city: addr.city || '',
+    bostaDistrictId: addr.bostaDistrictId || '',
     state: addr.state || '',
     zip: addr.zip || '',
     country: addr.country || 'Egypt',
@@ -85,6 +86,7 @@ export default function CheckoutPage() {
   const orderPlacedRef = useRef(false);
   const step = stepFromPath(pathname);
   const [form, setForm] = useState(() => loadSavedForm(user));
+  const [areaStatus, setAreaStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState(() =>
     String(loadSavedForm(user).couponCode || '').trim().toUpperCase()
@@ -230,12 +232,10 @@ export default function CheckoutPage() {
   const set = (key) => (e) => {
     const value = e.target.value;
     if (key === 'state') {
-      const cities = citiesForGovernorate(value);
-      setForm((prev) => ({
-        ...prev,
-        state: value,
-        city: cities.includes(prev.city) ? prev.city : '',
-      }));
+      // Areas belong to one governorate; a new governorate needs a new area.
+      setForm((prev) =>
+        prev.state === value ? prev : { ...prev, state: value, city: '', bostaDistrictId: '' }
+      );
       return;
     }
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -258,8 +258,16 @@ export default function CheckoutPage() {
         toast.error('Please select a valid governorate');
         return false;
       }
-      if (!form.city.trim()) {
-        toast.error('Please select a city / area');
+      if (areaStatus === 'empty') {
+        toast.error(`Delivery is not available to ${form.state} yet`);
+        return false;
+      }
+      if (areaStatus === 'loading') {
+        toast.error('Areas are still loading, one moment');
+        return false;
+      }
+      if (!form.city.trim() || (areaStatus === 'ready' && !form.bostaDistrictId)) {
+        toast.error('Please choose your area from the list');
         return false;
       }
       if (!form.street.trim() || form.street.trim().length < 5) {
@@ -309,6 +317,7 @@ export default function CheckoutPage() {
     const shippingAddress = {
       street: form.street,
       city: form.city,
+      ...(form.bostaDistrictId ? { bostaDistrictId: form.bostaDistrictId } : {}),
       state: form.state,
       zip: form.zip,
       country: form.country,
@@ -496,22 +505,13 @@ export default function CheckoutPage() {
                           ))}
                         </select>
                       ) : key === 'city' ? (
-                        <select
-                          required
-                          className="input"
-                          value={form.city}
-                          onChange={set('city')}
-                          disabled={!form.state}
-                        >
-                          <option value="">
-                            {form.state ? 'Select city / area' : 'Select governorate first'}
-                          </option>
-                          {citiesForGovernorate(form.state).map((c) => (
-                            <option key={c} value={c}>
-                              {c}
-                            </option>
-                          ))}
-                        </select>
+                        <BostaAreaPicker
+                          governorate={form.state}
+                          city={form.city}
+                          bostaDistrictId={form.bostaDistrictId}
+                          onChange={(area) => setForm((prev) => ({ ...prev, ...area }))}
+                          onStatus={setAreaStatus}
+                        />
                       ) : (
                         <input
                           required={key === 'street' || key === 'country'}

@@ -5,11 +5,12 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../components/AuthLayout';
 import { EGYPT_GOVERNORATES } from '../utils/helpers';
+import BostaAreaPicker from '../components/BostaAreaPicker';
 
 const ADDRESS_FIELDS = [
-  { key: 'street', label: 'Street address', autoComplete: 'street-address', span: true },
-  { key: 'city', label: 'City', autoComplete: 'address-level2' },
   { key: 'state', label: 'Governorate', autoComplete: 'address-level1' },
+  { key: 'city', label: 'City / area', autoComplete: 'address-level2' },
+  { key: 'street', label: 'Street address', autoComplete: 'street-address', span: true },
   { key: 'zip', label: 'Postal code', autoComplete: 'postal-code', inputMode: 'numeric' },
   { key: 'country', label: 'Country', autoComplete: 'country-name' },
 ];
@@ -26,13 +27,22 @@ export default function SignupPage() {
     phone: '',
     street: '',
     city: '',
+    bostaDistrictId: '',
     state: '',
     zip: '',
     country: 'Egypt',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const set = (k) => (e) => {
+    const value = e.target.value;
+    // Areas belong to one governorate; a new governorate needs a new area.
+    if (k === 'state' && value !== form.state) {
+      setForm({ ...form, state: value, city: '', bostaDistrictId: '' });
+      return;
+    }
+    setForm({ ...form, [k]: value });
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -46,6 +56,7 @@ export default function SignupPage() {
         address: {
           street: form.street,
           city: form.city,
+          ...(form.bostaDistrictId ? { bostaDistrictId: form.bostaDistrictId } : {}),
           state: form.state,
           zip: form.zip,
           country: form.country,
@@ -187,6 +198,15 @@ export default function SignupPage() {
                       </option>
                     ))}
                   </select>
+                ) : key === 'city' ? (
+                  <BostaAreaPicker
+                    id={`signup-${key}`}
+                    className="auth-input"
+                    governorate={form.state}
+                    city={form.city}
+                    bostaDistrictId={form.bostaDistrictId}
+                    onChange={(area) => setForm((prev) => ({ ...prev, ...area }))}
+                  />
                 ) : (
                   <input
                     id={`signup-${key}`}
