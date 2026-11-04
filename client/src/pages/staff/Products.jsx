@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { ChevronDown, Download, FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
+import { ChevronDown, Download, ExternalLink, FolderOpen, LayoutGrid, Loader2, Minus, Plus, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
@@ -90,7 +90,10 @@ export default function StaffProducts() {
   const [expanded, setExpanded] = useState(() => new Set());
   const stockQueue = useRef({});
 
-  const load = () => api.get('/products').then((r) => setProducts(asArray(r.data)));
+  const load = () =>
+    api
+      .get('/products', { params: { scope: 'staff', limit: 2000 } })
+      .then((r) => setProducts(asArray(r.data)));
   useEffect(() => {
     load();
     api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
@@ -599,15 +602,31 @@ export default function StaffProducts() {
                         ) : (
                           <span className="inline-block w-4 shrink-0" />
                         )}
-                        <img
-                          src={getImageUrl(p.photos?.[0])}
-                          alt=""
-                          className="h-10 w-10 shrink-0 rounded object-cover bg-timber-100"
-                        />
+                        <a
+                          href={`/product/${p.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                          title="Open on the website"
+                        >
+                          <img
+                            src={getImageUrl(p.photos?.[0])}
+                            alt=""
+                            className="h-10 w-10 rounded object-cover bg-timber-100"
+                          />
+                        </a>
                         <span className="min-w-0">
-                          <span className="block truncate font-medium" title={p.name}>
+                          <a
+                            href={`/product/${p.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="block truncate font-medium hover:underline"
+                            title={`${p.name} — open on the website`}
+                          >
                             {p.name}
-                          </span>
+                          </a>
                           {p.itemCode ? (
                             <span className="mt-0.5 block font-mono text-[11px] tracking-wide text-timber-400">
                               {p.itemCode}
@@ -657,6 +676,16 @@ export default function StaffProducts() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex justify-end gap-1">
+                        <a
+                          href={`/product/${p.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn-ghost btn-sm"
+                          aria-label={`View ${p.name} on the website`}
+                          title={isDraft ? 'Preview on site (draft — customers can’t see it)' : 'View on site'}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                         <button
                           type="button"
                           className="btn-ghost btn-sm"

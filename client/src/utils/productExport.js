@@ -101,6 +101,88 @@ const finishSheet = (sheet, headerRow, widths) => {
   });
 };
 
+/** Same columns, same order, as the Bulk upload (CLR) template — so an export can be edited and re-uploaded. */
+export const UPLOAD_HEADERS = [
+  'Item ID',
+  'Parent SKU',
+  'name',
+  'description',
+  'price',
+  'audience',
+  'category',
+  'colors',
+  'sizes',
+  'stocks',
+  'photos',
+  'drive_folder',
+  'is_sale',
+  'sale_price',
+  'Cost',
+];
+
+/** Extra, read-only columns after the upload ones. The uploader ignores them. */
+const WEBSITE_EXTRA_HEADERS = ['status', 'sale_qty_limit', 'sale_qty_sold', 'link'];
+
+const joinPhotos = (photos) => (photos || []).filter(Boolean).join(' | ');
+
+/** Absolute storefront link for a product, for sheets opened outside the site. */
+export const productSiteUrl = (product) =>
+  `${typeof window !== 'undefined' ? window.location.origin : ''}/product/${product.id}`;
+
+/**
+ * Upload-compatible rows: one parent row (empty Parent SKU, colors/sizes "Parent"),
+ * then one child row per color × size. Products without children get a single row.
+ */
+const websiteRows = (product) => {
+  const parentCode = product.itemCode || '';
+  const onSale = product.isSaleActive && product.salePrice != null;
+  const category = product.category?.slug || '';
+  const extras = [
+    product.status === 'draft' ? 'draft' : 'active',
+    product.saleQtyLimit ?? '',
+    product.saleQtyLimit != null ? product.saleQtySold || 0 : '',
+    productSiteUrl(product),
+  ];
+  const variants = product.variants || [];
+  const parent = [
+    parentCode,
+    '',
+    product.name || '',
+    product.description || '',
+    money(product.price),
+    product.audience || '',
+    category,
+    variants.length ? 'Parent' : (product.colors || []).join(', '),
+    variants.length ? 'Parent' : (product.sizes || []).join(', '),
+    variants.length ? '' : Number(product.stock) || 0,
+    joinPhotos(product.photos),
+    '',
+    onSale ? 'true' : 'false',
+    onSale ? money(product.salePrice) : null,
+    money(product.cost),
+    ...extras,
+  ];
+  const children = variants.map((v) => [
+    v.itemCode || '',
+    parentCode,
+    product.name || '',
+    product.description || '',
+    money(v.price ?? product.price),
+    product.audience || '',
+    category,
+    v.color || '',
+    v.size || '',
+    Number(v.stock) || 0,
+    joinPhotos(v.photos),
+    '',
+    '',
+    null,
+    money(v.cost ?? product.cost),
+    ...extras,
+  ]);
+  return [{ values: parent, isParent: true }, ...children.map((values) => ({ values, isParent: false }))];
+};
+
 /** Download a styled workbook of the full catalog. Item IDs are the staff-only codes. */
 export async function downloadProductWorkbook(products) {
   const excel = await import('exceljs');
@@ -108,6 +190,42 @@ export async function downloadProductWorkbook(products) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'FutureFit';
   workbook.created = new Date();
+
+  const sorted = [...products].sort((a, b) =>
+    String(a.itemCode || '').localeCompare(String(b.itemCode || ''))
+  );
+
+  // Website: every field, in the upload template's layout (first sheet = the one the uploader reads)
+  const website = workbook.addWorksheet('Website', { properties: { defaultRowHeight: 18 } });
+  const websiteHeaders = [...UPLOAD_HEADERS, ...WEBSITE_EXTRA_HEADERS];
+  const websiteHeader = website.getRow(1);
+  websiteHeader.values = websiteHeaders;
+  paintHeader(websiteHeader);
+  let websiteLine = 0;
+  sorted.forEach((product) => {
+    websiteRows(product).forEach(({ values, isParent }) => {
+      const row = website.getRow(2 + websiteLine);
+      row.values = values;
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = { name: 'Calibri', size: 11, bold: isParent, color: { argb: INK } };
+        cell.alignment = { vertical: 'top' };
+        cell.border = { bottom: { style: 'thin', color: { argb: LINE } } };
+        if (isParent) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ZEBRA } };
+      });
+      // No thousands separators here: the uploader reads cells as text, and "1,200.00" is not a number
+      const link = row.getCell(websiteHeaders.length);
+      if (link.value) {
+        link.value = { text: link.value, hyperlink: link.value };
+        link.font = { name: 'Calibri', size: 11, underline: true, color: { argb: 'FF1D4ED8' } };
+      }
+      websiteLine += 1;
+    });
+  });
+  website.views = [{ state: 'frozen', ySplit: 1, xSplit: 1 }];
+  website.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: websiteHeaders.length } };
+  [18, 14, 40, 60, 10, 10, 14, 16, 10, 8, 50, 20, 8, 10, 10, 8, 12, 12, 44].forEach((w, i) => {
+    website.getColumn(i + 1).width = w;
+  });
 
   const catalog = workbook.addWorksheet('Catalog', {
     properties: { defaultRowHeight: 20 },
@@ -124,15 +242,15 @@ export async function downloadProductWorkbook(products) {
     'Colors',
     'Stock by size',
     'Total stock',
+    'Description',
+    'Sizes',
+    'Photos',
+    'Link',
   ];
   addBanner(catalog, catalogHeaders.length, 'FutureFit  ·  Product catalog', products);
   const header = catalog.getRow(5);
   header.values = catalogHeaders;
   paintHeader(header);
-
-  const sorted = [...products].sort((a, b) =>
-    String(a.itemCode || '').localeCompare(String(b.itemCode || ''))
-  );
 
   sorted.forEach((product, index) => {
     const onSale = product.isSaleActive && product.salePrice != null;
@@ -150,8 +268,15 @@ export async function downloadProductWorkbook(products) {
       (product.colors || []).join(', '),
       sizeLabel(product),
       stock,
+      product.description || '',
+      (product.sizes || []).join(', '),
+      joinPhotos(product.photos),
+      productSiteUrl(product),
     ];
     paintBody(row, index);
+    const link = row.getCell(15);
+    link.value = { text: 'View on site', hyperlink: productSiteUrl(product) };
+    link.font = { name: 'Calibri', size: 11, underline: true, color: { argb: 'FF1D4ED8' } };
     row.getCell(1).font = { name: 'Consolas', bold: true, size: 11, color: { argb: INK } };
     row.getCell(6).numFmt = '#,##0.00';
     row.getCell(7).numFmt = '#,##0.00';
@@ -165,7 +290,7 @@ export async function downloadProductWorkbook(products) {
     }
   });
 
-  finishSheet(catalog, 5, [16, 36, 12, 14, 22, 14, 14, 16, 28, 36, 14]);
+  finishSheet(catalog, 5, [16, 36, 12, 14, 22, 14, 14, 16, 28, 36, 14, 60, 18, 50, 14]);
   catalog.getColumn(6).alignment = { vertical: 'middle', horizontal: 'right' };
   catalog.getColumn(7).alignment = { vertical: 'middle', horizontal: 'right' };
   catalog.getColumn(8).alignment = { vertical: 'middle', horizontal: 'right' };

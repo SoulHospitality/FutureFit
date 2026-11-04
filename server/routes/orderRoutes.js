@@ -11,6 +11,7 @@ const {
   markOrderPaid,
   deleteOrder,
   financeSummary,
+  updateOrderCustomer,
 } = require('../controllers/orderController');
 const { protect, adminOnly, opsOrAdmin } = require('../middleware/authMiddleware');
 
@@ -25,6 +26,7 @@ router.get('/', protect, opsOrAdmin, listOrders);
 router.get('/:id/receipt', getOrderReceipt);
 router.get('/:id', protect, getOrder);
 router.patch('/:id/status', protect, opsOrAdmin, updateOrderStatus);
+router.patch('/:id/customer', protect, opsOrAdmin, updateOrderCustomer);
 router.patch('/:id/paid', protect, opsOrAdmin, markOrderPaid);
 router.delete('/:id', protect, opsOrAdmin, deleteOrder);
 

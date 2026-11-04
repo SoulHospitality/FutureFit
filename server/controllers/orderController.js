@@ -2,7 +2,13 @@ const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
 const { stockForSize } = require('../utils/sizeStock');
 const { stockForVariant, findVariant } = require('../utils/variants');
-const { fulfillOrderWithBosta, isCodMethod, isInstaPayMethod } = require('./bostaController');
+const {
+  fulfillOrderWithBosta,
+  isCodMethod,
+  isInstaPayMethod,
+  orderPhone,
+} = require('./bostaController');
+const { normalizeEgyptPhone } = require('../utils/bosta');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
 const { calcShipping } = require('../utils/shipping');
@@ -525,8 +531,7 @@ const serializeOrder = (order) => ({
   totalPrice: Number(order.totalPrice),
   items: order.items?.map((i) => ({ ...i, price: Number(i.price) })),
   customerName: order.user?.name || order.guestName || null,
-  customerPhone:
-    order.user?.phone || order.guestPhone || order.shippingAddress?.phone || null,
+  customerPhone: orderPhone(order) || null,
   customerEmail: order.user?.email || order.guestEmail || null,
 });
 
@@ -655,6 +660,83 @@ const updateOrderStatus = async (req, res) => {
     }
 
     res.json(serializeOrder(order));
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const ADDRESS_FIELDS = ['street', 'city', 'state', 'zip', 'country'];
+
+/**
+ * Staff: fix the phone or address a customer typed wrong, before the Bosta
+ * shipment exists. Clears the last Bosta error and attempt count so the next
+ * Retry (or the background sweep) ships with the corrected details.
+ */
+const updateOrderCustomer = async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({ where: { id: req.params.id } });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (order.bostaDeliveryId || order.bostaTrackingNumber) {
+      return res.status(409).json({
+        message:
+          'This order is already on Bosta. Change the details on the Bosta dashboard — edits here would not reach the shipment.',
+      });
+    }
+    if (order.status === 'canceled') {
+      return res.status(400).json({ message: 'This order is canceled' });
+    }
+
+    const body = req.body || {};
+    const prev = order.shippingAddress || {};
+    const next = { ...prev };
+    for (const key of ADDRESS_FIELDS) {
+      if (body[key] === undefined) continue;
+      next[key] = String(body[key] ?? '').trim().slice(0, 300);
+    }
+    if (!next.street || !next.city || !next.state) {
+      return res.status(400).json({ message: 'Street, area and governorate are required' });
+    }
+
+    const data = {};
+    if (body.phone !== undefined) {
+      const phone = normalizeEgyptPhone(body.phone);
+      if (!/^01\d{9}$/.test(phone)) {
+        return res.status(400).json({ message: 'Enter a valid Egyptian mobile number (01xxxxxxxxx)' });
+      }
+      next.phone = phone;
+      if (!order.userId || order.guestPhone) data.guestPhone = phone;
+    }
+
+    // A new Bosta area from the picker wins; otherwise drop the old one if the
+    // place it described changed, so Bosta re-matches from the corrected address.
+    const chosenDistrict = String(body.bostaDistrictId ?? '').trim();
+    const placeChanged = ['city', 'state'].some(
+      (key) => String(prev[key] || '').trim() !== String(next[key] || '').trim()
+    );
+    if (chosenDistrict) next.bostaDistrictId = chosenDistrict;
+    else if (placeChanged || body.bostaDistrictId === '') delete next.bostaDistrictId;
+
+    if (body.name !== undefined && !order.userId) {
+      const name = String(body.name || '').trim().slice(0, 120);
+      if (!name) return res.status(400).json({ message: 'Name is required' });
+      data.guestName = name;
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        ...data,
+        shippingAddress: next,
+        bostaSyncError: null,
+        bostaSyncAttempts: 0,
+      },
+      include: {
+        items: true,
+        user: { select: { id: true, name: true, email: true, phone: true } },
+        problems: true,
+      },
+    });
+    res.json(serializeOrder(updated));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -866,4 +948,5 @@ module.exports = {
   markOrderPaid,
   deleteOrder,
   financeSummary,
+  updateOrderCustomer,
 };

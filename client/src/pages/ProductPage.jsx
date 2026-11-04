@@ -502,6 +502,12 @@ export default function ProductPage() {
           </div>
 
           <div className="lg:col-span-5 lg:sticky lg:top-32 lg:self-start">
+            {/* Only admins ever receive a draft product, as a preview */}
+            {product.status === 'draft' && (
+              <p className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-900">
+                Draft — hidden from customers. Set it to Active in Staff → Products to publish it.
+              </p>
+            )}
             <div className="flex items-start justify-between gap-4">
               <div>
                 {typeLabel ? (

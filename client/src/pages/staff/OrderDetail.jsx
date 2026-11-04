@@ -5,12 +5,15 @@ import {
   ArrowLeft,
   ExternalLink,
   MessageCircle,
+  Pencil,
   Printer,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
 import api from '../../api/axios';
+import BostaAreaPicker from '../../components/BostaAreaPicker';
 import {
+  EGYPT_GOVERNORATES,
   deliveryStatusMeta,
   formatMoney,
   formatStaffDate,
@@ -31,6 +34,136 @@ const NEXT = {
   delivered: [],
   canceled: [],
 };
+
+const FIELD = 'w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm';
+
+/** Staff correction of a mistyped phone / address before the order reaches Bosta. */
+function CustomerEditForm({ order, phone, onSaved, onCancel }) {
+  const addr = order.shippingAddress || {};
+  const isGuest = !order.userId;
+  const [form, setForm] = useState({
+    name: order.guestName || '',
+    phone: phone || '',
+    state: addr.state || '',
+    city: addr.city || '',
+    bostaDistrictId: addr.bostaDistrictId || '',
+    street: addr.street || '',
+    zip: addr.zip || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const save = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await api.patch(`/orders/${order.id}/customer`, {
+        ...(isGuest ? { name: form.name } : {}),
+        phone: form.phone,
+        state: form.state,
+        city: form.city,
+        bostaDistrictId: form.bostaDistrictId || '',
+        street: form.street,
+        zip: form.zip,
+      });
+      toast.success('Customer details updated — retry Bosta sync to ship');
+      onSaved(data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form onSubmit={save} className="mt-3 space-y-2.5">
+      {isGuest && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-zinc-700">Name</label>
+          <input required className={FIELD} value={form.name} onChange={set('name')} />
+        </div>
+      )}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Mobile number</label>
+        <input
+          required
+          type="tel"
+          inputMode="tel"
+          className={FIELD}
+          placeholder="01xxxxxxxxx"
+          value={form.phone}
+          onChange={set('phone')}
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Governorate</label>
+        <select
+          required
+          className={FIELD}
+          value={form.state}
+          onChange={(e) =>
+            setForm((f) =>
+              e.target.value === f.state ? f : { ...f, state: e.target.value, city: '', bostaDistrictId: '' }
+            )
+          }
+        >
+          <option value="">Select governorate</option>
+          {(EGYPT_GOVERNORATES.includes(form.state) || !form.state ? EGYPT_GOVERNORATES : [form.state, ...EGYPT_GOVERNORATES]).map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Area</label>
+        <BostaAreaPicker
+          className={FIELD}
+          governorate={form.state}
+          city={form.city}
+          bostaDistrictId={form.bostaDistrictId}
+          onChange={(area) => setForm((f) => ({ ...f, ...area }))}
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Street address</label>
+        <textarea
+          required
+          rows={2}
+          className={FIELD}
+          placeholder="Building, street, landmark…"
+          value={form.street}
+          onChange={set('street')}
+        />
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-medium text-zinc-700">Postal code (optional)</label>
+        <input className={FIELD} value={form.zip} onChange={set('zip')} />
+      </div>
+      {!isGuest && (
+        <p className="text-xs text-zinc-500">
+          Changes apply to this order only — the customer’s account profile stays as it is.
+        </p>
+      )}
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex-1 rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save details'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
 
 function waLink(phone, text) {
   const digits = String(phone || '').replace(/\D/g, '');
@@ -96,6 +229,9 @@ export default function StaffOrderDetail() {
   const [areasError, setAreasError] = useState('');
   const [areaFilter, setAreaFilter] = useState('');
   const [areaId, setAreaId] = useState('');
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  // Bumped after a customer edit so the Bosta area list reloads for the new address
+  const [addressVersion, setAddressVersion] = useState(0);
   const needsBosta = order && !isBostaSynced(order) && order.status !== 'canceled';
 
   useEffect(() => {
@@ -111,7 +247,7 @@ export default function StaffOrderDetail() {
         setBostaAreas(null);
         setAreasError(err.response?.data?.message || err.message || 'Could not load Bosta areas');
       });
-  }, [id, needsBosta]);
+  }, [id, needsBosta, addressVersion]);
 
   const filteredAreas = (bostaAreas?.districts || []).filter((d) => {
     const q = areaFilter.trim().toLowerCase();
@@ -261,7 +397,19 @@ export default function StaffOrderDetail() {
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-zinc-900">{item.name}</p>
+                    {item.productId ? (
+                      <a
+                        href={`/product/${item.productId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block truncate font-medium text-zinc-900 hover:underline"
+                        title="Open on the website"
+                      >
+                        {item.name}
+                      </a>
+                    ) : (
+                      <p className="truncate font-medium text-zinc-900">{item.name}</p>
+                    )}
                     <p className="text-xs text-zinc-500">
                       {[item.color, item.size].filter(Boolean).join(' · ') || '—'}
                       {' · '}
@@ -349,7 +497,31 @@ export default function StaffOrderDetail() {
 
         <div className="space-y-4">
           <div className="sp-card p-5">
-            <h2 className="text-sm font-semibold text-zinc-900">Customer</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold text-zinc-900">Customer</h2>
+              {needsBosta && !editingCustomer && (
+                <button
+                  type="button"
+                  onClick={() => setEditingCustomer(true)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 print:hidden"
+                >
+                  <Pencil className="h-3 w-3" /> Edit
+                </button>
+              )}
+            </div>
+            {editingCustomer ? (
+              <CustomerEditForm
+                order={order}
+                phone={phone}
+                onCancel={() => setEditingCustomer(false)}
+                onSaved={(data) => {
+                  setOrder(data);
+                  setEditingCustomer(false);
+                  setAddressVersion((v) => v + 1);
+                }}
+              />
+            ) : (
+            <>
             <p className="mt-2 font-medium text-zinc-900">{name}</p>
             {phone && <p className="text-sm text-zinc-600">{phone}</p>}
             {(order.customerEmail || order.user?.email || order.guestEmail) && (
@@ -375,6 +547,13 @@ export default function StaffOrderDetail() {
               </p>
               <p>{addr.country || 'Egypt'}</p>
             </div>
+            {isBostaSynced(order) && (
+              <p className="mt-3 text-xs text-zinc-400 print:hidden">
+                Already on Bosta — change the phone or address on the Bosta dashboard.
+              </p>
+            )}
+            </>
+            )}
           </div>
 
           <div className="sp-card p-5">

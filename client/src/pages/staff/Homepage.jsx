@@ -57,7 +57,7 @@ export default function StaffHomepage({ embedded = false, onChanged } = {}) {
     if (!pickerFor) return undefined;
     setCatalogLoading(true);
     api
-      .get('/products?limit=500')
+      .get('/products?scope=staff&limit=2000')
       .then((r) => setCatalog(asArray(r.data)))
       .catch(() => setCatalog([]))
       .finally(() => setCatalogLoading(false));

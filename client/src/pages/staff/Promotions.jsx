@@ -182,7 +182,7 @@ function OffersTab() {
   const load = () => api.get('/offers').then((r) => setOffers(asArray(r.data))).catch(() => {});
   useEffect(() => {
     load();
-    api.get('/products', { params: { limit: 2000 } }).then((r) => setProducts(asArray(r.data))).catch(() => {});
+    api.get('/products', { params: { scope: 'staff', limit: 2000 } }).then((r) => setProducts(asArray(r.data))).catch(() => {});
     api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
   }, []);
 

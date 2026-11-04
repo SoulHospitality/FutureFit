@@ -211,6 +211,10 @@ const ITEM_TTL_MS = 30_000;
 const bustProductCache = () => {
   cache.invalidate('products');
   cache.invalidate('product');
+  // Everything else that lists products, so a product switched to Draft disappears everywhere at once
+  cache.invalidate('homepage');
+  cache.invalidate('marketing-feed');
+  cache.invalidate('marketing-sitemap');
 };
 
 const applySizeStocks = (rows) => ({
@@ -393,9 +397,11 @@ const buildProductCreateData = async (body) => {
 
 const listProducts = async (req, res) => {
   try {
-    const { type, q, limit, audience, category, status } = req.query;
+    const { type, q, limit, audience, category, status, scope } = req.query;
     const take = Math.min(Number(limit) || 500, 2000);
-    const isStaff = req.user?.role === 'admin';
+    // Staff browse the storefront logged in, so only the admin screens (scope=staff)
+    // get drafts and staff-only fields — the shop shows admins what customers see.
+    const isStaff = req.user?.role === 'admin' && scope === 'staff';
     const useCache = !isStaff;
     const statusKey = isStaff ? String(status || 'all') : 'active';
     const cacheKey = `products:${type || ''}:${audience || ''}:${category || ''}:${q || ''}:${statusKey}:${take}`;

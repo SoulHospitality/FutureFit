@@ -25,6 +25,16 @@ const SWEEP_BASE_GAP_MS = 10 * 60 * 1000;
 const SWEEP_MIN_AGE_MS = 3 * 60 * 1000;
 const SWEEP_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
 
+/**
+ * The phone to ship to: what was entered on this order (checkout, or a staff
+ * correction) beats the account's profile phone, which may be stale.
+ */
+const orderPhone = (order) =>
+  String(order?.shippingAddress?.phone || '').trim() ||
+  String(order?.guestPhone || '').trim() ||
+  String(order?.user?.phone || '').trim() ||
+  '';
+
 const isCodMethod = (method) =>
   /cash\s*on\s*delivery|\bcod\b/i.test(String(method || ''));
 
@@ -120,11 +130,7 @@ const fulfillOrderWithBosta = async (
     const result = await bosta.createDelivery({
       orderId: order.id,
       customerName: order.user?.name || order.guestName || 'Customer',
-      phone:
-        order.user?.phone ||
-        order.guestPhone ||
-        order.shippingAddress?.phone ||
-        '',
+      phone: orderPhone(order),
       email: order.user?.email || order.guestEmail,
       address: order.shippingAddress || {},
       codAmount,
@@ -312,7 +318,7 @@ const createShipment = async (req, res) => {
       discountAmount: Number(updated.discountAmount),
       totalPrice: Number(updated.totalPrice),
       customerName: updated.user?.name || updated.guestName,
-      customerPhone: updated.user?.phone || updated.guestPhone,
+      customerPhone: orderPhone(updated) || null,
       shippingAddress: updated.shippingAddress,
       paymentMethod: updated.paymentMethod,
       isPaid: updated.isPaid,
@@ -476,6 +482,7 @@ const handleWebhook = async (req, res) => {
 };
 
 module.exports = {
+  orderPhone,
   createShipment,
   listAreas,
   listOrderDistricts,
