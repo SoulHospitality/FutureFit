@@ -14,7 +14,7 @@ import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { trackViewContent } from '../utils/tracking';
 import { snippet, usePageMeta } from '../utils/seo';
-import { OFFER_TYPES, offerForProduct, useActiveOffers } from '../utils/offers';
+import { offerForProduct, offerHintText, offerLabel, useActiveOffers } from '../utils/offers';
 import BrandLoader from '../components/ui/BrandLoader';
 import { useWishlist } from '../context/WishlistContext';
 import {
@@ -556,14 +556,9 @@ export default function ProductPage() {
             {offer && (
               <div className="mt-4 flex items-center gap-3 rounded-2xl border border-timber-900 bg-timber-50 px-4 py-3">
                 <span className="shrink-0 rounded-full bg-timber-900 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">
-                  {OFFER_TYPES[offer.type].label}
+                  {offerLabel(offer)}
                 </span>
-                <span className="text-sm text-timber-700">
-                  {OFFER_TYPES[offer.type].hint}.{' '}
-                  {offer.appliesTo === 'selected'
-                    ? 'Mix & match with other items in this offer.'
-                    : 'Mix & match across the whole store.'}
-                </span>
+                <span className="text-sm text-timber-700">{offerHintText(offer)}</span>
               </div>
             )}
             {product.reviewCount > 0 && (

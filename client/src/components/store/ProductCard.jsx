@@ -19,7 +19,7 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
 import QuickAddSheet from './QuickAddSheet';
-import { OFFER_TYPES, offerForProduct, useActiveOffers } from '../../utils/offers';
+import { offerForProduct, offerLabel, useActiveOffers } from '../../utils/offers';
 
 const CARD_GALLERY_LIMIT = 6;
 
@@ -162,7 +162,7 @@ function ProductCard({ product, priority = false }) {
             ) : null}
             {inStock && offer && (
               <span className="rounded-full bg-timber-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
-                {OFFER_TYPES[offer.type].label}
+                {offerLabel(offer)}
               </span>
             )}
             {lowStock && (

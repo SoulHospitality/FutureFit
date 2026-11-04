@@ -257,23 +257,32 @@ enum OfferType {
   buy2get1_free
   buy1get1_half
   buy2get1_half
+  /// Straight percentage off every covered unit.
+  percent_off
 }
 
 enum OfferScope {
   all
+  /// Top-level categories — covers their subcategories too.
+  category
+  subcategory
   selected
 }
 
-/// Automatic cart offers (Buy X Get 1). The cheapest unit in each group gets the discount.
+/// Automatic cart offers (Buy X Get 1, or a straight % off).
 model Offer {
-  id         String     @id @default(uuid())
-  name       String
-  type       OfferType
-  appliesTo  OfferScope @default(all)
-  productIds String[]   @default([])
-  isActive   Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          String     @id @default(uuid())
+  name        String
+  type        OfferType
+  /// Discount % for percent_off offers (1–90).
+  percentage  Int?
+  appliesTo   OfferScope @default(all)
+  productIds  String[]   @default([])
+  /// Category / subcategory ids when appliesTo is category or subcategory.
+  categoryIds String[]   @default([])
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Order {

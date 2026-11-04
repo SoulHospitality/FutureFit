@@ -1,27 +1,48 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import api from '../api/axios';
 
-/** Automatic Buy X Get 1 offers set from Staff → Promotions. Checkout totals come from the server quote. */
+/** Automatic offers (Buy X Get 1, or % off) set from Staff → Promotions. Checkout totals come from the server quote. */
 
 export const OFFER_TYPES = {
   buy1get1_free: { buy: 1, pct: 100, label: 'Buy 1 Get 1 Free', hint: 'Add 2 — the cheaper one is free' },
   buy2get1_free: { buy: 2, pct: 100, label: 'Buy 2 Get 1 Free', hint: 'Add 3 — the cheapest one is free' },
   buy1get1_half: { buy: 1, pct: 50, label: 'Buy 1 Get 1 50% Off', hint: 'Add 2 — the cheaper one is half price' },
   buy2get1_half: { buy: 2, pct: 50, label: 'Buy 2 Get 1 50% Off', hint: 'Add 3 — the cheapest one is half price' },
+  percent_off: { buy: 0, pct: null, label: '% Off', hint: 'Taken off automatically in your bag' },
 };
 
 export const OFFER_TYPE_KEYS = Object.keys(OFFER_TYPES);
 
-const generosity = (type) => {
-  const t = OFFER_TYPES[type];
-  return t ? t.pct / (t.buy + 1) : 0;
+/** Discount % on each discounted unit of this offer (0 when invalid). */
+export const offerPct = (offer) => {
+  const t = OFFER_TYPES[offer?.type];
+  if (!t) return 0;
+  if (offer.type === 'percent_off') {
+    const v = Math.round(Number(offer.percentage));
+    return Number.isFinite(v) ? Math.min(90, Math.max(0, v)) : 0;
+  }
+  return t.pct;
+};
+
+/** Badge text for an offer, e.g. "Buy 1 Get 1 Free" or "20% Off". */
+export const offerLabel = (offer) => {
+  if (offer?.type === 'percent_off') return `${offerPct(offer)}% Off`;
+  return OFFER_TYPES[offer?.type]?.label || 'Offer';
+};
+
+const generosity = (offer) => {
+  const t = OFFER_TYPES[offer?.type];
+  return t ? offerPct(offer) / (t.buy + 1) : 0;
 };
 
 const round2 = (n) => Math.round(n * 100) / 100;
 
+const usable = (o) => o && o.isActive !== false && OFFER_TYPES[o.type] && offerPct(o) > 0;
+
+/** Category scopes come from the server already expanded into productIds. */
 export const offerCovers = (offer, productId) => {
   if (!offer || offer.isActive === false) return false;
-  if (offer.appliesTo !== 'selected') return true;
+  if (!offer.appliesTo || offer.appliesTo === 'all') return true;
   const id = String(productId || '');
   return (offer.productIds || []).some((pid) => String(pid) === id);
 };
@@ -39,14 +60,13 @@ export function applyOffers(lines, offers) {
     }
   }
 
-  const sorted = [...(offers || [])]
-    .filter((o) => o && o.isActive !== false && OFFER_TYPES[o.type])
-    .sort((a, b) => generosity(b.type) - generosity(a.type));
+  const sorted = [...(offers || [])].filter(usable).sort((a, b) => generosity(b) - generosity(a));
 
   const applied = [];
   let total = 0;
   for (const offer of sorted) {
-    const { buy, pct } = OFFER_TYPES[offer.type];
+    const { buy } = OFFER_TYPES[offer.type];
+    const pct = offerPct(offer);
     const groupSize = buy + 1;
     const eligible = units
       .filter((u) => !u.used && offerCovers(offer, u.productId))
@@ -66,7 +86,7 @@ export function applyOffers(lines, offers) {
     total += discount;
     applied.push({
       offerId: offer.id,
-      name: offer.name || OFFER_TYPES[offer.type].label,
+      name: offer.name || offerLabel(offer),
       type: offer.type,
       discount,
       units: groups,
@@ -80,9 +100,22 @@ export function offerForProduct(offers, productId) {
   if (!productId) return null;
   return (
     [...(offers || [])]
-      .filter((o) => OFFER_TYPES[o.type] && offerCovers(o, productId))
-      .sort((a, b) => generosity(b.type) - generosity(a.type))[0] || null
+      .filter((o) => usable(o) && offerCovers(o, productId))
+      .sort((a, b) => generosity(b) - generosity(a))[0] || null
   );
+}
+
+/** One-line explainer under an offer badge on the product page. */
+export function offerHintText(offer) {
+  if (!offer) return '';
+  if (offer.type === 'percent_off') {
+    return `${offerPct(offer)}% off this item — taken off automatically in your bag.`;
+  }
+  const scope =
+    offer.appliesTo && offer.appliesTo !== 'all'
+      ? 'Mix & match with other items in this offer.'
+      : 'Mix & match across the whole store.';
+  return `${OFFER_TYPES[offer.type].hint}. ${scope}`;
 }
 
 /**
@@ -101,13 +134,13 @@ export function nextOfferHint(lines, offers) {
     };
   }
 
-  const sorted = [...(offers || [])]
-    .filter((o) => o && o.isActive !== false && OFFER_TYPES[o.type])
-    .sort((a, b) => generosity(b.type) - generosity(a.type));
+  const sorted = [...(offers || [])].filter(usable).sort((a, b) => generosity(b) - generosity(a));
 
   for (const offer of sorted) {
     const { buy } = OFFER_TYPES[offer.type];
     const groupSize = buy + 1;
+    // A % off applies to every unit, so there is never "one more" to add
+    if (groupSize < 2) continue;
     const count = (lines || []).reduce((n, line) => {
       if (!offerCovers(offer, line.productId)) return n;
       return n + Math.max(0, Math.floor(Number(line.qty) || 0));
@@ -117,7 +150,7 @@ export function nextOfferHint(lines, offers) {
     // Exact multiples already unlocked a discount (handled above)
     if (remainder === 0) continue;
     const need = groupSize - remainder;
-    const label = offer.name || OFFER_TYPES[offer.type].label;
+    const label = offer.name || offerLabel(offer);
     return {
       kind: 'progress',
       message:
@@ -137,7 +170,7 @@ export function offerLinesFromOrder(order) {
   const lines = listed
     .map((o) => ({
       offerId: o.offerId || o.id || o.name,
-      name: o.name || OFFER_TYPES[o.type]?.label || 'Offer',
+      name: o.name || offerLabel(o),
       discount: Number(o.discount) || 0,
     }))
     .filter((o) => o.discount > 0);

@@ -1,33 +1,69 @@
 const prisma = require('../lib/prisma');
-const { OFFER_TYPES, getActiveOffers, invalidateOffers } = require('../utils/offers');
+const {
+  OFFER_TYPES,
+  OFFER_SCOPES,
+  MIN_PERCENT,
+  MAX_PERCENT,
+  offerLabel,
+  getActiveOffers,
+  invalidateOffers,
+} = require('../utils/offers');
 
-const parseOffer = (body, { partial = false } = {}) => {
+const badRequest = (message) => {
+  const err = new Error(message);
+  err.status = 400;
+  return err;
+};
+
+const cleanIds = (ids) =>
+  Array.isArray(ids) ? [...new Set(ids.map(String).filter(Boolean))].slice(0, 2000) : [];
+
+/**
+ * Validate a create/update body. On partial updates the existing row is merged in
+ * so cross-field rules (percentage, scope lists) are checked against the result.
+ */
+const parseOffer = (body, { existing = null } = {}) => {
+  const partial = Boolean(existing);
   const data = {};
   if (body.type !== undefined || !partial) {
-    if (!OFFER_TYPES[body.type]) {
-      const err = new Error('Choose an offer type');
-      err.status = 400;
-      throw err;
-    }
+    if (!OFFER_TYPES[body.type]) throw badRequest('Choose an offer type');
     data.type = body.type;
   }
+  const type = data.type || existing?.type;
+
+  if (type === 'percent_off') {
+    const raw = Number(body.percentage !== undefined ? body.percentage : existing?.percentage);
+    if (!Number.isFinite(raw) || raw < MIN_PERCENT || raw > MAX_PERCENT) {
+      throw badRequest(`Enter a discount between ${MIN_PERCENT}% and ${MAX_PERCENT}%`);
+    }
+    data.percentage = Math.round(raw);
+  } else if (!partial || data.type) {
+    data.percentage = null;
+  }
+
   if (body.name !== undefined || !partial) {
     const name = String(body.name || '').trim().slice(0, 80);
-    data.name = name || OFFER_TYPES[data.type || body.type]?.label || 'Offer';
+    data.name =
+      name ||
+      offerLabel({ type, percentage: data.percentage ?? existing?.percentage }) ||
+      'Offer';
   }
   if (body.appliesTo !== undefined || !partial) {
-    data.appliesTo = body.appliesTo === 'selected' ? 'selected' : 'all';
+    data.appliesTo = OFFER_SCOPES.includes(body.appliesTo) ? body.appliesTo : 'all';
   }
-  if (body.productIds !== undefined || !partial) {
-    data.productIds = Array.isArray(body.productIds)
-      ? [...new Set(body.productIds.map(String).filter(Boolean))].slice(0, 2000)
-      : [];
-  }
+  if (body.productIds !== undefined || !partial) data.productIds = cleanIds(body.productIds);
+  if (body.categoryIds !== undefined || !partial) data.categoryIds = cleanIds(body.categoryIds);
   if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
-  if (data.appliesTo === 'selected' && data.productIds && !data.productIds.length) {
-    const err = new Error('Pick at least one product, or apply the offer to all items');
-    err.status = 400;
-    throw err;
+
+  const scope = data.appliesTo || existing?.appliesTo || 'all';
+  const productIds = data.productIds ?? existing?.productIds ?? [];
+  const categoryIds = data.categoryIds ?? existing?.categoryIds ?? [];
+  if (scope === 'selected' && !productIds.length) {
+    throw badRequest('Pick at least one product, or apply the offer to all items');
+  }
+  if (scope === 'category' && !categoryIds.length) throw badRequest('Pick at least one category');
+  if (scope === 'subcategory' && !categoryIds.length) {
+    throw badRequest('Pick at least one subcategory');
   }
   return data;
 };
@@ -61,12 +97,14 @@ const publicOffers = async (req, res) => {
     const offers = await getActiveOffers();
     res.set('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     res.json(
-      offers.map(({ id, name, type, appliesTo, productIds, isActive }) => ({
+      // Category scopes arrive already expanded into productIds
+      offers.map(({ id, name, type, percentage, appliesTo, productIds, isActive }) => ({
         id,
         name,
         type,
-        appliesTo: appliesTo === 'selected' ? 'selected' : 'all',
-        productIds: appliesTo === 'selected' ? productIds || [] : [],
+        ...(type === 'percent_off' ? { percentage } : {}),
+        appliesTo: appliesTo || 'all',
+        productIds: appliesTo && appliesTo !== 'all' ? productIds || [] : [],
         isActive: isActive !== false,
       }))
     );
@@ -88,9 +126,11 @@ const createOffer = async (req, res) => {
 
 const updateOffer = async (req, res) => {
   try {
+    const existing = await prisma.offer.findUnique({ where: { id: req.params.id } });
+    if (!existing) return res.status(404).json({ message: 'Offer not found' });
     const offer = await prisma.offer.update({
       where: { id: req.params.id },
-      data: parseOffer(req.body, { partial: true }),
+      data: parseOffer(req.body, { existing }),
     });
     invalidateOffers();
     res.json(offer);

@@ -3,26 +3,41 @@ import { toast } from 'react-toastify';
 import { Gift, Pencil, Search, Ticket, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
-import { asArray, getImageUrl, formatMoney } from '../../utils/helpers';
-import { OFFER_TYPES, OFFER_TYPE_KEYS, loadActiveOffers } from '../../utils/offers';
+import { asArray, audienceLabel, getImageUrl, formatMoney } from '../../utils/helpers';
+import { OFFER_TYPES, OFFER_TYPE_KEYS, loadActiveOffers, offerLabel } from '../../utils/offers';
 
 const TABS = [
   { id: 'offers', label: 'Offers', icon: Gift },
   { id: 'codes', label: 'Promo codes', icon: Ticket },
 ];
 
+/** Staff-facing names in the type picker (percent_off's customer label depends on the %). */
+const TYPE_PICKER_LABEL = { percent_off: 'Percentage off' };
+
 const OFFER_EXAMPLES = {
   buy1get1_free: 'Bag 500 + 300 → the 300 item is free',
   buy2get1_free: 'Bag 500 + 400 + 300 → the 300 item is free',
   buy1get1_half: 'Bag 500 + 300 → the 300 item is 150',
   buy2get1_half: 'Bag 500 + 400 + 300 → the 300 item is 150',
+  percent_off: 'At 20% off, a 500 item is 400 — on every covered item',
 };
+
+const SCOPES = [
+  { id: 'all', label: 'All items on the website' },
+  { id: 'category', label: 'A category' },
+  { id: 'subcategory', label: 'A subcategory' },
+  { id: 'selected', label: 'Certain products' },
+];
+
+const SCOPE_KIND = { category: 'Category', subcategory: 'Subcategory', selected: 'Products' };
 
 const EMPTY_OFFER = {
   name: '',
   type: 'buy1get1_free',
+  percentage: 20,
   appliesTo: 'all',
   productIds: [],
+  categoryIds: [],
   isActive: true,
 };
 
@@ -30,14 +45,27 @@ const EMPTY_CODE = { code: '', discountPercentage: 10, maxUses: '', isActive: tr
 
 const errMsg = (err) => err.response?.data?.message || 'Something went wrong';
 
-function ProductPicker({ products, selected, onChange }) {
+const isCategoryScope = (scope) => scope === 'category' || scope === 'subcategory';
+
+/** "Men" for a root category, "Men › Boxers" for a subcategory. */
+const categoryPath = (c) => {
+  if (!c) return '';
+  if (c.parent?.name) return `${c.parent.name} › ${c.name}`;
+  const dept = audienceLabel(c.audience);
+  return dept && dept.toLowerCase() !== c.name.toLowerCase() ? `${c.name} (${dept})` : c.name;
+};
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** Searchable checkbox list shared by the product and category pickers. */
+function Checklist({ items, selected, onChange, textOf, placeholder, renderRow, footer, emptyText }) {
   const [q, setQ] = useState('');
   const chosen = useMemo(() => new Set(selected), [selected]);
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return products;
-    return products.filter((p) => p.name.toLowerCase().includes(term));
-  }, [products, q]);
+    if (!term) return items;
+    return items.filter((item) => textOf(item).toLowerCase().includes(term));
+  }, [items, q, textOf]);
 
   const toggle = (id) => {
     const next = new Set(chosen);
@@ -46,10 +74,10 @@ function ProductPicker({ products, selected, onChange }) {
     onChange([...next]);
   };
 
-  const allFilteredOn = filtered.length > 0 && filtered.every((p) => chosen.has(p.id));
+  const allFilteredOn = filtered.length > 0 && filtered.every((item) => chosen.has(item.id));
   const toggleFiltered = () => {
     const next = new Set(chosen);
-    filtered.forEach((p) => (allFilteredOn ? next.delete(p.id) : next.add(p.id)));
+    filtered.forEach((item) => (allFilteredOn ? next.delete(item.id) : next.add(item.id)));
     onChange([...next]);
   };
 
@@ -59,7 +87,7 @@ function ProductPicker({ products, selected, onChange }) {
         <Search className="h-4 w-4 shrink-0 text-timber-400" />
         <input
           className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm focus:ring-0"
-          placeholder="Search products"
+          placeholder={placeholder}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -68,39 +96,84 @@ function ProductPicker({ products, selected, onChange }) {
         </button>
       </div>
       <ul className="max-h-72 overflow-y-auto">
-        {filtered.map((p) => (
-          <li key={p.id}>
+        {filtered.map((item) => (
+          <li key={item.id}>
             <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-timber-50">
-              <input type="checkbox" checked={chosen.has(p.id)} onChange={() => toggle(p.id)} />
-              {p.photos?.[0] ? (
-                <img
-                  src={getImageUrl(p.photos[0], { width: 80 })}
-                  alt=""
-                  className="h-10 w-8 shrink-0 object-cover bg-timber-100"
-                  loading="lazy"
-                />
-              ) : (
-                <span className="h-10 w-8 shrink-0 bg-timber-100" />
-              )}
-              <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
-              <span className="shrink-0 text-xs tabular-nums text-timber-500">
-                {formatMoney(p.isSaleActive && p.salePrice != null ? p.salePrice : p.price)}
-              </span>
+              <input type="checkbox" checked={chosen.has(item.id)} onChange={() => toggle(item.id)} />
+              {renderRow(item)}
             </label>
           </li>
         ))}
-        {!filtered.length && <li className="px-3 py-6 text-center text-sm text-timber-400">No products found</li>}
+        {!filtered.length && <li className="px-3 py-6 text-center text-sm text-timber-400">{emptyText}</li>}
       </ul>
-      <p className="border-t border-timber-100 px-3 py-2 text-xs text-timber-500">
-        {chosen.size} product{chosen.size === 1 ? '' : 's'} selected
-      </p>
+      <p className="border-t border-timber-100 px-3 py-2 text-xs text-timber-500">{footer(chosen.size)}</p>
     </div>
+  );
+}
+
+const productText = (p) => p.name;
+
+function ProductPicker({ products, selected, onChange }) {
+  return (
+    <Checklist
+      items={products}
+      selected={selected}
+      onChange={onChange}
+      textOf={productText}
+      placeholder="Search products"
+      emptyText="No products found"
+      footer={(n) => `${plural(n, 'product', 'products')} selected`}
+      renderRow={(p) => (
+        <>
+          {p.photos?.[0] ? (
+            <img
+              src={getImageUrl(p.photos[0], { width: 80 })}
+              alt=""
+              className="h-10 w-8 shrink-0 object-cover bg-timber-100"
+              loading="lazy"
+            />
+          ) : (
+            <span className="h-10 w-8 shrink-0 bg-timber-100" />
+          )}
+          <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
+          <span className="shrink-0 text-xs tabular-nums text-timber-500">
+            {formatMoney(p.isSaleActive && p.salePrice != null ? p.salePrice : p.price)}
+          </span>
+        </>
+      )}
+    />
+  );
+}
+
+function CategoryPicker({ categories, selected, onChange, roots }) {
+  const [one, many] = roots ? ['category', 'categories'] : ['subcategory', 'subcategories'];
+  return (
+    <Checklist
+      items={categories}
+      selected={selected}
+      onChange={onChange}
+      textOf={categoryPath}
+      placeholder={`Search ${many}`}
+      emptyText={`No ${many} found`}
+      footer={(n) =>
+        `${plural(n, one, many)} selected${roots ? ' — includes all of their subcategories' : ''}`
+      }
+      renderRow={(c) => (
+        <>
+          <span className="min-w-0 flex-1 truncate text-sm">{categoryPath(c)}</span>
+          <span className="shrink-0 text-xs tabular-nums text-timber-500">
+            {roots && c.childCount ? plural(c.childCount, 'subcategory', 'subcategories') : plural(c.productCount || 0, 'item', 'items')}
+          </span>
+        </>
+      )}
+    />
   );
 }
 
 function OffersTab() {
   const [offers, setOffers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_OFFER);
   const [open, setOpen] = useState(false);
@@ -110,11 +183,24 @@ function OffersTab() {
   useEffect(() => {
     load();
     api.get('/products', { params: { limit: 2000 } }).then((r) => setProducts(asArray(r.data))).catch(() => {});
+    api.get('/categories').then((r) => setCategories(asArray(r.data))).catch(() => {});
   }, []);
 
   const productName = useMemo(
     () => Object.fromEntries(products.map((p) => [p.id, p.name])),
     [products]
+  );
+  const categoryById = useMemo(
+    () => Object.fromEntries(categories.map((c) => [c.id, c])),
+    [categories]
+  );
+  const rootCategories = useMemo(() => categories.filter((c) => !c.parentId), [categories]);
+  const subCategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.parentId)
+        .sort((a, b) => categoryPath(a).localeCompare(categoryPath(b))),
+    [categories]
   );
 
   const openNew = () => {
@@ -128,23 +214,50 @@ function OffersTab() {
     setForm({
       name: offer.name,
       type: offer.type,
+      percentage: offer.percentage ?? EMPTY_OFFER.percentage,
       appliesTo: offer.appliesTo,
       productIds: offer.productIds || [],
+      categoryIds: offer.categoryIds || [],
       isActive: offer.isActive,
     });
     setOpen(true);
   };
 
+  // Category and subcategory lists hold different ids, so switching between them starts fresh
+  const setScope = (appliesTo) =>
+    setForm((f) => ({
+      ...f,
+      appliesTo,
+      categoryIds: appliesTo === f.appliesTo ? f.categoryIds : [],
+    }));
+
   const refreshStorefront = () => loadActiveOffers({ force: true });
 
   const save = async (e) => {
     e.preventDefault();
+    const isPercent = form.type === 'percent_off';
+    const pct = Number(form.percentage);
+    if (isPercent && (!Number.isFinite(pct) || pct < 1 || pct > 90)) {
+      return toast.error('Enter a discount between 1% and 90%');
+    }
     if (form.appliesTo === 'selected' && !form.productIds.length) {
       return toast.error('Pick at least one product');
     }
+    if (form.appliesTo === 'category' && !form.categoryIds.length) {
+      return toast.error('Pick at least one category');
+    }
+    if (form.appliesTo === 'subcategory' && !form.categoryIds.length) {
+      return toast.error('Pick at least one subcategory');
+    }
     setSaving(true);
     try {
-      const payload = { ...form, name: form.name.trim() || OFFER_TYPES[form.type].label };
+      const payload = {
+        ...form,
+        percentage: isPercent ? pct : null,
+        productIds: form.appliesTo === 'selected' ? form.productIds : [],
+        categoryIds: isCategoryScope(form.appliesTo) ? form.categoryIds : [],
+        name: form.name.trim() || offerLabel({ type: form.type, percentage: pct }),
+      };
       if (editing) await api.put(`/offers/${editing.id}`, payload);
       else await api.post('/offers', payload);
       toast.success(editing ? 'Offer updated' : 'Offer created');
@@ -180,9 +293,15 @@ function OffersTab() {
   };
 
   const scopeLabel = (offer) => {
-    if (offer.appliesTo === 'all') return 'All items';
-    const names = (offer.productIds || []).map((id) => productName[id]).filter(Boolean);
-    if (!names.length) return `${offer.productIds?.length || 0} selected items`;
+    if (!offer.appliesTo || offer.appliesTo === 'all') return 'All items';
+    const category = isCategoryScope(offer.appliesTo);
+    const ids = (category ? offer.categoryIds : offer.productIds) || [];
+    const names = category
+      ? ids.map((id) => categoryById[id]).filter(Boolean).map(categoryPath)
+      : ids.map((id) => productName[id]).filter(Boolean);
+    if (!names.length) {
+      return `${ids.length} ${category ? (offer.appliesTo === 'category' ? 'categories' : 'subcategories') : 'selected items'}`;
+    }
     return names.length <= 2
       ? names.join(', ')
       : `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
@@ -192,8 +311,9 @@ function OffersTab() {
     <>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-2xl text-sm text-zinc-500">
-          Offers apply automatically in the bag — no code needed. In each group the cheapest item gets
-          the discount. If an item qualifies for more than one offer, the better offer wins.
+          Offers apply automatically in the bag — no code needed. A percentage offer takes the % off every
+          item it covers; Buy X Get 1 offers discount the cheapest item in each group. If an item qualifies
+          for more than one offer, the better offer wins.
         </p>
         <button type="button" className="btn-wheat" onClick={openNew}>Add offer</button>
       </div>
@@ -214,11 +334,16 @@ function OffersTab() {
               <tr key={o.id}>
                 <td>
                   <p className="font-semibold">{o.name}</p>
-                  {o.name !== OFFER_TYPES[o.type]?.label && (
-                    <p className="text-xs text-zinc-500">{OFFER_TYPES[o.type]?.label}</p>
-                  )}
+                  {o.name !== offerLabel(o) && <p className="text-xs text-zinc-500">{offerLabel(o)}</p>}
                 </td>
-                <td className="max-w-xs truncate text-sm">{scopeLabel(o)}</td>
+                <td className="max-w-xs text-sm">
+                  {SCOPE_KIND[o.appliesTo] && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                      {SCOPE_KIND[o.appliesTo]}
+                    </p>
+                  )}
+                  <p className="truncate">{scopeLabel(o)}</p>
+                </td>
                 <td className="tabular-nums">{o.orderCount || 0}</td>
                 <td>
                   <button type="button" className={o.isActive ? 'badge-green' : 'badge-gray'} onClick={() => toggle(o)}>
@@ -240,7 +365,7 @@ function OffersTab() {
             {!offers.length && (
               <tr>
                 <td colSpan={5} className="py-10 text-center text-sm text-zinc-400">
-                  No offers yet — add a Buy 1 Get 1 or Buy 2 Get 1 offer.
+                  No offers yet — add a percentage off, Buy 1 Get 1 or Buy 2 Get 1 offer.
                 </td>
               </tr>
             )}
@@ -269,7 +394,9 @@ function OffersTab() {
                         checked={selected}
                         onChange={() => setForm({ ...form, type: key })}
                       />
-                      <span className="text-sm font-semibold">{OFFER_TYPES[key].label}</span>
+                      <span className="text-sm font-semibold">
+                        {TYPE_PICKER_LABEL[key] || OFFER_TYPES[key].label}
+                      </span>
                     </span>
                     <span className="ps-6 text-xs text-timber-500">{OFFER_EXAMPLES[key]}</span>
                   </label>
@@ -278,12 +405,35 @@ function OffersTab() {
             </div>
           </div>
 
+          {form.type === 'percent_off' && (
+            <div>
+              <label className="label" htmlFor="offer-pct">Discount %</label>
+              <div className="flex max-w-[12rem] items-center gap-2">
+                <input
+                  id="offer-pct"
+                  required
+                  type="number"
+                  min={1}
+                  max={90}
+                  step={1}
+                  className="input"
+                  value={form.percentage}
+                  onChange={(e) => setForm({ ...form, percentage: e.target.value })}
+                />
+                <span className="text-sm text-timber-500">%</span>
+              </div>
+              <p className="mt-1 text-xs text-timber-500">
+                Taken off the price the customer pays, on top of any product sale price.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="label" htmlFor="offer-name">Name shown to customers</label>
             <input
               id="offer-name"
               className="input"
-              placeholder={OFFER_TYPES[form.type].label}
+              placeholder={offerLabel({ type: form.type, percentage: form.percentage })}
               value={form.name}
               maxLength={80}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -293,10 +443,7 @@ function OffersTab() {
           <div>
             <p className="label">Applies to</p>
             <div className="flex flex-wrap gap-2">
-              {[
-                { id: 'all', label: 'All items on the website' },
-                { id: 'selected', label: 'Selected items only' },
-              ].map((opt) => (
+              {SCOPES.map((opt) => (
                 <label
                   key={opt.id}
                   className={`flex cursor-pointer items-center gap-2 border px-3.5 py-2.5 text-sm transition ${
@@ -307,13 +454,30 @@ function OffersTab() {
                     type="radio"
                     name="appliesTo"
                     checked={form.appliesTo === opt.id}
-                    onChange={() => setForm({ ...form, appliesTo: opt.id })}
+                    onChange={() => setScope(opt.id)}
                   />
                   {opt.label}
                 </label>
               ))}
             </div>
           </div>
+
+          {form.appliesTo === 'category' && (
+            <CategoryPicker
+              roots
+              categories={rootCategories}
+              selected={form.categoryIds}
+              onChange={(categoryIds) => setForm({ ...form, categoryIds })}
+            />
+          )}
+
+          {form.appliesTo === 'subcategory' && (
+            <CategoryPicker
+              categories={subCategories}
+              selected={form.categoryIds}
+              onChange={(categoryIds) => setForm({ ...form, categoryIds })}
+            />
+          )}
 
           {form.appliesTo === 'selected' && (
             <ProductPicker
