@@ -668,23 +668,17 @@ const updateOrderStatus = async (req, res) => {
 const ADDRESS_FIELDS = ['street', 'city', 'state', 'zip', 'country'];
 
 /**
- * Staff: fix the phone or address a customer typed wrong, before the Bosta
- * shipment exists. Clears the last Bosta error and attempt count so the next
- * Retry (or the background sweep) ships with the corrected details.
+ * Staff: fix the phone or address a customer typed wrong, in any order state.
+ * Before the Bosta shipment exists, this also clears the last Bosta error and
+ * attempt count so the next Retry (or the background sweep) ships with the
+ * corrected details. Once the shipment exists the change is saved here only —
+ * the response says so, and staff repeat it on the Bosta dashboard.
  */
 const updateOrderCustomer = async (req, res) => {
   try {
     const order = await prisma.order.findUnique({ where: { id: req.params.id } });
     if (!order) return res.status(404).json({ message: 'Order not found' });
-    if (order.bostaDeliveryId || order.bostaTrackingNumber) {
-      return res.status(409).json({
-        message:
-          'This order is already on Bosta. Change the details on the Bosta dashboard — edits here would not reach the shipment.',
-      });
-    }
-    if (order.status === 'canceled') {
-      return res.status(400).json({ message: 'This order is canceled' });
-    }
+    const onBosta = Boolean(order.bostaDeliveryId || order.bostaTrackingNumber);
 
     const body = req.body || {};
     const prev = order.shippingAddress || {};
@@ -727,8 +721,7 @@ const updateOrderCustomer = async (req, res) => {
       data: {
         ...data,
         shippingAddress: next,
-        bostaSyncError: null,
-        bostaSyncAttempts: 0,
+        ...(onBosta ? {} : { bostaSyncError: null, bostaSyncAttempts: 0 }),
       },
       include: {
         items: true,
@@ -736,7 +729,7 @@ const updateOrderCustomer = async (req, res) => {
         problems: true,
       },
     });
-    res.json(serializeOrder(updated));
+    res.json({ ...serializeOrder(updated), bostaNeedsManualUpdate: onBosta });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

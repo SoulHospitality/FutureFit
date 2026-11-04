@@ -66,7 +66,15 @@ function CustomerEditForm({ order, phone, onSaved, onCancel }) {
         street: form.street,
         zip: form.zip,
       });
-      toast.success('Customer details updated — retry Bosta sync to ship');
+      if (data.bostaNeedsManualUpdate) {
+        toast.warn('Saved on the order. Bosta was not changed — update the shipment on the Bosta dashboard too.', {
+          autoClose: 9000,
+        });
+      } else if (data.status === 'canceled' || data.status === 'delivered') {
+        toast.success('Customer details updated');
+      } else {
+        toast.success('Customer details updated — retry Bosta sync to ship');
+      }
       onSaved(data);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not save');
@@ -75,8 +83,26 @@ function CustomerEditForm({ order, phone, onSaved, onCancel }) {
     }
   };
 
+  const onBosta = isBostaSynced(order);
+
   return (
     <form onSubmit={save} className="mt-3 space-y-2.5">
+      {onBosta && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          This order is already on Bosta
+          {order.bostaTrackingNumber ? ` (${order.bostaTrackingNumber})` : ''}. Saving updates the order
+          here only — make the same change on the{' '}
+          <a
+            href="https://business.bosta.co/"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium underline"
+          >
+            Bosta dashboard
+          </a>{' '}
+          so the courier gets it.
+        </div>
+      )}
       {isGuest && (
         <div>
           <label className="mb-1 block text-xs font-medium text-zinc-700">Name</label>
@@ -499,7 +525,7 @@ export default function StaffOrderDetail() {
           <div className="sp-card p-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-zinc-900">Customer</h2>
-              {needsBosta && !editingCustomer && (
+              {!editingCustomer && (
                 <button
                   type="button"
                   onClick={() => setEditingCustomer(true)}
@@ -549,7 +575,7 @@ export default function StaffOrderDetail() {
             </div>
             {isBostaSynced(order) && (
               <p className="mt-3 text-xs text-zinc-400 print:hidden">
-                Already on Bosta — change the phone or address on the Bosta dashboard.
+                Already on Bosta — after editing here, make the same change on the Bosta dashboard.
               </p>
             )}
             </>
