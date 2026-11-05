@@ -105,6 +105,31 @@ export function offerForProduct(offers, productId) {
   );
 }
 
+/**
+ * Price a customer pays per unit once a percentage offer applies (the bag takes
+ * the same % off the same price). Buy X Get 1 offers don't change a single
+ * unit's price, so they return the price unchanged.
+ */
+export function priceAfterOffer(offer, price) {
+  const base = Number(price) || 0;
+  if (offer?.type !== 'percent_off') return base;
+  return round2(base - (base * offerPct(offer)) / 100);
+}
+
+/**
+ * Card / page pricing with sales and % offers combined.
+ * Returns { price, was, pctOff }: `was` is set (and higher than `price`) only
+ * when something is discounted, so callers show a struck-through old price.
+ */
+export function shownPricing({ listPrice, salePrice, offer }) {
+  const list = Number(listPrice) || 0;
+  const start = salePrice != null ? Number(salePrice) || 0 : list;
+  const price = priceAfterOffer(offer, start);
+  const was = list > price + 0.009 ? list : null;
+  const pctOff = was ? Math.round((1 - price / was) * 100) : 0;
+  return { price, was, pctOff };
+}
+
 /** One-line explainer under an offer badge on the product page. */
 export function offerHintText(offer) {
   if (!offer) return '';

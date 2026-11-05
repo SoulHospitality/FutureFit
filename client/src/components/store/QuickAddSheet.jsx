@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import api from '../../api/axios';
 import { useCart } from '../../context/CartContext';
 import BrandLoader from '../ui/BrandLoader';
+import { offerForProduct, shownPricing, useActiveOffers } from '../../utils/offers';
 import {
   colorSwatchStyle,
   formatMoney,
@@ -23,6 +24,7 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
   const [color, setColor] = useState('');
   const [size, setSize] = useState('');
   const [adding, setAdding] = useState(false);
+  const offer = offerForProduct(useActiveOffers(), seed?.id);
 
   useEffect(() => {
     if (!open || !seed?.id) return undefined;
@@ -62,7 +64,14 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
 
   if (!open || !seed) return null;
 
-  const price = product ? effectiveUnitPrice(product, color, size) : seed?.price;
+  const variant = product?.variants?.find((v) => v.color === color && v.size === size);
+  const regularPrice = Number(variant?.price ?? product?.price ?? seed?.price) || 0;
+  const saleActive = product?.isSaleActive && product?.salePrice != null;
+  const { price, was } = shownPricing({
+    listPrice: regularPrice,
+    salePrice: saleActive && product ? effectiveUnitPrice(product, color, size) : null,
+    offer,
+  });
   const sizeOptions = product ? sizesForColor(product, color) : [];
   const available = sizeOptions.length
     ? getVariantStock(product, color, size)
@@ -133,7 +142,10 @@ export default function QuickAddSheet({ product: seed, open, onClose }) {
               <h3 className="font-display text-xl font-medium tracking-tight text-timber-900 line-clamp-2">
                 {product?.name || seed.name}
               </h3>
-              <p className="mt-1 text-sm tabular-nums text-timber-700">{formatMoney(price)}</p>
+              <p className="mt-1 flex items-baseline gap-2 text-sm tabular-nums">
+                <span className={was ? 'font-semibold text-clay' : 'text-timber-700'}>{formatMoney(price)}</span>
+                {was && <span className="text-xs text-timber-400 line-through">{formatMoney(was)}</span>}
+              </p>
             </div>
           </div>
 

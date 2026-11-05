@@ -14,7 +14,7 @@ import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { trackViewContent } from '../utils/tracking';
 import { snippet, usePageMeta } from '../utils/seo';
-import { offerForProduct, offerHintText, offerLabel, useActiveOffers } from '../utils/offers';
+import { offerForProduct, offerHintText, offerLabel, shownPricing, useActiveOffers } from '../utils/offers';
 import BrandLoader from '../components/ui/BrandLoader';
 import { useWishlist } from '../context/WishlistContext';
 import {
@@ -332,10 +332,16 @@ export default function ProductPage() {
 
   const sizeOptions = sizesForColor(product, color);
   const selectedVariant = findVariant(product, color, size);
-  const price = effectiveUnitPrice(product, color, size);
-  const listPrice =
+  const saleActive = product.isSaleActive && product.salePrice != null;
+  const regularPrice =
     selectedVariant?.price != null ? Number(selectedVariant.price) : Number(product.price);
-  const onSale = product.isSaleActive && product.salePrice != null;
+  // Display only: the bag adds the plain unit price and takes the % offer off there
+  const { price, was: listPrice, pctOff } = shownPricing({
+    listPrice: regularPrice,
+    salePrice: saleActive ? effectiveUnitPrice(product, color, size) : null,
+    offer,
+  });
+  const onSale = listPrice != null;
   const photoIdx = Math.min(activePhoto, Math.max(0, photos.length - 1));
   const typeLabel = categoryLabel(product) ||
     PRODUCT_TYPES.find((t) => t.value === product.type)?.label ||
@@ -537,14 +543,14 @@ export default function ProductPage() {
               >
                 {formatMoney(price)}
               </span>
-              {onSale && listPrice > price && (
+              {onSale && (
                 <>
                   <span className="text-base tabular-nums text-timber-400 line-through">
                     {formatMoney(listPrice)}
                   </span>
-                  {listPrice > 0 && (
+                  {pctOff > 0 && (
                     <span className="rounded-full bg-clay px-2.5 py-1 text-[11px] font-bold text-white">
-                      Save {Math.round((1 - price / listPrice) * 100)}%
+                      Save {pctOff}%
                     </span>
                   )}
                 </>

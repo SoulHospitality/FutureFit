@@ -19,7 +19,7 @@ import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
 import StarRating from './StarRating';
 import QuickAddSheet from './QuickAddSheet';
-import { offerForProduct, offerLabel, useActiveOffers } from '../../utils/offers';
+import { offerForProduct, offerLabel, shownPricing, useActiveOffers } from '../../utils/offers';
 
 const CARD_GALLERY_LIMIT = 6;
 
@@ -52,12 +52,16 @@ function ProductCard({ product, priority = false }) {
   const shownIndex = urls.length
     ? (photoIndex ?? (hovered && urls.length > 1 ? 1 : 0)) % urls.length
     : 0;
-  const onSale = product.isSaleActive && product.salePrice != null;
-  const price = displayPrice(product);
-  const discount =
-    onSale && Number(product.price) > 0
-      ? Math.round((1 - Number(product.salePrice) / Number(product.price)) * 100)
-      : 0;
+  const saleActive = product.isSaleActive && product.salePrice != null;
+  // Sale price and a % offer stack the same way the bag charges them
+  const { price, was, pctOff: discount } = shownPricing({
+    listPrice: saleActive ? product.price : displayPrice(product),
+    salePrice: saleActive ? product.salePrice : null,
+    offer,
+  });
+  const onSale = was != null;
+  // Buy X Get 1 keeps its own badge; a % offer is already in the price and the −% badge
+  const showOfferBadge = offer && offer.type !== 'percent_off';
   const typeLabel = categoryLabel(product);
   const stock = totalStock(product);
   const inStock = stock >= 1;
@@ -160,7 +164,7 @@ function ProductCard({ product, priority = false }) {
                 {discount > 0 ? `−${discount}%` : 'Sale'}
               </span>
             ) : null}
-            {inStock && offer && (
+            {inStock && showOfferBadge && (
               <span className="rounded-full bg-timber-900 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-white">
                 {offerLabel(offer)}
               </span>
@@ -253,7 +257,7 @@ function ProductCard({ product, priority = false }) {
             )}
             {inStock && onSale && (
               <span className="text-xs tabular-nums text-timber-400 line-through">
-                {formatMoney(product.price)}
+                {formatMoney(was)}
               </span>
             )}
           </div>
