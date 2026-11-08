@@ -1,21 +1,40 @@
 const prisma = require('../lib/prisma');
 
-const endOfDay = (to) => {
-  const end = new Date(to);
-  end.setHours(23, 59, 59, 999);
-  return end;
+const DAY_MS = 86400000;
+// Store's default: Cairo (UTC+2), as minutes in Date#getTimezoneOffset style
+const DEFAULT_TZ_OFFSET = -120;
+
+/** Minutes behind UTC, like the browser's getTimezoneOffset() (Cairo = -120). */
+const parseTzOffset = (tz) => {
+  const n = Number(tz);
+  if (tz === undefined || tz === null || tz === '' || !Number.isFinite(n)) return DEFAULT_TZ_OFFSET;
+  return Math.max(-840, Math.min(840, Math.round(n)));
 };
 
-const startOfDay = (d) => {
-  const s = new Date(d);
-  s.setHours(0, 0, 0, 0);
-  return s;
+/** "YYYY-MM-DD" → UTC ms of that calendar day's midnight (no tz yet). */
+const dayStartUtc = (value) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value || ''));
+  if (m) return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 };
 
-const parseRange = (from, to) => {
-  const end = to ? endOfDay(to) : endOfDay(new Date());
-  const start = from ? startOfDay(from) : startOfDay(new Date(end.getTime() - 6 * 86400000));
-  return { start, end };
+/**
+ * Whole local days from..to (inclusive) in the viewer's time zone.
+ * `from`/`to` are calendar dates; `tz` is minutes behind UTC.
+ */
+const parseRange = (from, to, tz) => {
+  const offsetMs = parseTzOffset(tz) * 60000;
+  const todayLocal = dayStartUtc(new Date(Date.now() - offsetMs).toISOString());
+  let endDay = dayStartUtc(to) ?? todayLocal;
+  let startDay = dayStartUtc(from) ?? endDay - 6 * DAY_MS;
+  if (startDay > endDay) [startDay, endDay] = [endDay, startDay];
+  return {
+    start: new Date(startDay + offsetMs),
+    end: new Date(endDay + DAY_MS + offsetMs - 1),
+    offsetMs,
+  };
 };
 
 const previousRange = (start, end) => {
@@ -26,29 +45,19 @@ const previousRange = (start, end) => {
   };
 };
 
-const bucketKey = (date, mode) => {
-  const d = new Date(date);
-  if (mode === 'hour') {
-    return `${d.toISOString().slice(0, 13)}:00`;
-  }
-  return d.toISOString().slice(0, 10);
+/** Bucket label in local time: "YYYY-MM-DDTHH:00" (hour) or "YYYY-MM-DD" (day). */
+const bucketKey = (date, mode, offsetMs = 0) => {
+  const local = new Date(new Date(date).getTime() - offsetMs).toISOString();
+  if (mode === 'hour') return `${local.slice(0, 13)}:00`;
+  return local.slice(0, 10);
 };
 
-const buildBuckets = (start, end, mode) => {
+const buildBuckets = (start, end, mode, offsetMs = 0) => {
   const keys = [];
-  const cursor = new Date(start);
-  if (mode === 'hour') {
-    cursor.setMinutes(0, 0, 0);
-    while (cursor <= end) {
-      keys.push(bucketKey(cursor, 'hour'));
-      cursor.setHours(cursor.getHours() + 1);
-    }
-  } else {
-    cursor.setHours(0, 0, 0, 0);
-    while (cursor <= end) {
-      keys.push(bucketKey(cursor, 'day'));
-      cursor.setDate(cursor.getDate() + 1);
-    }
+  const step = mode === 'hour' ? 3600000 : DAY_MS;
+  for (let t = start.getTime(); t <= end.getTime(); t += step) {
+    const key = bucketKey(t, mode, offsetMs);
+    if (keys[keys.length - 1] !== key) keys.push(key);
   }
   return keys;
 };
@@ -79,15 +88,17 @@ const summarizeOrders = (orders) => {
   };
 };
 
-const seriesFromOrders = (orders, start, end, mode) => {
-  const keys = buildBuckets(start, end, mode);
-  const map = Object.fromEntries(keys.map((k) => [k, 0]));
+const seriesFromOrders = (orders, start, end, mode, offsetMs = 0) => {
+  const keys = buildBuckets(start, end, mode, offsetMs);
+  const map = Object.fromEntries(keys.map((k) => [k, { value: 0, count: 0 }]));
   for (const o of orders) {
     if (o.status === 'canceled') continue;
-    const k = bucketKey(o.createdAt, mode);
-    if (k in map) map[k] += Number(o.totalPrice);
+    const k = bucketKey(o.createdAt, mode, offsetMs);
+    if (!map[k]) continue;
+    map[k].value += Number(o.totalPrice);
+    map[k].count += 1;
   }
-  return keys.map((label) => ({ label, value: map[label] || 0 }));
+  return keys.map((label) => ({ label, ...map[label] }));
 };
 
 const topProducts = (orders) => {
@@ -140,7 +151,7 @@ const byChannel = (orders) => {
 
 const analyticsSummary = async (req, res) => {
   try {
-    const { start, end } = parseRange(req.query.from, req.query.to);
+    const { start, end, offsetMs } = parseRange(req.query.from, req.query.to, req.query.tz);
     const prev = previousRange(start, end);
     const spanHours = (end - start) / 3600000;
     const mode = spanHours <= 48 ? 'hour' : 'day';
@@ -214,8 +225,8 @@ const analyticsSummary = async (req, res) => {
       previous,
       insights,
       salesOverTime: {
-        current: seriesFromOrders(orders, start, end, mode),
-        previous: seriesFromOrders(prevOrders, prev.start, prev.end, mode),
+        current: seriesFromOrders(orders, start, end, mode, offsetMs),
+        previous: seriesFromOrders(prevOrders, prev.start, prev.end, mode, offsetMs),
       },
       breakdown: {
         grossSales: current.grossSales,

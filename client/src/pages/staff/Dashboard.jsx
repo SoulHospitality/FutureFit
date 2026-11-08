@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowUpRight, CreditCard, Package, Truck } from 'lucide-react';
 import api from '../../api/axios';
 import Sparkline from '../../components/staff/Sparkline';
+import DateRangePicker from '../../components/staff/DateRangePicker';
 import { useAuth } from '../../context/AuthContext';
 import {
   asArray,
@@ -13,6 +14,7 @@ import {
   paymentStatusMeta,
   sparkSeriesFromOrders,
 } from '../../utils/helpers';
+import { localIsoDate, rangeParams, resolveRange } from '../../utils/dateRange';
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,8 +33,8 @@ function pctChange(series) {
   return Math.round(((b - a) / a) * 100);
 }
 
-function Metric({ label, value, series, hint }) {
-  const change = pctChange(series);
+function Metric({ label, value, series, hint, change: given }) {
+  const change = given !== undefined ? given : pctChange(series);
   const up = change != null && change >= 0;
   return (
     <div className="sp-metric min-w-[140px] flex-1">
@@ -61,6 +63,14 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [integrations, setIntegrations] = useState(null);
   const [activity, setActivity] = useState([]);
+  const [preset, setPreset] = useState('today');
+  const [custom, setCustom] = useState(() => {
+    const today = localIsoDate(new Date());
+    return { from: today, to: today };
+  });
+  const range = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -87,6 +97,34 @@ export default function StaffDashboard() {
     };
   }, [user.role]);
 
+  // Headline numbers for the chosen period (admins only)
+  useEffect(() => {
+    if (user.role !== 'admin') return undefined;
+    let alive = true;
+    setSummaryLoading(true);
+    api
+      .get('/analytics/summary', { params: rangeParams(range) })
+      .then((r) => {
+        if (alive) setSummary(r.data);
+      })
+      .catch(() => {
+        if (alive) setSummary(null);
+      })
+      .finally(() => {
+        if (alive) setSummaryLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user.role, range]);
+
+  const points = summary?.salesOverTime?.current || [];
+  const period = {
+    m: summary?.metrics,
+    sales: points.map((p) => Number(p.value) || 0),
+    orders: points.map((p) => Number(p.count) || 0),
+  };
+
   const stats = useMemo(() => {
     const active = allOrders.filter((o) =>
       ['confirmed', 'out_for_delivery', 'pending'].includes(o.status)
@@ -103,14 +141,7 @@ export default function StaffDashboard() {
     ).length;
     const orderSeries = sparkSeriesFromOrders(allOrders, 14, 'count');
     const salesSeries = sparkSeriesFromOrders(allOrders, 14, 'revenue');
-    const aov =
-      allOrders.filter((o) => o.status !== 'canceled').length > 0
-        ? allOrders
-            .filter((o) => o.status !== 'canceled')
-            .reduce((s, o) => s + Number(o.totalPrice), 0) /
-          allOrders.filter((o) => o.status !== 'canceled').length
-        : 0;
-    return { needFulfill, needCapture, orderSeries, salesSeries, aov };
+    return { needFulfill, needCapture, orderSeries, salesSeries };
   }, [allOrders]);
 
   const recent = allOrders.slice(0, 8);
@@ -118,39 +149,56 @@ export default function StaffDashboard() {
 
   return (
     <>
-      {/* Shopify-style metric strip */}
+      {/* Headline numbers for the chosen period */}
       {user.role === 'admin' && (
-        <div className="mb-6 flex flex-wrap gap-3">
-          {loading && !finance ? (
-            [1, 2, 3, 4].map((i) => (
-              <div key={i} className="sp-metric h-[88px] min-w-[140px] flex-1 animate-pulse bg-zinc-100" />
-            ))
-          ) : (
-            <>
-              <Metric
-                label="Orders"
-                value={finance?.orderCount ?? allOrders.length}
-                series={stats.orderSeries}
-              />
-              <Metric
-                label="Gross sales"
-                value={formatMoney(finance?.revenue ?? 0)}
-                series={stats.salesSeries}
-              />
-              <Metric
-                label="Collected"
-                value={formatMoney(finance?.paid ?? 0)}
-                series={stats.salesSeries}
-                hint={`Outstanding ${formatMoney(finance?.outstanding ?? 0)}`}
-              />
-              <Metric
-                label="Avg. order"
-                value={formatMoney(stats.aov)}
-                series={stats.orderSeries}
-                hint={`${finance?.lowStock?.length || 0} low stock SKUs`}
-              />
-            </>
-          )}
+        <div className="mb-6">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <h2 className="pt-1.5 text-sm font-semibold text-zinc-900">Overview</h2>
+            <DateRangePicker
+              preset={preset}
+              onPreset={setPreset}
+              custom={custom}
+              onCustom={setCustom}
+              range={range}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {summaryLoading && !summary ? (
+              [1, 2, 3, 4].map((i) => (
+                <div key={i} className="sp-metric h-[88px] min-w-[140px] flex-1 animate-pulse bg-zinc-100" />
+              ))
+            ) : (
+              <>
+                <Metric
+                  label="Orders"
+                  value={period.m?.orderCount ?? 0}
+                  series={period.orders}
+                  change={period.m?.changes?.orderCount ?? null}
+                />
+                <Metric
+                  label="Total sales"
+                  value={formatMoney(period.m?.totalSales ?? 0)}
+                  series={period.sales}
+                  change={period.m?.changes?.totalSales ?? null}
+                />
+                <Metric
+                  label="Collected"
+                  value={formatMoney(period.m?.paid ?? 0)}
+                  series={period.sales}
+                  change={null}
+                  hint={`Outstanding ${formatMoney(period.m?.outstanding ?? 0)}`}
+                />
+                <Metric
+                  label="Avg. order"
+                  value={formatMoney(period.m?.averageOrderValue ?? 0)}
+                  series={period.sales}
+                  change={period.m?.changes?.averageOrderValue ?? null}
+                  hint={`${finance?.lowStock?.length || 0} low stock SKUs`}
+                />
+              </>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-zinc-400">Change compared with the period just before. Canceled orders are excluded.</p>
         </div>
       )}
 

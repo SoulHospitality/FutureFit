@@ -2,34 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api/axios';
 import DualLineChart from '../../components/staff/DualLineChart';
+import DateRangePicker from '../../components/staff/DateRangePicker';
 import { formatMoney } from '../../utils/helpers';
-
-const PRESETS = [
-  { id: 'today', label: 'Today', days: 0 },
-  { id: '7d', label: 'Last 7 days', days: 6 },
-  { id: '30d', label: 'Last 30 days', days: 29 },
-  { id: 'ytd', label: 'Year to date', days: null },
-  { id: 'custom', label: 'Custom', days: null },
-];
-
-function isoDate(d) {
-  return d.toISOString().slice(0, 10);
-}
-
-function rangeForPreset(id) {
-  const end = new Date();
-  const start = new Date();
-  if (id === 'today') {
-    return { from: isoDate(end), to: isoDate(end) };
-  }
-  if (id === 'ytd') {
-    start.setMonth(0, 1);
-    return { from: isoDate(start), to: isoDate(end) };
-  }
-  const preset = PRESETS.find((p) => p.id === id) || PRESETS[1];
-  start.setDate(end.getDate() - (preset.days || 6));
-  return { from: isoDate(start), to: isoDate(end) };
-}
+import { localIsoDate, rangeParams, resolveRange } from '../../utils/dateRange';
 
 function Change({ value }) {
   if (value == null) return null;
@@ -44,22 +19,21 @@ function Change({ value }) {
 
 export default function StaffAnalytics() {
   const [preset, setPreset] = useState('today');
-  const [customFrom, setCustomFrom] = useState(() => isoDate(new Date(Date.now() - 6 * 86400000)));
-  const [customTo, setCustomTo] = useState(() => isoDate(new Date()));
+  const [custom, setCustom] = useState(() => ({
+    from: localIsoDate(new Date(Date.now() - 6 * 86400000)),
+    to: localIsoDate(new Date()),
+  }));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [insightId, setInsightId] = useState(null);
 
-  const range = useMemo(() => {
-    if (preset === 'custom') return { from: customFrom, to: customTo };
-    return rangeForPreset(preset);
-  }, [preset, customFrom, customTo]);
+  const range = useMemo(() => resolveRange(preset, custom), [preset, custom]);
 
   useEffect(() => {
     let alive = true;
     setLoading(true);
     api
-      .get('/analytics/summary', { params: range })
+      .get('/analytics/summary', { params: rangeParams(range) })
       .then((r) => {
         if (alive) setData(r.data);
       })
@@ -91,21 +65,14 @@ export default function StaffAnalytics() {
           <h1 className="page-title">Analytics</h1>
           <p className="page-subtitle">Sales, orders, and product performance · EGP</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPreset(p.id)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                preset === p.id
-                  ? 'bg-zinc-900 text-white'
-                  : 'border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-start gap-2">
+          <DateRangePicker
+            preset={preset}
+            onPreset={setPreset}
+            custom={custom}
+            onCustom={setCustom}
+            range={range}
+          />
           <Link
             to="/staff/reports"
             className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
@@ -115,28 +82,6 @@ export default function StaffAnalytics() {
         </div>
       </div>
 
-      {preset === 'custom' && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <label className="text-xs text-zinc-500">
-            From
-            <input
-              type="date"
-              className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
-              value={customFrom}
-              onChange={(e) => setCustomFrom(e.target.value)}
-            />
-          </label>
-          <label className="text-xs text-zinc-500">
-            To
-            <input
-              type="date"
-              className="ml-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm"
-              value={customTo}
-              onChange={(e) => setCustomTo(e.target.value)}
-            />
-          </label>
-        </div>
-      )}
 
       {insights.length > 0 && (
         <div className="sp-card mb-4 grid gap-0 overflow-hidden lg:grid-cols-[240px_1fr]">
