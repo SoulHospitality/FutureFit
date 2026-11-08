@@ -49,6 +49,7 @@ const previousRange = (start, end) => {
 const bucketKey = (date, mode, offsetMs = 0) => {
   const local = new Date(new Date(date).getTime() - offsetMs).toISOString();
   if (mode === 'hour') return `${local.slice(0, 13)}:00`;
+  if (mode === 'month') return local.slice(0, 7);
   return local.slice(0, 10);
 };
 
@@ -151,10 +152,28 @@ const byChannel = (orders) => {
 
 const analyticsSummary = async (req, res) => {
   try {
-    const { start, end, offsetMs } = parseRange(req.query.from, req.query.to, req.query.tz);
-    const prev = previousRange(start, end);
+    // "All time": start on the local day of the first recorded order or session.
+    const allTime = ['1', 'true'].includes(String(req.query.all || '').toLowerCase());
+    let from = req.query.from;
+    if (allTime) {
+      const tzMs = parseTzOffset(req.query.tz) * 60000;
+      const [firstOrder, firstSession] = await Promise.all([
+        prisma.order.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+        prisma.storePresence.findFirst({ orderBy: { createdAt: 'asc' }, select: { createdAt: true } }),
+      ]);
+      const firstMs = Math.min(
+        firstOrder?.createdAt?.getTime() ?? Infinity,
+        firstSession?.createdAt?.getTime() ?? Infinity,
+      );
+      from = Number.isFinite(firstMs)
+        ? new Date(firstMs - tzMs).toISOString().slice(0, 10)
+        : req.query.to;
+    }
+    const { start, end, offsetMs } = parseRange(from, req.query.to, req.query.tz);
+    // Nothing comes before "all time", so there is no comparison period.
+    const prev = allTime ? null : previousRange(start, end);
     const spanHours = (end - start) / 3600000;
-    const mode = spanHours <= 48 ? 'hour' : 'day';
+    const mode = spanHours <= 48 ? 'hour' : spanHours <= 92 * 24 ? 'day' : 'month';
 
     const include = {
       items: true,
@@ -166,22 +185,27 @@ const analyticsSummary = async (req, res) => {
         include,
         orderBy: { createdAt: 'asc' },
       }),
-      prisma.order.findMany({
-        where: { createdAt: { gte: prev.start, lte: prev.end } },
-        include,
-        orderBy: { createdAt: 'asc' },
-      }),
+      prev
+        ? prisma.order.findMany({
+            where: { createdAt: { gte: prev.start, lte: prev.end } },
+            include,
+            orderBy: { createdAt: 'asc' },
+          })
+        : [],
       prisma.storePresence.count({
         where: { createdAt: { gte: start, lte: end } },
       }),
-      prisma.storePresence.count({
-        where: { createdAt: { gte: prev.start, lte: prev.end } },
-      }),
+      prev
+        ? prisma.storePresence.count({
+            where: { createdAt: { gte: prev.start, lte: prev.end } },
+          })
+        : 0,
     ]);
 
     const current = summarizeOrders(orders);
     const previous = summarizeOrders(prevOrders);
     const pct = (a, b) => {
+      if (!prev) return null;
       if (b === 0) return a === 0 ? 0 : 100;
       return Math.round(((a - b) / Math.abs(b)) * 1000) / 10;
     };
@@ -194,7 +218,7 @@ const analyticsSummary = async (req, res) => {
     const locations = byLocation(orders);
     const insights = buildInsights({
       current,
-      previous,
+      previous: prev ? previous : null,
       products,
       locations,
       conversionRate,
@@ -202,8 +226,8 @@ const analyticsSummary = async (req, res) => {
     });
 
     res.json({
-      range: { from: start.toISOString(), to: end.toISOString(), mode },
-      compareRange: { from: prev.start.toISOString(), to: prev.end.toISOString() },
+      range: { from: start.toISOString(), to: end.toISOString(), mode, all: allTime },
+      compareRange: prev ? { from: prev.start.toISOString(), to: prev.end.toISOString() } : null,
       metrics: {
         ...current,
         sessions,
@@ -226,7 +250,7 @@ const analyticsSummary = async (req, res) => {
       insights,
       salesOverTime: {
         current: seriesFromOrders(orders, start, end, mode, offsetMs),
-        previous: seriesFromOrders(prevOrders, prev.start, prev.end, mode, offsetMs),
+        previous: prev ? seriesFromOrders(prevOrders, prev.start, prev.end, mode, offsetMs) : [],
       },
       breakdown: {
         grossSales: current.grossSales,
@@ -297,8 +321,9 @@ const buildInsights = ({ current, previous, products, locations, conversionRate,
       href: '/staff/live',
     });
   }
-  const salesChange =
-    previous.totalSales === 0
+  const salesChange = !previous
+    ? 0
+    : previous.totalSales === 0
       ? current.totalSales > 0
         ? 100
         : 0

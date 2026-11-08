@@ -36,7 +36,14 @@ export default function DualLineChart({
   const step = Math.max(1, Math.floor(current.length / 6));
   for (let i = 0; i < current.length; i += step) {
     const raw = current[i]?.label || '';
-    const short = raw.includes('T') ? raw.slice(11, 16) : raw.slice(5);
+    let short = raw.includes('T') ? raw.slice(11, 16) : raw.slice(5);
+    if (raw.length === 7) {
+      // Month bucket "YYYY-MM" → "Mar 26"
+      short = new Date(`${raw}-01T00:00:00`).toLocaleDateString('en-GB', {
+        month: 'short',
+        year: '2-digit',
+      });
+    }
     xLabels.push({
       x: pad.l + (i / Math.max(n - 1, 1)) * innerW,
       label: short,

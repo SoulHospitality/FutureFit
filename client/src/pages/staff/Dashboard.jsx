@@ -198,7 +198,9 @@ export default function StaffDashboard() {
               </>
             )}
           </div>
-          <p className="mt-2 text-[11px] text-zinc-400">Change compared with the period just before. Canceled orders are excluded.</p>
+          <p className="mt-2 text-[11px] text-zinc-400">
+            {range.all ? 'All orders to date.' : 'Change compared with the period just before.'} Canceled orders are excluded.
+          </p>
         </div>
       )}
 

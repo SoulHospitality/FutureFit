@@ -5,6 +5,7 @@ export const RANGE_PRESETS = [
   { id: 'yesterday', label: 'Yesterday' },
   { id: 'this_month', label: 'This month' },
   { id: 'last_month', label: 'Last month' },
+  { id: 'all', label: 'All' },
   { id: 'custom', label: 'Custom' },
 ];
 
@@ -42,6 +43,8 @@ export function rangeForPreset(id, now = new Date()) {
 
 /** Resolve the picker state to { from, to } with from ≤ to. */
 export function resolveRange(preset, custom) {
+  // "All": the server starts the range at the store's first recorded activity.
+  if (preset === 'all') return { from: '', to: localIsoDate(new Date()), all: true };
   if (preset !== 'custom') return rangeForPreset(preset);
   let { from, to } = custom || {};
   const today = localIsoDate(new Date());
@@ -52,11 +55,13 @@ export function resolveRange(preset, custom) {
 
 /** Query params the server needs to cut days in the viewer's time zone. */
 export function rangeParams(range) {
+  if (range.all) return { all: 1, to: range.to, tz: new Date().getTimezoneOffset() };
   return { from: range.from, to: range.to, tz: new Date().getTimezoneOffset() };
 }
 
 /** Short human label for the chosen range, e.g. "1 Nov – 8 Nov 2026". */
 export function rangeLabel(range) {
+  if (range.all) return 'All time';
   const fmt = (s, withYear) =>
     new Date(`${s}T00:00:00`).toLocaleDateString('en-GB', {
       day: 'numeric',

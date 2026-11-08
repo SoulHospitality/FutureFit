@@ -184,9 +184,11 @@ export default function StaffAnalytics() {
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-blue-600" /> Current
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-blue-300" /> Previous period
-              </span>
+              {!range.all && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-blue-300" /> Previous period
+                </span>
+              )}
             </div>
           </div>
           {loading ? (
