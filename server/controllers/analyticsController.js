@@ -560,8 +560,58 @@ const activityFeed = async (_req, res) => {
   }
 };
 
-const inventoryReport = async (_req, res) => {
+const FORECAST_WINDOWS = [7, 14, 30, 60, 90];
+const SOON_DAYS = 14;
+const norm = (v) => String(v || '').trim().toLowerCase();
+
+/**
+ * Units sold per SKU over the last `days` (canceled orders excluded).
+ * Keyed by product, then "color|size", so rows can match exactly or fall back.
+ */
+const salesBySku = async (since) => {
+  const items = await prisma.orderItem.findMany({
+    where: {
+      productId: { not: null },
+      order: { createdAt: { gte: since }, status: { not: 'canceled' } },
+    },
+    select: { productId: true, color: true, size: true, qty: true },
+  });
+  const byProduct = new Map();
+  for (const it of items) {
+    const qty = Math.max(0, Number(it.qty) || 0);
+    if (!qty) continue;
+    if (!byProduct.has(it.productId)) byProduct.set(it.productId, { total: 0, keys: new Map() });
+    const entry = byProduct.get(it.productId);
+    entry.total += qty;
+    const key = `${norm(it.color)}|${norm(it.size)}`;
+    entry.keys.set(key, (entry.keys.get(key) || 0) + qty);
+  }
+  return byProduct;
+};
+
+/** Units of this row sold: exact color+size match, else size-only / color-only, else the whole product when it is a single SKU. */
+const unitsForRow = (row, entry, rowCount) => {
+  if (!entry) return 0;
+  if (rowCount === 1) return entry.total;
+  const color = norm(row.color);
+  const size = norm(row.size);
+  let units = 0;
+  for (const [key, qty] of entry.keys) {
+    const [c, z] = key.split('|');
+    const colorOk = !color || !c || c === color;
+    const sizeOk = !size || !z || z === size;
+    if (colorOk && sizeOk) units += qty;
+  }
+  return units;
+};
+
+const inventoryReport = async (req, res) => {
   try {
+    const requested = Number(req.query.days);
+    const windowDays = FORECAST_WINDOWS.includes(requested) ? requested : 30;
+    const now = Date.now();
+    const since = new Date(now - windowDays * DAY_MS);
+    const salesPromise = salesBySku(since);
     const products = await prisma.product.findMany({
       include: {
         variants: { orderBy: { sortOrder: 'asc' } },
@@ -639,14 +689,56 @@ const inventoryReport = async (_req, res) => {
       }
     }
 
+    // Forecast: recent daily sales rate → days until each SKU runs out
+    const sales = await salesPromise;
+    const rowCounts = rows.reduce((m, r) => m.set(r.productId, (m.get(r.productId) || 0) + 1), new Map());
+    const createdAt = new Map(products.map((p) => [p.id, p.createdAt]));
+    for (const r of rows) {
+      const sold = unitsForRow(r, sales.get(r.productId), rowCounts.get(r.productId));
+      // New products haven't been on sale for the whole window — don't dilute their rate
+      const ageDays = Math.max(1, (now - new Date(createdAt.get(r.productId) || since).getTime()) / DAY_MS);
+      const activeDays = Math.min(windowDays, ageDays);
+      const perDay = sold / activeDays;
+      const stock = Math.max(0, Number(r.stock) || 0);
+      const daysLeft = r.out ? 0 : perDay > 0 ? stock / perDay : null;
+      r.sold = sold;
+      r.perDay = Math.round(perDay * 100) / 100;
+      r.perWeek = Math.round(perDay * 7 * 10) / 10;
+      r.daysLeft = daysLeft == null ? null : Math.round(daysLeft * 10) / 10;
+      r.stockoutDate = daysLeft == null ? null : new Date(now + daysLeft * DAY_MS).toISOString();
+      // Stock to hold 30 days of sales at this pace
+      r.reorderQty = perDay > 0 ? Math.max(0, Math.ceil(perDay * 30 - stock)) : 0;
+      r.soon = !r.out && daysLeft != null && daysLeft <= SOON_DAYS;
+    }
+
     rows.sort((a, b) => a.stock - b.stock);
+    const bestSellers = rows
+      .filter((r) => r.sold > 0)
+      .sort((a, b) => b.sold - a.sold || (a.daysLeft ?? 1e9) - (b.daysLeft ?? 1e9))
+      .slice(0, 15);
+    const runningOut = rows
+      .filter((r) => r.soon)
+      .sort((a, b) => a.daysLeft - b.daysLeft || b.sold - a.sold);
+    const outOfStock = rows
+      .filter((r) => r.out)
+      .sort((a, b) => b.sold - a.sold);
+
     res.json({
       rows,
+      forecast: {
+        windowDays,
+        soonDays: SOON_DAYS,
+        windows: FORECAST_WINDOWS,
+        bestSellers,
+        runningOut,
+        outOfStock,
+      },
       summary: {
         skus: rows.length,
         lowStock: rows.filter((r) => r.low && !r.out).length,
         outOfStock: rows.filter((r) => r.out).length,
         inStock: rows.filter((r) => !r.out).length,
+        runningOutSoon: runningOut.length,
       },
     });
   } catch (err) {
