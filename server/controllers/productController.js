@@ -729,6 +729,16 @@ const updateProduct = async (req, res) => {
     } else {
       delete data.photoByColor;
     }
+    // A new gallery makes colour photos that pointed at the old pictures stale
+    if (data.photos && data.photoByColor && typeof data.photoByColor === 'object') {
+      const gallery = new Set(data.photos);
+      const kept = {};
+      for (const [color, value] of Object.entries(data.photoByColor)) {
+        const urls = (Array.isArray(value) ? value : [value]).filter((u) => gallery.has(u));
+        if (urls.length) kept[color] = urls.length === 1 ? urls[0] : urls;
+      }
+      data.photoByColor = Object.keys(kept).length ? kept : null;
+    }
     if (
       req.body.audience !== undefined ||
       req.body.categoryId !== undefined

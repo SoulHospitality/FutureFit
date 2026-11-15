@@ -325,7 +325,7 @@ export default function StaffProducts() {
       const existing = photoList(form.photos);
       const next = mode === 'add' ? [...new Set([...existing, ...data.photos])] : data.photos;
       // Clear the link so Save doesn't add the folder's photos back after edits
-      setForm((f) => ({ ...f, photos: next.join('\n'), driveFolder: '' }));
+      setForm((f) => ({ ...f, photos: next.join('\n'), driveFolder: '', galleryTouched: true }));
       const extras = [
         data.subfolders ? `incl. ${data.subfolders} sub-folder${data.subfolders === 1 ? '' : 's'}` : '',
         data.skipped ? `${data.skipped} non-photo file${data.skipped === 1 ? '' : 's'} skipped` : '',
@@ -388,7 +388,9 @@ export default function StaffProducts() {
         stock: Math.max(0, Number(row.stock) || 0),
         price: row.price === '' || row.price == null ? null : Number(row.price),
         cost: row.cost === '' || row.cost == null ? null : Number(row.cost),
-        photos: row.photos || [],
+        // Per-colour photos (from bulk upload) override the gallery on the store,
+        // so a changed gallery replaces them — otherwise customers keep seeing the old ones
+        photos: form.galleryTouched ? [] : row.photos || [],
       }))
       .filter((row) => row.color && row.size && row.itemCode);
     const sizeStocks = form.sizeRows
@@ -406,10 +408,12 @@ export default function StaffProducts() {
       ...(form.driveFolder.trim() ? [form.driveFolder.trim()] : []),
     ];
     const colors = form.colors.split(',').map((s) => s.trim()).filter(Boolean);
+    // Only keep colour hero photos that are still in the gallery
+    const galleryUrls = new Set(links);
     const photoByColor = {};
     colors.forEach((c) => {
       const url = String(form.photoByColor?.[c] || '').trim();
-      if (url) photoByColor[c] = url;
+      if (url && (galleryUrls.has(url) || form.driveFolder.trim())) photoByColor[c] = url;
     });
     const sharedChildPrice = uniformVariantPrice(variants);
     const payload = {
@@ -489,6 +493,13 @@ export default function StaffProducts() {
   };
 
   const previewPhotos = photoList(form.photos);
+  const colorsWithOwnPhotos = [
+    ...new Set(
+      (form.variantRows || [])
+        .filter((row) => Array.isArray(row.photos) && row.photos.length && row.color)
+        .map((row) => String(row.color).trim())
+    ),
+  ];
 
   const formTotalStock = (form.variantRows?.length
     ? form.variantRows
@@ -1166,15 +1177,48 @@ export default function StaffProducts() {
                   rows={3}
                   className="input font-mono text-xs"
                   value={form.photos}
-                  onChange={(e) => setForm({ ...form, photos: e.target.value })}
+                  onChange={(e) => setForm({ ...form, photos: e.target.value, galleryTouched: true })}
                   placeholder="Individual Drive file links or direct image URLs"
                 />
               </div>
 
               <PhotoManager
                 photos={previewPhotos}
-                onChange={(next) => setForm((f) => ({ ...f, photos: next.join('\n') }))}
+                onChange={(next) =>
+                  setForm((f) => ({ ...f, photos: next.join('\n'), galleryTouched: true }))
+                }
               />
+
+              {colorsWithOwnPhotos.length > 0 && (
+                <div
+                  className={`rounded-lg border px-3 py-2.5 text-xs ${
+                    form.galleryTouched
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      : 'border-amber-200 bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  {form.galleryTouched ? (
+                    <>
+                      Saving will show this gallery to customers for every colour (replacing the
+                      per-colour photos from the bulk upload for {colorsWithOwnPhotos.join(', ')}).
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        Customers currently see per-colour photos from the bulk upload for{' '}
+                        <strong>{colorsWithOwnPhotos.join(', ')}</strong>, not this gallery.
+                      </span>
+                      <button
+                        type="button"
+                        className="font-semibold underline"
+                        onClick={() => setForm((f) => ({ ...f, galleryTouched: true }))}
+                      >
+                        Use this gallery instead
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {form.colors
