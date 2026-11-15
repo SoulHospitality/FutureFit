@@ -5,7 +5,8 @@ import { ChevronDown, Download, ExternalLink, FolderOpen, LayoutGrid, Loader2, M
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
 import BulkUploadModal from '../../components/staff/BulkUploadModal';
-import { AUDIENCES, formatMoney, getImageUrl, asArray, totalStock, audienceLabel, categoryLabel } from '../../utils/helpers';
+import PhotoManager from '../../components/staff/PhotoManager';
+import { AUDIENCES, formatMoney, getImageUrl, photoList, asArray, totalStock, audienceLabel, categoryLabel } from '../../utils/helpers';
 import { downloadProductWorkbook } from '../../utils/productExport';
 
 const DEFAULT_SIZE_ROWS = [
@@ -310,21 +311,36 @@ export default function StaffProducts() {
     }));
   };
 
-  const loadDriveFolder = async () => {
+  /** mode: 'replace' swaps the item's photos for the folder's; 'add' appends them. */
+  const loadDriveFolder = async (mode = 'replace') => {
     const folder = form.driveFolder.trim();
     if (!folder) return toast.error('Paste a Google Drive folder link first');
-    setLoadingFolder(true);
+    setLoadingFolder(mode);
     try {
-      const { data } = await api.post('/products/resolve-photos', { links: [folder] });
-      const existing = form.photos
-        .split(/[\n,]/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const merged = [...new Set([...existing, ...data.photos])];
-      setForm((f) => ({ ...f, photos: merged.join('\n') }));
-      toast.success(`Loaded ${data.count} image${data.count === 1 ? '' : 's'} from Drive`);
+      const { data } = await api.post(
+        '/products/resolve-photos',
+        { links: [folder] },
+        { timeout: 60000 }
+      );
+      const existing = photoList(form.photos);
+      const next = mode === 'add' ? [...new Set([...existing, ...data.photos])] : data.photos;
+      // Clear the link so Save doesn't add the folder's photos back after edits
+      setForm((f) => ({ ...f, photos: next.join('\n'), driveFolder: '' }));
+      const extras = [
+        data.subfolders ? `incl. ${data.subfolders} sub-folder${data.subfolders === 1 ? '' : 's'}` : '',
+        data.skipped ? `${data.skipped} non-photo file${data.skipped === 1 ? '' : 's'} skipped` : '',
+      ].filter(Boolean);
+      toast.success(
+        `${mode === 'add' ? 'Added' : 'Loaded'} ${data.count} photo${data.count === 1 ? '' : 's'} from Drive${
+          extras.length ? ` (${extras.join(', ')})` : ''
+        }. Save to apply.`
+      );
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Could not read Drive folder');
+      toast.error(
+        err.code === 'ECONNABORTED'
+          ? 'Google Drive is taking too long. Try again.'
+          : err.response?.data?.message || 'Could not read Drive folder'
+      );
     } finally {
       setLoadingFolder(false);
     }
@@ -472,11 +488,7 @@ export default function StaffProducts() {
     }
   };
 
-  const previewPhotos = form.photos
-    .split(/[\n,]/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 8);
+  const previewPhotos = photoList(form.photos);
 
   const formTotalStock = (form.variantRows?.length
     ? form.variantRows
@@ -1115,20 +1127,36 @@ export default function StaffProducts() {
                   <button
                     type="button"
                     className="btn-dark btn-sm whitespace-nowrap"
-                    onClick={loadDriveFolder}
-                    disabled={loadingFolder}
+                    onClick={() => loadDriveFolder('replace')}
+                    disabled={Boolean(loadingFolder)}
+                    title={previewPhotos.length ? "Replace this item's photos with the folder's" : undefined}
                   >
-                    {loadingFolder ? (
+                    {loadingFolder === 'replace' ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <FolderOpen className="w-4 h-4" />
                     )}
-                    Load
+                    {previewPhotos.length ? 'Replace photos' : 'Load'}
                   </button>
+                  {previewPhotos.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm whitespace-nowrap border border-timber-200"
+                      onClick={() => loadDriveFolder('add')}
+                      disabled={Boolean(loadingFolder)}
+                    >
+                      {loadingFolder === 'add' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      Add
+                    </button>
+                  )}
                 </div>
                 <p className="mt-1.5 text-xs text-timber-400">
-                  Folder must be shared as “Anyone with the link”. All images inside are added
-                  automatically on Load or Save.
+                  Share the folder as “Anyone with the link”. Photos load in file-name order (1, 2, 3…),
+                  then any sub-folders. Phone share links work too.
                 </p>
               </div>
 
@@ -1143,18 +1171,10 @@ export default function StaffProducts() {
                 />
               </div>
 
-              {previewPhotos.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {previewPhotos.map((url) => (
-                    <img
-                      key={url}
-                      src={getImageUrl(url)}
-                      alt=""
-                      className="h-14 w-14 rounded-lg object-cover border border-timber-100 bg-timber-50"
-                    />
-                  ))}
-                </div>
-              )}
+              <PhotoManager
+                photos={previewPhotos}
+                onChange={(next) => setForm((f) => ({ ...f, photos: next.join('\n') }))}
+              />
             </div>
 
             {form.colors

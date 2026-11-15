@@ -652,3 +652,10 @@ export const sparkSeriesFromOrders = (orders, days = 7, field = 'count') => {
   }
   return buckets;
 };
+
+/** Split a photo list typed one per line (or comma-separated) into clean URLs. */
+export const photoList = (text) =>
+  String(text || '')
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);

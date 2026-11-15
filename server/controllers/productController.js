@@ -1,6 +1,6 @@
 const prisma = require('../lib/prisma');
 const cache = require('../lib/cache');
-const { resolvePhotoLinks } = require('../utils/drivePhotos');
+const { resolvePhotoLinks, resolvePhotoLinksDetailed } = require('../utils/drivePhotos');
 const {
   normalizeSizeStocks,
   sizeStockWrites,
@@ -504,10 +504,10 @@ const getProduct = async (req, res) => {
 const resolvePhotos = async (req, res) => {
   try {
     const links = req.body.links || req.body.photos || [];
-    const photos = await resolvePhotoLinks(links);
-    res.json({ photos, count: photos.length });
+    const { photos, skipped, subfolders, folders } = await resolvePhotoLinksDetailed(links);
+    res.json({ photos, count: photos.length, skipped, subfolders, folders });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(error.status || 400).json({ message: error.message });
   }
 };
 
