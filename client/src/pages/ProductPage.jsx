@@ -30,7 +30,7 @@ import {
   audienceLabel,
   categoryLabel,
   colorSwatchStyle,
-  photosForColor,
+  allPhotosForColor,
   preloadImages,
   asArray,
 } from '../utils/helpers';
@@ -302,7 +302,8 @@ export default function ProductPage() {
   }, [product]);
 
   const photos = useMemo(() => {
-    const list = photosForColor(product, color);
+    // Every photo of the item; the chosen colour's come first
+    const list = allPhotosForColor(product, color);
     return list.length ? list : [''];
   }, [product, color]);
 
@@ -313,11 +314,12 @@ export default function ProductPage() {
 
   useEffect(() => {
     if (!galleryUrls.length) return;
-    preloadImages(galleryUrls);
+    // The rest load lazily as the shopper scrolls
+    preloadImages(galleryUrls.slice(0, 6));
     // Warm lightbox sizes for nearby shots after idle
     const t = window.setTimeout(() => {
       preloadImages(
-        photos.filter(Boolean).map((src) => getImageUrl(src, { width: 1600 }))
+        photos.filter(Boolean).slice(0, 3).map((src) => getImageUrl(src, { width: 1600 }))
       );
     }, 600);
     return () => window.clearTimeout(t);
@@ -473,7 +475,7 @@ export default function ProductPage() {
 
                 {/* Desktop — editorial grid */}
                 <div className="hidden grid-cols-2 gap-3 lg:grid">
-                  {galleryUrls.slice(0, 6).map((src, i) => (
+                  {galleryUrls.map((src, i) => (
                     <button
                       key={`${src}-${i}`}
                       type="button"

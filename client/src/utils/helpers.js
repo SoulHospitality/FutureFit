@@ -216,6 +216,35 @@ export const photosForColor = (product, color) => {
   return Array.isArray(product.photos) && product.photos.length ? product.photos : [];
 };
 
+/**
+ * Every photo of a product, de-duplicated: the chosen colour's photos first,
+ * then the main gallery, then the other colours' photos (in colour order).
+ */
+export const allPhotosForColor = (product, color) => {
+  if (!product) return [];
+  const out = [];
+  const seen = new Set();
+  const add = (list) => {
+    for (const url of Array.isArray(list) ? list : [list]) {
+      const u = String(url || '').trim();
+      if (u && !seen.has(u)) {
+        seen.add(u);
+        out.push(u);
+      }
+    }
+  };
+  if (color) add(photosForColor(product, color));
+  add(product.photos);
+  const colors = [...(product.colors || [])];
+  const map = product.photoByColor && typeof product.photoByColor === 'object' ? product.photoByColor : {};
+  for (const key of Object.keys(map)) {
+    if (!colors.some((c) => String(c).toLowerCase() === key.toLowerCase())) colors.push(key);
+  }
+  for (const c of colors) add(photosForColor(product, c));
+  for (const v of product.variants || []) add(v.photos);
+  return out;
+};
+
 export const formatMoney = (n) =>
   new Intl.NumberFormat('en-EG', {
     style: 'currency',
