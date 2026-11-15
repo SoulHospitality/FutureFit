@@ -11,6 +11,13 @@ const REPORTS = [
     system: true,
   },
   {
+    id: 'sales-export',
+    name: 'Sales report — export to Excel (orders, items, products, categories)',
+    category: 'Sales',
+    to: '/staff/analytics',
+    system: true,
+  },
+  {
     id: 'sales-breakdown',
     name: 'Total sales breakdown',
     category: 'Finances',

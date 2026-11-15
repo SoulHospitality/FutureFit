@@ -73,7 +73,15 @@ const summarizeOrders = (orders) => {
   const orderCount = active.length;
   const aov = orderCount ? totalSales / orderCount : 0;
   const paid = active.filter((o) => o.isPaid).reduce((s, o) => s + Number(o.totalPrice), 0);
+  const unitsSold = active.reduce(
+    (n, o) => n + (o.items || []).reduce((m, it) => m + (Number(it.qty) || 0), 0),
+    0
+  );
+  const canceled = orders.filter((o) => o.status === 'canceled');
   return {
+    unitsSold,
+    canceledCount: canceled.length,
+    canceledValue: canceled.reduce((s, o) => s + Number(o.totalPrice), 0),
     grossSales,
     discounts,
     shippingCharges: shipping,
@@ -91,13 +99,19 @@ const summarizeOrders = (orders) => {
 
 const seriesFromOrders = (orders, start, end, mode, offsetMs = 0) => {
   const keys = buildBuckets(start, end, mode, offsetMs);
-  const map = Object.fromEntries(keys.map((k) => [k, { value: 0, count: 0 }]));
+  const map = Object.fromEntries(
+    keys.map((k) => [k, { value: 0, count: 0, units: 0, gross: 0, discounts: 0, shipping: 0 }])
+  );
   for (const o of orders) {
     if (o.status === 'canceled') continue;
     const k = bucketKey(o.createdAt, mode, offsetMs);
     if (!map[k]) continue;
     map[k].value += Number(o.totalPrice);
     map[k].count += 1;
+    map[k].gross += Number(o.itemsPrice);
+    map[k].discounts += Number(o.discountAmount);
+    map[k].shipping += Number(o.shippingPrice);
+    map[k].units += (o.items || []).reduce((m, it) => m + (Number(it.qty) || 0), 0);
   }
   return keys.map((label) => ({ label, ...map[label] }));
 };
@@ -109,15 +123,17 @@ const topProducts = (orders) => {
     for (const item of o.items || []) {
       const key = item.productId || item.name;
       if (!map[key]) {
-        map[key] = { productId: item.productId, name: item.name, qty: 0, revenue: 0 };
+        map[key] = { productId: item.productId, name: item.name, qty: 0, revenue: 0, orders: new Set() };
       }
       map[key].qty += item.qty || 0;
       map[key].revenue += Number(item.price) * (item.qty || 0);
+      map[key].orders.add(o.id);
     }
   }
   return Object.values(map)
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 12);
+    .map((r) => ({ ...r, orders: r.orders.size }))
+    .sort((a, b) => b.revenue - a.revenue || b.qty - a.qty)
+    .slice(0, 500);
 };
 
 const byLocation = (orders) => {
@@ -136,6 +152,110 @@ const byLocation = (orders) => {
   return Object.values(map)
     .sort((a, b) => b.orders - a.orders)
     .slice(0, 15);
+};
+
+/** Item sales grouped by product category ("Parent › Child"). */
+const byCategory = async (orders) => {
+  const ids = new Set();
+  for (const o of orders) {
+    if (o.status === 'canceled') continue;
+    for (const it of o.items || []) if (it.productId) ids.add(it.productId);
+  }
+  const products = ids.size
+    ? await prisma.product.findMany({
+        where: { id: { in: [...ids] } },
+        select: {
+          id: true,
+          category: { select: { name: true, parent: { select: { name: true } } } },
+        },
+      })
+    : [];
+  const label = new Map(
+    products.map((p) => [
+      p.id,
+      p.category
+        ? [p.category.parent?.name, p.category.name].filter(Boolean).join(' › ')
+        : 'Uncategorized',
+    ])
+  );
+  const map = {};
+  for (const o of orders) {
+    if (o.status === 'canceled') continue;
+    for (const it of o.items || []) {
+      const key = (it.productId && label.get(it.productId)) || 'Uncategorized';
+      if (!map[key]) map[key] = { category: key, qty: 0, revenue: 0, orders: new Set() };
+      map[key].qty += Number(it.qty) || 0;
+      map[key].revenue += Number(it.price) * (Number(it.qty) || 0);
+      map[key].orders.add(o.id);
+    }
+  }
+  return Object.values(map)
+    .map((r) => ({ ...r, orders: r.orders.size }))
+    .sort((a, b) => b.revenue - a.revenue);
+};
+
+const PAYMENT_LABELS = { cod: 'Cash on delivery', card: 'Card', paymob: 'Card (Paymob)', wallet: 'Wallet' };
+const paymentLabel = (m) => PAYMENT_LABELS[String(m || '').toLowerCase()] || m || 'Other';
+
+const byPaymentMethod = (orders) => {
+  const map = {};
+  for (const o of orders) {
+    if (o.status === 'canceled') continue;
+    const key = paymentLabel(o.paymentMethod);
+    if (!map[key]) map[key] = { method: key, orders: 0, revenue: 0, paid: 0 };
+    map[key].orders += 1;
+    map[key].revenue += Number(o.totalPrice);
+    if (o.isPaid) map[key].paid += Number(o.totalPrice);
+  }
+  return Object.values(map).sort((a, b) => b.revenue - a.revenue);
+};
+
+const localStamp = (date, offsetMs) =>
+  new Date(new Date(date).getTime() - offsetMs).toISOString().slice(0, 16).replace('T', ' ');
+
+/** Order and line-item rows for the spreadsheet export. */
+const exportRows = (orders, offsetMs) => {
+  const orderRows = [];
+  const itemRows = [];
+  for (const o of orders) {
+    const addr = o.shippingAddress || {};
+    const customer = o.user?.name || o.guestName || addr.name || 'Guest';
+    const phone = addr.phone || o.guestPhone || o.user?.phone || '';
+    const date = localStamp(o.createdAt, offsetMs);
+    const units = (o.items || []).reduce((m, it) => m + (Number(it.qty) || 0), 0);
+    orderRows.push({
+      order: o.id.slice(0, 8),
+      date,
+      customer,
+      phone,
+      email: o.user?.email || o.guestEmail || '',
+      city: addr.city || '',
+      governorate: addr.state || '',
+      status: o.status,
+      payment: paymentLabel(o.paymentMethod),
+      paid: o.isPaid ? 'Yes' : 'No',
+      units,
+      subtotal: Number(o.itemsPrice),
+      discount: Number(o.discountAmount),
+      shipping: Number(o.shippingPrice),
+      total: Number(o.totalPrice),
+      coupon: o.couponCode || '',
+    });
+    for (const it of o.items || []) {
+      itemRows.push({
+        order: o.id.slice(0, 8),
+        date,
+        status: o.status,
+        product: it.name,
+        color: it.color || '',
+        size: it.size || '',
+        qty: Number(it.qty) || 0,
+        price: Number(it.price),
+        lineTotal: Number(it.price) * (Number(it.qty) || 0),
+      });
+    }
+  }
+  return { orders: orderRows, items: itemRows };
 };
 
 const byChannel = (orders) => {
@@ -216,6 +336,8 @@ const analyticsSummary = async (req, res) => {
     const customerStats = customerReturningStats(orders);
     const products = topProducts(orders);
     const locations = byLocation(orders);
+    const categories = await byCategory(orders);
+    const withRows = String(req.query.include || '').split(',').includes('orders');
     const insights = buildInsights({
       current,
       previous: prev ? previous : null,
@@ -239,6 +361,8 @@ const analyticsSummary = async (req, res) => {
           totalSales: pct(current.totalSales, previous.totalSales),
           orderCount: pct(current.orderCount, previous.orderCount),
           averageOrderValue: pct(current.averageOrderValue, previous.averageOrderValue),
+          unitsSold: pct(current.unitsSold, previous.unitsSold),
+          netSales: pct(current.netSales, previous.netSales),
           grossSales: pct(current.grossSales, previous.grossSales),
           conversionRate:
             prevConversion == null || conversionRate == null
@@ -263,7 +387,10 @@ const analyticsSummary = async (req, res) => {
         totalSales: current.totalSales,
       },
       byProduct: products,
+      byCategory: categories,
+      byPaymentMethod: byPaymentMethod(orders),
       byLocation: locations,
+      ...(withRows ? { rows: exportRows(orders, offsetMs) } : {}),
       byChannel: byChannel(orders),
       byStatus: orders.reduce((acc, o) => {
         acc[o.status] = (acc[o.status] || 0) + 1;
