@@ -332,7 +332,7 @@ export default function StaffAnalytics() {
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Sales by product</h2>
             <p className="text-xs text-zinc-400">
-              {products.length} product{products.length === 1 ? '' : 's'} sold · item prices before order discounts
+              {products.length} product{products.length === 1 ? '' : 's'} sold · what customers paid, after offers and coupons (shipping not included)
             </p>
           </div>
           {products.length > 10 && (

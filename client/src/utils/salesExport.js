@@ -146,8 +146,9 @@ export async function downloadSalesWorkbook(data, { periodLabel, fileStem }) {
       { header: 'Product', key: 'name', width: 40 },
       { header: 'Units sold', key: 'qty', fmt: COUNT, total: true },
       { header: 'Orders', key: 'orders', fmt: COUNT },
-      { header: 'Item sales (EGP)', key: 'revenue', fmt: MONEY, width: 18, total: true },
-      { header: 'Share of item sales', key: 'share', fmt: PCT, width: 18 },
+      { header: 'Sales — paid (EGP)', key: 'revenue', fmt: MONEY, width: 18, total: true },
+      { header: 'Before discounts (EGP)', key: 'listRevenue', fmt: MONEY, width: 20, total: true },
+      { header: 'Share of sales', key: 'share', fmt: PCT, width: 16 },
     ],
     (data?.byProduct || []).map((p) => ({ ...p, share: shareOf(n(p.revenue), itemRevenue) }))
   );
@@ -159,8 +160,8 @@ export async function downloadSalesWorkbook(data, { periodLabel, fileStem }) {
       { header: 'Category', key: 'category', width: 34 },
       { header: 'Units sold', key: 'qty', fmt: COUNT, total: true },
       { header: 'Orders', key: 'orders', fmt: COUNT },
-      { header: 'Item sales (EGP)', key: 'revenue', fmt: MONEY, width: 18, total: true },
-      { header: 'Share of item sales', key: 'share', fmt: PCT, width: 18 },
+      { header: 'Sales — paid (EGP)', key: 'revenue', fmt: MONEY, width: 18, total: true },
+      { header: 'Share of sales', key: 'share', fmt: PCT, width: 16 },
     ],
     (data?.byCategory || []).map((c) => ({ ...c, share: shareOf(n(c.revenue), itemRevenue) }))
   );
@@ -224,7 +225,9 @@ export async function downloadSalesWorkbook(data, { periodLabel, fileStem }) {
       { header: 'Size', key: 'size', width: 9 },
       { header: 'Qty', key: 'qty', fmt: COUNT, width: 7, total: true },
       { header: 'Unit price', key: 'price', fmt: MONEY },
-      { header: 'Line total', key: 'lineTotal', fmt: MONEY, total: true },
+      { header: 'Before discounts', key: 'lineTotal', fmt: MONEY, width: 16, total: true },
+      { header: 'Discount share', key: 'discount', fmt: MONEY, width: 15, total: true },
+      { header: 'Paid', key: 'paid', fmt: MONEY, total: true },
     ],
     allItems.filter((it) => it.status !== 'canceled')
   );

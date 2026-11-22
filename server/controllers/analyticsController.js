@@ -116,6 +116,23 @@ const seriesFromOrders = (orders, start, end, mode, offsetMs = 0) => {
   return keys.map((label) => ({ label, ...map[label] }));
 };
 
+/**
+ * Share of each item's list price the customer actually paid. Offers and coupons
+ * are stored as one discount on the order, so it is spread over the items in
+ * proportion to their price (shipping is not part of item sales).
+ */
+const paidShare = (o) => {
+  const items = Number(o.itemsPrice) || 0;
+  if (items <= 0) return 1;
+  const discount = Math.min(items, Math.max(0, Number(o.discountAmount) || 0));
+  return (items - discount) / items;
+};
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+/** What the customer paid for one order line, after its share of the order's discount. */
+const paidLine = (o, it) => (Number(it.price) || 0) * (Number(it.qty) || 0) * paidShare(o);
+
 const topProducts = (orders) => {
   const map = {};
   for (const o of orders) {
@@ -123,15 +140,28 @@ const topProducts = (orders) => {
     for (const item of o.items || []) {
       const key = item.productId || item.name;
       if (!map[key]) {
-        map[key] = { productId: item.productId, name: item.name, qty: 0, revenue: 0, orders: new Set() };
+        map[key] = {
+          productId: item.productId,
+          name: item.name,
+          qty: 0,
+          revenue: 0,
+          listRevenue: 0,
+          orders: new Set(),
+        };
       }
       map[key].qty += item.qty || 0;
-      map[key].revenue += Number(item.price) * (item.qty || 0);
+      map[key].revenue += paidLine(o, item);
+      map[key].listRevenue += Number(item.price) * (item.qty || 0);
       map[key].orders.add(o.id);
     }
   }
   return Object.values(map)
-    .map((r) => ({ ...r, orders: r.orders.size }))
+    .map((r) => ({
+      ...r,
+      revenue: round2(r.revenue),
+      listRevenue: round2(r.listRevenue),
+      orders: r.orders.size,
+    }))
     .sort((a, b) => b.revenue - a.revenue || b.qty - a.qty)
     .slice(0, 500);
 };
@@ -185,12 +215,12 @@ const byCategory = async (orders) => {
       const key = (it.productId && label.get(it.productId)) || 'Uncategorized';
       if (!map[key]) map[key] = { category: key, qty: 0, revenue: 0, orders: new Set() };
       map[key].qty += Number(it.qty) || 0;
-      map[key].revenue += Number(it.price) * (Number(it.qty) || 0);
+      map[key].revenue += paidLine(o, it);
       map[key].orders.add(o.id);
     }
   }
   return Object.values(map)
-    .map((r) => ({ ...r, orders: r.orders.size }))
+    .map((r) => ({ ...r, revenue: round2(r.revenue), orders: r.orders.size }))
     .sort((a, b) => b.revenue - a.revenue);
 };
 
@@ -252,6 +282,8 @@ const exportRows = (orders, offsetMs) => {
         qty: Number(it.qty) || 0,
         price: Number(it.price),
         lineTotal: Number(it.price) * (Number(it.qty) || 0),
+        discount: round2(Number(it.price) * (Number(it.qty) || 0) - paidLine(o, it)),
+        paid: round2(paidLine(o, it)),
       });
     }
   }
