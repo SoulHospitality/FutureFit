@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
 import api from '../../api/axios';
 import {
   asArray,
@@ -35,6 +35,81 @@ function AddressCell({ address }) {
   );
 }
 
+/** Matches MAX_AUTO_ATTEMPTS on the server: after this many failed tries an order is flagged. */
+const BOSTA_MAX_TRIES = 3;
+
+const awaitingBosta = (o) =>
+  !isBostaSynced(o) && !['canceled', 'delivered'].includes(o.status);
+
+const isBostaFlagged = (o) => awaitingBosta(o) && (o.bostaSyncAttempts || 0) >= BOSTA_MAX_TRIES;
+
+const isBostaRetrying = (o) =>
+  awaitingBosta(o) && Boolean(o.bostaSyncError) && (o.bostaSyncAttempts || 0) > 0 && !isBostaFlagged(o);
+
+/** A timed-out or unclear answer: the shipment might already exist on Bosta. */
+const mayBeOnBosta = (o) =>
+  /did not answer within|without a tracking number/i.test(String(o.bostaSyncError || ''));
+
+/** What happens next for a flagged order, in plain words. */
+function flaggedHint(o) {
+  if (mayBeOnBosta(o)) {
+    return 'Bosta may have created this shipment without confirming it. Check the Bosta dashboard first — it will not be retried automatically, so it can’t ship twice.';
+  }
+  if (o.bostaSyncRetryable === false) {
+    return 'Bosta rejected the details. Fix them on the order (Edit customer) — saving starts 3 new automatic tries.';
+  }
+  return 'Still retrying automatically every 30 minutes. If it keeps failing, check the details on the order.';
+}
+
+function FailedSyncPanel({ orders }) {
+  if (!orders.length) return null;
+  return (
+    <div className="mb-5 overflow-hidden rounded-xl border-2 border-red-500 bg-red-50 shadow-sm">
+      <div className="flex items-start gap-3 bg-red-600 px-4 py-3 text-white">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
+        <div>
+          <p className="text-sm font-semibold">
+            {orders.length} order{orders.length === 1 ? '' : 's'} failed to sync with Bosta {BOSTA_MAX_TRIES} times
+          </p>
+          <p className="text-xs text-red-100">These are not on Bosta yet and need attention.</p>
+        </div>
+      </div>
+      <ul className="divide-y divide-red-200">
+        {orders.map((o) => (
+          <li key={o.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-red-900">
+                <Link to={`/staff/orders/${o.id}`} className="hover:underline">
+                  #{o.id.slice(0, 8)}
+                </Link>
+                <span className="font-normal text-red-800">
+                  {' '}
+                  · {o.customerName || o.user?.name || o.guestName || 'Guest'} ·{' '}
+                  {o.customerPhone || o.guestPhone || '—'} · {formatMoney(o.totalPrice)}
+                </span>
+              </p>
+              <p className="mt-1 break-words text-xs font-medium text-red-700">
+                {o.bostaSyncError || 'Bosta sync failed'}
+              </p>
+              <p className="mt-1 text-xs text-red-800/80">{flaggedHint(o)}</p>
+            </div>
+            <div className="shrink-0 text-right text-[11px] text-red-800/80">
+              <p>{o.bostaSyncAttempts} tries</p>
+              {o.bostaLastAttemptAt ? <p>Last: {formatStaffDate(o.bostaLastAttemptAt)}</p> : null}
+              <Link
+                to={`/staff/orders/${o.id}`}
+                className="mt-1.5 inline-block rounded-lg bg-red-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-700"
+              >
+                Open order
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 const NEXT = {
   pending: ['confirmed', 'canceled'],
   confirmed: ['out_for_delivery', 'canceled', 'problem'],
@@ -45,21 +120,25 @@ const NEXT = {
 };
 
 export default function StaffDeliveries() {
-  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('');
   const [deletingId, setDeletingId] = useState(null);
   const [markingId, setMarkingId] = useState(null);
-  const [shippingId, setShippingId] = useState(null);
 
-  const load = () =>
-    api
-      .get('/orders' + (filter ? `?status=${filter}` : ''))
-      .then((r) => setOrders(asArray(r.data)));
+  // Load every order so the failed-sync list is complete whatever the filter;
+  // refresh each minute to pick up the automatic retries.
+  const load = () => api.get('/orders').then((r) => setOrders(asArray(r.data)));
 
   useEffect(() => {
     load();
-  }, [filter]);
+    const t = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load().catch(() => {});
+    }, 60 * 1000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const shown = filter ? orders.filter((o) => o.status === filter) : orders;
+  const flagged = orders.filter(isBostaFlagged);
 
   const setStatus = async (id, status) => {
     try {
@@ -84,39 +163,7 @@ export default function StaffDeliveries() {
     }
   };
 
-  /** Manual retry only — primary path is auto-sync on confirm/payment */
-  const retryBosta = async (order) => {
-    setShippingId(order.id);
-    try {
-      const { data } = await api.post(`/bosta/orders/${order.id}/ship`);
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.id === order.id
-            ? {
-                ...o,
-                ...data,
-                bostaTrackingNumber: data.bostaTrackingNumber || o.bostaTrackingNumber,
-                shippingCarrier: data.shippingCarrier || 'bosta',
-              }
-            : o
-        )
-      );
-      toast.success(
-        data.bostaTrackingNumber
-          ? `Bosta synced · ${data.bostaTrackingNumber}`
-          : 'Bosta synced'
-      );
-    } catch (err) {
-      const message = err.response?.data?.message || 'Bosta sync failed';
-      toast.error(message);
-      // Only the order page can pick a Bosta area.
-      if (/choose the bosta area/i.test(message)) navigate(`/staff/orders/${order.id}`);
-    } finally {
-      setShippingId(null);
-    }
-  };
-
-  const remove = async (order) => {
+    const remove = async (order) => {
     const label = order.id.slice(0, 8);
     if (!window.confirm(`Delete order ${label}? This cannot be undone.`)) return;
     setDeletingId(order.id);
@@ -137,7 +184,8 @@ export default function StaffDeliveries() {
         <div>
           <h1 className="page-title">Deliveries</h1>
           <p className="page-subtitle">
-            Bosta tracking and status — shipments create automatically when orders confirm
+            Bosta tracking and status — shipments create automatically when orders confirm, and
+            failed syncs retry on their own
           </p>
         </div>
         <select
@@ -153,6 +201,8 @@ export default function StaffDeliveries() {
           ))}
         </select>
       </div>
+
+      <FailedSyncPanel orders={flagged} />
 
       <div className="sp-card overflow-hidden">
         <div className="overflow-x-auto">
@@ -173,11 +223,14 @@ export default function StaffDeliveries() {
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => {
+              {shown.map((o) => {
                 const pay = paymentStatusMeta(o);
                 const delivery = deliveryStatusMeta(o);
                 return (
-                  <tr key={o.id}>
+                  <tr
+                    key={o.id}
+                    className={isBostaFlagged(o) ? 'bg-red-50 shadow-[inset_3px_0_0_#dc2626]' : ''}
+                  >
                     <td className="font-medium text-zinc-900">
                       <Link to={`/staff/orders/${o.id}`} className="hover:underline">
                         #{o.id.slice(0, 8)}
@@ -202,6 +255,20 @@ export default function StaffDeliveries() {
                     <td>
                       {isBostaSynced(o) ? (
                         <span className="sp-tag">bosta_synced</span>
+                      ) : isBostaFlagged(o) ? (
+                        <span
+                          className="inline-flex rounded-full bg-red-600 px-2 py-0.5 text-[11px] font-semibold text-white"
+                          title={o.bostaSyncError || ''}
+                        >
+                          Bosta failed
+                        </span>
+                      ) : isBostaRetrying(o) ? (
+                        <span
+                          className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800"
+                          title={o.bostaSyncError || ''}
+                        >
+                          Retrying {o.bostaSyncAttempts}/{BOSTA_MAX_TRIES}
+                        </span>
                       ) : (
                         <span className="text-xs text-zinc-400">—</span>
                       )}
@@ -218,24 +285,6 @@ export default function StaffDeliveries() {
                             Capture
                           </button>
                         )}
-                        {!isBostaSynced(o) &&
-                          o.status !== 'canceled' &&
-                          o.status !== 'delivered' && (
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-50"
-                              disabled={shippingId === o.id}
-                              onClick={() => retryBosta(o)}
-                              title={
-                                o.bostaSyncError
-                                  ? `Last Bosta error: ${o.bostaSyncError}`
-                                  : 'Retry Bosta sync (only if auto-sync failed)'
-                              }
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.5} />
-                              {shippingId === o.id ? 'Syncing…' : 'Retry sync'}
-                            </button>
-                          )}
                         {(NEXT[o.status] || []).map((s) => (
                           <button
                             key={s}
@@ -260,7 +309,7 @@ export default function StaffDeliveries() {
                   </tr>
                 );
               })}
-              {orders.length === 0 && (
+              {shown.length === 0 && (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-sm text-zinc-400">
                     No deliveries to show

@@ -17,10 +17,14 @@ const orderInclude = {
   user: { select: { id: true, name: true, email: true, phone: true } },
 };
 
-const MAX_AUTO_ATTEMPTS = 5;
+/** After this many failed tries the order is flagged red on Staff → Deliveries. */
+const MAX_AUTO_ATTEMPTS = 3;
 const SYNC_LOCK_MS = 2 * 60 * 1000;
-const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
-const SWEEP_BASE_GAP_MS = 10 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 1000;
+/** Wait after the 1st and 2nd failure before trying again. */
+const RETRY_GAPS_MS = [2 * 60 * 1000, 5 * 60 * 1000];
+/** Flagged orders whose error looks temporary (Bosta down, timeout) keep trying at this pace. */
+const SLOW_RETRY_GAP_MS = 30 * 60 * 1000;
 /** Leave fresh orders to the checkout / payment flow that is shipping them now. */
 const SWEEP_MIN_AGE_MS = 3 * 60 * 1000;
 const SWEEP_LOOKBACK_MS = 14 * 24 * 60 * 60 * 1000;
@@ -149,6 +153,7 @@ const fulfillOrderWithBosta = async (
         status: order.status === 'pending' ? 'confirmed' : order.status,
         bostaSyncError: null,
         bostaSyncLockedAt: null,
+        bostaSyncRetryable: true,
         bostaSyncAttempts: { increment: 1 },
       },
       include: orderInclude,
@@ -157,9 +162,12 @@ const fulfillOrderWithBosta = async (
     return { order, shipped: true, trackingNumber: order.bostaTrackingNumber };
   } catch (err) {
     console.error('Bosta sync failed for', order.id, err.message);
-    // Our own checks (bad phone, missing governorate, address mismatch) and a
-    // shipment that may already exist on Bosta need a person, not another try.
-    const needsStaff = err.maybeCreated || err.status === 400 || err.status === 409;
+    // A shipment that may already exist on Bosta is flagged at once and never
+    // retried automatically (it could ship twice). Bad details (phone, area…)
+    // get the normal 3 tries, then wait for staff to fix them. Anything else
+    // (outage, timeout before sending) keeps retrying slowly after being flagged.
+    const mayExist = Boolean(err.maybeCreated);
+    const badDetails = err.status === 400 || err.status === 409;
     const message = String(err.message || 'Bosta shipment failed').slice(0, 500);
     order = await prisma.order
       .update({
@@ -167,7 +175,8 @@ const fulfillOrderWithBosta = async (
         data: {
           bostaSyncError: message,
           bostaSyncLockedAt: null,
-          bostaSyncAttempts: needsStaff
+          bostaSyncRetryable: !(mayExist || badDetails),
+          bostaSyncAttempts: mayExist
             ? Math.max(MAX_AUTO_ATTEMPTS, (order.bostaSyncAttempts || 0) + 1)
             : { increment: 1 },
         },
@@ -181,10 +190,17 @@ const fulfillOrderWithBosta = async (
   }
 };
 
+/** Tried long enough ago (or never) to try again. */
+const triedBefore = (ms) => ({
+  OR: [{ bostaLastAttemptAt: null }, { bostaLastAttemptAt: { lte: new Date(ms) } }],
+});
+
 /**
- * Background retry for orders whose automatic Bosta sync failed or never ran
- * (server restart mid-request, Bosta outage, timeout). Each order gets
- * MAX_AUTO_ATTEMPTS tries with growing gaps; after that staff use Retry Bosta.
+ * Background retry for orders whose Bosta sync failed or never ran (server
+ * restart mid-request, Bosta outage, timeout, bad details). Each order is
+ * retried 2 and 5 minutes after its 1st and 2nd failure; after the 3rd it is
+ * flagged on Staff → Deliveries. Flagged orders with a temporary-looking error
+ * keep retrying every 30 minutes. Staff fixing the order's details resets it.
  */
 const sweepUnsyncedOrders = async () => {
   if (!bosta.isConfigured()) return { checked: 0, shipped: 0 };
@@ -194,21 +210,38 @@ const sweepUnsyncedOrders = async () => {
       status: { in: ['pending', 'confirmed'] },
       bostaDeliveryId: null,
       bostaTrackingNumber: null,
-      bostaSyncAttempts: { lt: MAX_AUTO_ATTEMPTS },
       createdAt: { gte: new Date(now - SWEEP_LOOKBACK_MS), lte: new Date(now - SWEEP_MIN_AGE_MS) },
+      // Unpaid card orders wait for payment; keep them from crowding out the rest
+      AND: [
+        {
+          OR: [
+            { isPaid: true },
+            { paymentMethod: { contains: 'cash on delivery', mode: 'insensitive' } },
+            { paymentMethod: { contains: 'cod', mode: 'insensitive' } },
+          ],
+        },
+      ],
+      OR: [
+        { bostaSyncAttempts: 0 },
+        { bostaSyncAttempts: 1, ...triedBefore(now - RETRY_GAPS_MS[0]) },
+        { bostaSyncAttempts: 2, ...triedBefore(now - RETRY_GAPS_MS[1]) },
+        {
+          bostaSyncAttempts: { gte: MAX_AUTO_ATTEMPTS },
+          bostaSyncRetryable: true,
+          ...triedBefore(now - SLOW_RETRY_GAP_MS),
+        },
+      ],
     },
     orderBy: { createdAt: 'asc' },
-    take: 25,
+    take: 50,
     include: orderInclude,
   });
 
   let shipped = 0;
   let checked = 0;
   for (const order of candidates) {
+    // Prepaid orders ship once payment is captured
     if (!isCodMethod(order.paymentMethod) && !order.isPaid) continue;
-    const wait = SWEEP_BASE_GAP_MS * 2 ** Math.max(0, (order.bostaSyncAttempts || 0) - 1);
-    const last = order.bostaLastAttemptAt ? order.bostaLastAttemptAt.getTime() : 0;
-    if (order.bostaSyncAttempts > 0 && now - last < wait) continue;
     checked += 1;
     const result = await fulfillOrderWithBosta(order, { confirm: true });
     if (result.shipped) shipped += 1;

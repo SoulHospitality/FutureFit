@@ -73,7 +73,7 @@ function CustomerEditForm({ order, phone, onSaved, onCancel }) {
       } else if (data.status === 'canceled' || data.status === 'delivered') {
         toast.success('Customer details updated');
       } else {
-        toast.success('Customer details updated — retry Bosta sync to ship');
+        toast.success('Customer details updated — Bosta sync will be retried automatically');
       }
       onSaved(data);
     } catch (err) {
@@ -629,9 +629,13 @@ export default function StaffOrderDetail() {
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 <p className="font-medium">Not on Bosta yet</p>
                 <p className="mt-0.5 text-xs text-amber-800/80">
-                  {order.isPaid || isCodPayment(order)
-                    ? 'Tap Retry Bosta sync to create the shipment. Check the phone number if it fails.'
-                    : 'Capture payment first for prepaid orders, or use Retry if this is COD.'}
+                  {!(order.isPaid || isCodPayment(order))
+                    ? 'Prepaid order: it is sent to Bosta automatically once the payment is captured.'
+                    : (order.bostaSyncAttempts || 0) >= 3
+                      ? 'Automatic tries failed 3 times. Fix the details below (Edit customer) — saving starts new automatic tries.'
+                      : order.bostaSyncError
+                        ? 'Retrying automatically within a few minutes.'
+                        : 'Sending to Bosta automatically.'}
                 </p>
                 {order.bostaSyncError && (
                   <p className="mt-1.5 break-words text-xs text-red-700">
@@ -657,7 +661,7 @@ export default function StaffOrderDetail() {
                 </p>
                 {!areaId && (
                   <p className="text-xs font-medium text-amber-800">
-                    Bosta needs an area from its list. Pick the one this street is in, then retry.
+                    Bosta needs an area from its list. Pick the one this street is in, then send it.
                   </p>
                 )}
                 <input
@@ -684,7 +688,11 @@ export default function StaffOrderDetail() {
                 </select>
               </div>
             )}
-            {!isBostaSynced(order) && order.status !== 'canceled' && (
+            {/* Automatic tries handle the rest; this is only for orders that failed them */}
+            {!isBostaSynced(order) &&
+              order.status !== 'canceled' &&
+              order.status !== 'delivered' &&
+              (order.bostaSyncAttempts || 0) >= 3 && (
               <button
                 type="button"
                 disabled={busy === 'bosta' || (bostaAreas && !areaId)}
@@ -696,7 +704,7 @@ export default function StaffOrderDetail() {
                   ? 'Syncing…'
                   : bostaAreas && !areaId
                     ? 'Choose a Bosta area first'
-                    : 'Retry Bosta sync'}
+                    : 'Send to Bosta now'}
               </button>
             )}
             <div className="mt-3 flex flex-wrap gap-1">

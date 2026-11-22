@@ -319,6 +319,8 @@ model Order {
   /// Last Bosta sync failure (cleared once the shipment exists)
   bostaSyncError      String?
   bostaSyncAttempts   Int       @default(0)
+  /// False when another automatic try can't help (bad details) or could ship twice
+  bostaSyncRetryable  Boolean   @default(true)
   bostaLastAttemptAt  DateTime?
   /// Set while a sync is talking to Bosta so two callers never create two shipments
   bostaSyncLockedAt   DateTime?

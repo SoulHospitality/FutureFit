@@ -721,7 +721,8 @@ const updateOrderCustomer = async (req, res) => {
       data: {
         ...data,
         shippingAddress: next,
-        ...(onBosta ? {} : { bostaSyncError: null, bostaSyncAttempts: 0 }),
+        // Fresh details get a fresh set of automatic Bosta tries
+        ...(onBosta ? {} : { bostaSyncError: null, bostaSyncAttempts: 0, bostaSyncRetryable: true }),
       },
       include: {
         items: true,
