@@ -3,12 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Minus, Plus, Pencil, Truck, ShieldCheck, Trash2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import CartEditModal from '../components/store/CartEditModal';
-import {
-  formatMoney,
-  getImageUrl,
-  calcShipping,
-  FREE_SHIPPING_MIN,
-} from '../utils/helpers';
+import { formatMoney, getImageUrl } from '../utils/helpers';
+import { calcShipping, freeShippingProgress, useShippingConfig } from '../utils/shipping';
 import EmptyState from '../components/ui/EmptyState';
 import { nextOfferHint, useActiveOffers, useBagOffers, loadActiveOffers } from '../utils/offers';
 
@@ -19,9 +15,10 @@ export default function CartPage() {
   const activeOffers = useActiveOffers();
   const offers = useBagOffers(items);
   const offerHint = nextOfferHint(items, activeOffers);
-  const shipping = calcShipping(subtotal);
-  const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
-  const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
+  const shippingConfig = useShippingConfig();
+  const itemsToPay = Math.max(0, subtotal - offers.discount);
+  const shipping = calcShipping(shippingConfig, itemsToPay, '');
+  const free = freeShippingProgress(shippingConfig, itemsToPay);
   const shippingLabel =
     shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
   const displayTotal = (shipping == null ? subtotal : subtotal + shipping) - offers.discount;
@@ -174,17 +171,18 @@ export default function CartPage() {
           </div>
 
           <div className="h-fit space-y-6 border border-timber-200 p-6 lg:sticky lg:top-28">
+            {free && (
             <div className="border-b border-timber-100 pb-5">
-              {remaining > 0 ? (
+              {!free.unlocked ? (
                 <>
                   <p className="text-sm text-timber-700">
-                    You’re <span className="font-medium">{formatMoney(remaining)}</span> away from
+                    You’re <span className="font-medium">{formatMoney(free.remaining)}</span> away from
                     free shipping
                   </p>
                   <div className="mt-3 h-px overflow-hidden bg-timber-100">
                     <div
                       className="h-full bg-timber-900 transition-all duration-300"
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${free.progress}%` }}
                     />
                   </div>
                 </>
@@ -192,6 +190,7 @@ export default function CartPage() {
                 <p className="text-sm font-medium text-timber-800">You’ve unlocked free shipping</p>
               )}
             </div>
+            )}
 
             <div className="flex justify-between text-sm">
               <span className="text-timber-500">Subtotal</span>

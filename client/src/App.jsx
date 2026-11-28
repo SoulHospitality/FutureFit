@@ -52,6 +52,7 @@ const StaffProblems = lazy(() => import('./pages/staff/Problems'));
 const StaffUsers = lazy(() => import('./pages/staff/Users'));
 const StaffWebsiteController = lazy(() => import('./pages/staff/WebsiteController'));
 const StaffPromotions = lazy(() => import('./pages/staff/Promotions'));
+const StaffShipping = lazy(() => import('./pages/staff/Shipping'));
 const StaffMarketing = lazy(() => import('./pages/staff/Marketing'));
 const StaffFinance = lazy(() => import('./pages/staff/Finance'));
 const StaffCategories = lazy(() => import('./pages/staff/Categories'));
@@ -74,6 +75,7 @@ const STAFF_PREFETCH = [
   () => import('./pages/staff/Users'),
   () => import('./pages/staff/WebsiteController'),
   () => import('./pages/staff/Promotions'),
+  () => import('./pages/staff/Shipping'),
   () => import('./pages/staff/Marketing'),
   () => import('./pages/staff/Finance'),
   () => import('./pages/staff/Categories'),
@@ -206,6 +208,7 @@ function AppRoutes() {
             <Route path="/staff/homepage" element={<Navigate to="/staff/website/homepage" replace />} />
             <Route path="/staff/shop-control" element={<Navigate to="/staff/website/shop" replace />} />
             <Route path="/staff/promotions" element={<StaffRoute page="promotions"><StaffPromotions /></StaffRoute>} />
+            <Route path="/staff/shipping" element={<StaffRoute page="shipping"><StaffShipping /></StaffRoute>} />
             <Route path="/staff/marketing" element={<StaffRoute page="marketing"><StaffMarketing /></StaffRoute>} />
             <Route path="/staff/finance" element={<StaffRoute page="finance"><StaffFinance /></StaffRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -255,6 +258,7 @@ function AppRoutes() {
             <Route path="/staff/homepage" element={<Navigate to="/staff/website/homepage" replace />} />
             <Route path="/staff/shop-control" element={<Navigate to="/staff/website/shop" replace />} />
             <Route path="/staff/promotions" element={<StaffRoute page="promotions"><StaffPromotions /></StaffRoute>} />
+            <Route path="/staff/shipping" element={<StaffRoute page="shipping"><StaffShipping /></StaffRoute>} />
             <Route path="/staff/marketing" element={<StaffRoute page="marketing"><StaffMarketing /></StaffRoute>} />
             <Route path="/staff/finance" element={<StaffRoute page="finance"><StaffFinance /></StaffRoute>} />
 

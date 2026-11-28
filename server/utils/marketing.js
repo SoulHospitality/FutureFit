@@ -8,7 +8,6 @@ const clientUrl = () =>
   (process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
 
 const DEFAULT_ANNOUNCEMENTS = [
-  { text: 'Free shipping on orders over EGP 2,000', link: '/shop' },
   { text: 'Cash on delivery across Egypt', link: '/shop' },
   { text: 'Pay by card or wallet — secured by Paymob', link: '/shop' },
   { text: '14-day easy returns on unworn pieces', link: '/returns' },

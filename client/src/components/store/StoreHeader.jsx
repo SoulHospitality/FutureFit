@@ -21,11 +21,10 @@ import { isStaff } from '../../utils/permissions';
 import {
   AUDIENCES,
   DEPT_IMAGES,
-  FREE_SHIPPING_MIN,
-  formatMoney,
   getImageUrl,
 } from '../../utils/helpers';
 import BrandLogo from '../BrandLogo';
+import { useShippingConfig } from '../../utils/shipping';
 import { useMarketingConfig } from '../../utils/marketingConfig';
 
 const DEPT_COPY = {
@@ -37,7 +36,6 @@ const DEPT_COPY = {
 };
 
 const DEFAULT_ANNOUNCEMENTS = [
-  { text: `Free shipping on orders over ${formatMoney(FREE_SHIPPING_MIN)}`, link: '/shop' },
   { text: 'Cash on delivery across Egypt', link: '/shop' },
   { text: 'Pay by card or wallet — secured by Paymob', link: '/shop' },
   { text: '14-day easy returns on unworn pieces', link: '/returns' },
@@ -50,10 +48,19 @@ const QUICK_LINKS = [
   { to: '/contact', label: 'Shopping help', icon: ArrowUpRight },
 ];
 
+/** Free-shipping lines only come from a running Free shipping offer, never from saved copy. */
+const FREE_SHIPPING_TEXT = /free\s*(shipping|delivery)|شحن\s*مجاني/i;
+
 function AnnouncementBar() {
   const config = useMarketingConfig();
+  const { freeShipping } = useShippingConfig();
   const configured = config?.campaigns?.announcements;
-  const list = Array.isArray(configured) ? configured.filter((a) => a?.text) : DEFAULT_ANNOUNCEMENTS;
+  const base = (Array.isArray(configured) ? configured.filter((a) => a?.text) : DEFAULT_ANNOUNCEMENTS).filter(
+    (a) => !FREE_SHIPPING_TEXT.test(a.text)
+  );
+  const list = freeShipping?.announcement
+    ? [{ text: freeShipping.announcement, link: '/shop' }, ...base]
+    : base;
   const [i, setI] = useState(0);
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;

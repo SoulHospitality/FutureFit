@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
-import { Gift, Pencil, Search, Ticket, Trash2 } from 'lucide-react';
+import { Gift, Pencil, Search, Ticket, Trash2, Truck } from 'lucide-react';
 import api from '../../api/axios';
 import Modal from '../../components/ui/Modal';
+import FreeShippingOffers from '../../components/staff/FreeShippingOffers';
 import { asArray, audienceLabel, getImageUrl, formatMoney } from '../../utils/helpers';
 import { OFFER_TYPES, OFFER_TYPE_KEYS, loadActiveOffers, offerLabel } from '../../utils/offers';
 
 const TABS = [
   { id: 'offers', label: 'Offers', icon: Gift },
   { id: 'codes', label: 'Promo codes', icon: Ticket },
+  { id: 'shipping', label: 'Free shipping', icon: Truck },
 ];
 
 /** Staff-facing names in the type picker (percent_off's customer label depends on the %). */
@@ -700,7 +702,7 @@ export default function StaffPromotions() {
       <div className="mb-5">
         <h1 className="page-title">Promotions</h1>
         <p className="page-subtitle">
-          Automatic offers and promo codes — product sale prices are set on the Products page
+          Automatic offers, promo codes and free shipping — product sale prices are set on the Products page
         </p>
       </div>
 
@@ -725,7 +727,7 @@ export default function StaffPromotions() {
         })}
       </div>
 
-      {tab === 'offers' ? <OffersTab /> : <CodesTab />}
+      {tab === 'offers' ? <OffersTab /> : tab === 'codes' ? <CodesTab /> : <FreeShippingOffers />}
     </>
   );
 }

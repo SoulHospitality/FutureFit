@@ -11,9 +11,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import api from '../../api/axios';
+import { destinationNames, useShippingConfig } from '../../utils/shipping';
 import BostaAreaPicker from '../../components/BostaAreaPicker';
 import {
-  EGYPT_GOVERNORATES,
   deliveryStatusMeta,
   formatMoney,
   formatStaffDate,
@@ -39,6 +39,7 @@ const FIELD = 'w-full rounded-lg border border-zinc-200 px-2.5 py-1.5 text-sm';
 
 /** Staff correction of a mistyped phone / address before the order reaches Bosta. */
 function CustomerEditForm({ order, phone, onSaved, onCancel }) {
+  const governorates = destinationNames(useShippingConfig());
   const addr = order.shippingAddress || {};
   const isGuest = !order.userId;
   const [form, setForm] = useState({
@@ -134,7 +135,7 @@ function CustomerEditForm({ order, phone, onSaved, onCancel }) {
           }
         >
           <option value="">Select governorate</option>
-          {(EGYPT_GOVERNORATES.includes(form.state) || !form.state ? EGYPT_GOVERNORATES : [form.state, ...EGYPT_GOVERNORATES]).map((g) => (
+          {(governorates.includes(form.state) || !form.state ? governorates : [form.state, ...governorates]).map((g) => (
             <option key={g} value={g}>
               {g}
             </option>

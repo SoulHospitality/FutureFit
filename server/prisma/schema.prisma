@@ -285,6 +285,25 @@ model Offer {
   updatedAt   DateTime   @updatedAt
 }
 
+/// Free shipping when an order's items (after discounts) reach minSubtotal,
+/// between startsAt and endsAt. Optionally announced in the storefront bar.
+model FreeShippingOffer {
+  id               String    @id @default(uuid())
+  name             String
+  minSubtotal      Decimal   @db.Decimal(10, 2)
+  startsAt         DateTime
+  /// Open-ended when null.
+  endsAt           DateTime?
+  showAnnouncement Boolean   @default(true)
+  /// Bar text; empty uses "Free shipping on orders over EGP …".
+  announcementText String?
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([isActive, startsAt])
+}
+
 model Order {
   id              String      @id @default(uuid())
   userId          String?

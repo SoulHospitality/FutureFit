@@ -20,6 +20,7 @@ const ADMIN_PAGES = [
   'shop-control',
   'website',
   'promotions',
+  'shipping',
   'marketing',
   'finance',
 ];

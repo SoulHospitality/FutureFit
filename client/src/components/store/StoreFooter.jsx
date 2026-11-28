@@ -5,18 +5,18 @@ import { ArrowRight, Banknote, CreditCard, RefreshCw, Truck } from 'lucide-react
 import BrandLogo from '../BrandLogo';
 import {
   AUDIENCES,
-  FREE_SHIPPING_MIN,
   formatMoney,
   STORE_EMAIL,
   STORE_PHONE_DISPLAY,
   STORE_WHATSAPP_URL,
 } from '../../utils/helpers';
 import api from '../../api/axios';
+import { useShippingConfig } from '../../utils/shipping';
 
 const FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 const PROMISES = [
-  { icon: Truck, label: `Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}` },
+  { icon: Truck, label: 'Delivered across Egypt', id: 'delivery' },
   { icon: Banknote, label: 'Cash on delivery' },
   { icon: CreditCard, label: 'Card & wallet via Paymob' },
   { icon: RefreshCw, label: '14-day returns' },
@@ -49,6 +49,7 @@ function FooterLink({ to, href, children }) {
 }
 
 export default function StoreFooter() {
+  const shipping = useShippingConfig();
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -70,7 +71,11 @@ export default function StoreFooter() {
     <footer className="mt-auto overflow-hidden bg-timber-950 text-bone">
       <div className="border-b border-white/10">
         <ul className="ff-container grid grid-cols-2 gap-x-6 gap-y-4 py-6 lg:grid-cols-4">
-          {PROMISES.map((item) => {
+          {PROMISES.map((base) => {
+            const item =
+              base.id === 'delivery' && shipping.freeShipping
+                ? { ...base, label: `Free shipping over ${formatMoney(shipping.freeShipping.minSubtotal)}` }
+                : base;
             const Icon = item.icon;
             return (
               <li key={item.label} className="flex items-center gap-3 text-[13px] text-bone/75">

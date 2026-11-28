@@ -715,6 +715,10 @@ module.exports = {
   assertDropOffMatchesCustomer,
   findGovernorateCity,
   resolveGovernorateCity,
+  listCities,
+  catalogNames,
+  governorateAliasSet,
+  normalizeMatch,
   listCityDistricts,
   resolveOrderDistrict,
 };

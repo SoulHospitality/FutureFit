@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Mail, MessageCircle, Phone, Truck } from 'lucide-react';
 import {
-  FREE_SHIPPING_MIN,
   formatMoney,
   STORE_EMAIL,
   STORE_PHONE_DISPLAY,
@@ -10,12 +9,14 @@ import {
 } from '../utils/helpers';
 import { usePageMeta } from '../utils/seo';
 import { useSiteCopy } from '../utils/websiteContent';
+import { useShippingConfig } from '../utils/shipping';
 
 const DEFAULT_FACEBOOK = 'https://www.facebook.com/FutureFit.eg';
 
 export default function ContactPage() {
   const copy = useSiteCopy();
   const c = copy.contacts || {};
+  const shippingCfg = useShippingConfig();
 
   const email = c.email || STORE_EMAIL;
   const phoneDisplay = c.phoneDisplay || STORE_PHONE_DISPLAY;
@@ -108,7 +109,11 @@ export default function ContactPage() {
             </h2>
             <p className="mt-2 text-sm text-timber-500">
               {c.deliveryBody ||
-                `Orders ship in 2–3 business days after confirmation. Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}.`}
+                `Orders ship in 2–3 business days after confirmation.${
+                  shippingCfg.freeShipping
+                    ? ` Free shipping over ${formatMoney(shippingCfg.freeShipping.minSubtotal)}.`
+                    : ''
+                }`}
             </p>
           </div>
           <div className="border border-timber-100 bg-timber-50/80 p-5">

@@ -71,6 +71,7 @@ const NAV_GROUPS = [
       },
       { path: '/staff/customers', label: 'Customers', icon: UserRound, page: 'customers' },
       { path: '/staff/deliveries', label: 'Deliveries', icon: Truck, page: 'deliveries' },
+      { path: '/staff/shipping', label: 'Shipping', icon: Truck, page: 'shipping' },
       {
         path: '/staff/problems',
         label: 'Problems',

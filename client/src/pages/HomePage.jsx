@@ -24,7 +24,6 @@ import {
   AUDIENCES,
   DEPT_IMAGES,
   asArray,
-  FREE_SHIPPING_MIN,
   formatMoney,
   STORE_EMAIL,
   STORE_WHATSAPP_URL,
@@ -34,6 +33,7 @@ import {
 } from '../utils/helpers';
 import { usePageMeta } from '../utils/seo';
 import { useSiteCopy } from '../utils/websiteContent';
+import { useShippingConfig } from '../utils/shipping';
 
 const FALLBACK_COPY = {
   men: 'Underwear, undershirts, and everyday essentials.',
@@ -62,7 +62,6 @@ function useIsMobile() {
 }
 
 const TRUST_ITEMS = [
-  `Free shipping over ${formatMoney(FREE_SHIPPING_MIN)}`,
   'Cash on delivery',
   'Card & wallet via Paymob',
   '14-day returns',
@@ -72,8 +71,9 @@ const TRUST_ITEMS = [
 const SERVICES = [
   {
     icon: Truck,
-    title: 'Free delivery',
-    body: `On every order over ${formatMoney(FREE_SHIPPING_MIN)}, shipped in 2–3 business days.`,
+    id: 'delivery',
+    title: 'Fast delivery',
+    body: 'Delivered across Egypt in 2–3 business days with Bosta.',
   },
   {
     icon: Banknote,
@@ -298,7 +298,11 @@ function Hero({ desktopSlides = [], mobileSlides = [], copy = {} }) {
 }
 
 function TrustMarquee() {
-  const row = [...TRUST_ITEMS, ...TRUST_ITEMS];
+  const { freeShipping } = useShippingConfig();
+  const items = freeShipping
+    ? [`Free shipping over ${formatMoney(freeShipping.minSubtotal)}`, ...TRUST_ITEMS]
+    : TRUST_ITEMS;
+  const row = [...items, ...items];
   return (
     <div className="overflow-hidden border-b border-timber-200/70 bg-sand py-4" aria-label="Store benefits">
       <div className="ff-marquee items-center">
@@ -395,6 +399,7 @@ const homeJsonLd = () => {
 };
 
 export default function HomePage() {
+  const shippingCfg = useShippingConfig();
   usePageMeta({ path: '/', jsonLd: homeJsonLd() });
   const siteCopy = useSiteCopy();
   const home = siteCopy.wording?.home || {};
@@ -735,7 +740,15 @@ export default function HomePage() {
             align="center"
           />
           <div className="ff-scroll-x -mx-5 mt-12 gap-4 scroll-px-5 px-5 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-5">
-            {SERVICES.map((s, i) => {
+            {SERVICES.map((base, i) => {
+              const s =
+                base.id === 'delivery' && shippingCfg.freeShipping
+                  ? {
+                      ...base,
+                      title: 'Free delivery',
+                      body: `On every order over ${formatMoney(shippingCfg.freeShipping.minSubtotal)}, shipped in 2–3 business days.`,
+                    }
+                  : base;
               const Icon = s.icon;
               const inner = (
                 <>

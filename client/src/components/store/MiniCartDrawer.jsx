@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Banknote, CreditCard, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { formatMoney, getImageUrl, calcShipping, FREE_SHIPPING_MIN, AUDIENCES } from '../../utils/helpers';
+import { formatMoney, getImageUrl, AUDIENCES } from '../../utils/helpers';
+import { calcShipping, freeShippingProgress, useShippingConfig } from '../../utils/shipping';
 import { nextOfferHint, useActiveOffers, useBagOffers, loadActiveOffers } from '../../utils/offers';
 
 export default function MiniCartDrawer() {
@@ -10,9 +11,11 @@ export default function MiniCartDrawer() {
   const activeOffers = useActiveOffers();
   const offers = useBagOffers(items);
   const offerHint = nextOfferHint(items, activeOffers);
-  const shipping = calcShipping(subtotal);
-  const remaining = Math.max(0, FREE_SHIPPING_MIN - subtotal);
-  const progress = Math.min(100, (subtotal / FREE_SHIPPING_MIN) * 100);
+  const shippingConfig = useShippingConfig();
+  const itemsToPay = Math.max(0, subtotal - offers.discount);
+  // No governorate yet: free when an offer covers the bag, otherwise priced at checkout
+  const shipping = calcShipping(shippingConfig, itemsToPay, '');
+  const free = freeShippingProgress(shippingConfig, itemsToPay);
   const itemCount = items.reduce((s, i) => s + i.qty, 0);
   const shippingLabel =
     shipping === 0 ? 'Free' : shipping == null ? 'At checkout' : formatMoney(shipping);
@@ -61,13 +64,13 @@ export default function MiniCartDrawer() {
           </button>
         </div>
 
-        {items.length > 0 && (
+        {items.length > 0 && free && (
           <div className="mx-6 rounded-2xl bg-white p-4">
             <p className="flex items-center gap-2 text-[13px] text-timber-700">
               <Truck className="h-4 w-4 shrink-0 text-clay" strokeWidth={1.5} />
-              {remaining > 0 ? (
+              {!free.unlocked ? (
                 <span>
-                  You’re <strong className="font-semibold text-timber-900">{formatMoney(remaining)}</strong> away from free shipping
+                  You’re <strong className="font-semibold text-timber-900">{formatMoney(free.remaining)}</strong> away from free shipping
                 </span>
               ) : (
                 <span className="font-semibold text-timber-900">You’ve unlocked free shipping</span>
@@ -76,7 +79,7 @@ export default function MiniCartDrawer() {
             <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-timber-100">
               <div
                 className="h-full rounded-full bg-clay transition-[width] duration-700 ease-ff"
-                style={{ width: `${progress}%` }}
+                style={{ width: `${free.progress}%` }}
               />
             </div>
           </div>

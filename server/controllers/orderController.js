@@ -11,7 +11,7 @@ const {
 const { normalizeEgyptPhone } = require('../utils/bosta');
 const { PAYMOB_METHOD, startPaymobForOrder } = require('./paymobController');
 const paymob = require('../utils/paymob');
-const { calcShipping } = require('../utils/shipping');
+const { quoteShipping } = require('../utils/shipping');
 const { sendMetaPurchase } = require('../utils/metaCapi');
 const { applyOffers, getActiveOffers, round2 } = require('../utils/offers');
 const { findUsableCoupon, couponUseCount } = require('./couponController');
@@ -170,7 +170,9 @@ const priceOrder = async ({ orderItems, couponCode, state, strictCoupon = true }
   }
 
   const discountAmount = round2(offerDiscount + couponDiscount);
-  const shippingPrice = state ? calcShipping(itemsPrice, state) : null;
+  // Free-shipping offers look at what the customer pays for the items (after discounts)
+  const shipping = await quoteShipping(itemsPrice - discountAmount, state);
+  const shippingPrice = shipping.fee;
   const totalPrice = round2(Math.max(0, itemsPrice + (shippingPrice || 0) - discountAmount));
   return {
     itemsPrice,
@@ -184,6 +186,10 @@ const priceOrder = async ({ orderItems, couponCode, state, strictCoupon = true }
     couponError,
     discountAmount,
     shippingPrice,
+    freeShipping: shipping.free,
+    freeShippingOffer: shipping.freeOffer
+      ? { name: shipping.freeOffer.name, minSubtotal: shipping.freeOffer.minSubtotal }
+      : null,
     totalPrice,
   };
 };
@@ -201,6 +207,8 @@ const quoteOrder = async (req, res) => {
       couponError: q.couponError,
       discountAmount: q.discountAmount,
       shippingPrice: q.shippingPrice,
+      freeShipping: q.freeShipping,
+      freeShippingOffer: q.freeShippingOffer,
       totalPrice: q.totalPrice,
       lines: q.itemsData.map(({ productId, qty, price, color, size }) => ({
         productId,

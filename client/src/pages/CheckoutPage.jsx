@@ -8,11 +8,14 @@ import { useCart } from '../context/CartContext';
 import {
   formatMoney,
   getImageUrl,
-  calcShipping,
-  FREE_SHIPPING_MIN,
   PAYMENT_METHODS,
-  EGYPT_GOVERNORATES,
 } from '../utils/helpers';
+import {
+  calcShipping,
+  destinationNames,
+  isDestination,
+  useShippingConfig,
+} from '../utils/shipping';
 import BostaAreaPicker from '../components/BostaAreaPicker';
 import { getStoreSessionKey } from '../utils/sessionKey';
 import { getAttribution } from '../utils/attribution';
@@ -95,6 +98,7 @@ export default function CheckoutPage() {
   const [quoteError, setQuoteError] = useState('');
   const activeOffers = useActiveOffers();
   const bagOffers = useBagOffers(items);
+  const shippingCfg = useShippingConfig();
   const offerHint = nextOfferHint(items, activeOffers);
 
   const itemsTotal = quote?.itemsPrice ?? subtotal;
@@ -107,7 +111,12 @@ export default function CheckoutPage() {
   const couponDiscount = quote?.couponDiscount || 0;
   const couponError = appliedCoupon ? quote?.couponError || '' : '';
   // Prefer the server quote so checkout matches the placed order / bill
-  const shipping = calcShipping(itemsTotal, form.state);
+  // Estimate until the server quote arrives; free shipping looks at items after discounts
+  const shipping = calcShipping(
+    shippingCfg,
+    Math.max(0, itemsTotal - offerTotal - couponDiscount),
+    form.state
+  );
   const shippingAmount =
     quote?.shippingPrice != null ? Number(quote.shippingPrice) : shipping ?? 0;
   const total =
@@ -254,7 +263,7 @@ export default function CheckoutPage() {
         toast.error('Please select a governorate');
         return false;
       }
-      if (!EGYPT_GOVERNORATES.includes(form.state.trim())) {
+      if (!isDestination(shippingCfg, form.state.trim())) {
         toast.error('Please select a valid governorate');
         return false;
       }
@@ -498,7 +507,7 @@ export default function CheckoutPage() {
                           onChange={set('state')}
                         >
                           <option value="">Select governorate</option>
-                          {EGYPT_GOVERNORATES.map((g) => (
+                          {destinationNames(shippingCfg).map((g) => (
                             <option key={g} value={g}>
                               {g}
                             </option>
@@ -705,7 +714,9 @@ export default function CheckoutPage() {
                         ? 'Free'
                         : shipping == null
                           ? 'Select governorate'
-                          : `${formatMoney(shipping)} · free over ${formatMoney(FREE_SHIPPING_MIN)}`}
+                          : shippingCfg.freeShipping
+                            ? `${formatMoney(shipping)} · free over ${formatMoney(shippingCfg.freeShipping.minSubtotal)}`
+                            : formatMoney(shipping)}
                   </span>
                 </div>
                 <div className="flex justify-between border-t border-timber-100 pt-3 text-base font-medium">

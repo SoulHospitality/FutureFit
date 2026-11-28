@@ -14,6 +14,7 @@ import api from '../api/axios';
 import { useCart } from '../context/CartContext';
 import { trackViewContent } from '../utils/tracking';
 import { snippet, usePageMeta } from '../utils/seo';
+import { useShippingConfig } from '../utils/shipping';
 import { offerForProduct, offerHintText, offerLabel, shownPricing, useActiveOffers } from '../utils/offers';
 import BrandLoader from '../components/ui/BrandLoader';
 import { useWishlist } from '../context/WishlistContext';
@@ -26,7 +27,6 @@ import {
   sizesForColor,
   totalStock,
   PRODUCT_TYPES,
-  FREE_SHIPPING_MIN,
   audienceLabel,
   categoryLabel,
   colorSwatchStyle,
@@ -134,8 +134,15 @@ const fitTipByType = {
 };
 
 function TrustRow() {
+  const { freeShipping } = useShippingConfig();
   const items = [
-    { icon: Truck, title: 'Fast delivery', body: `2–3 business days · free over ${formatMoney(FREE_SHIPPING_MIN)}` },
+    {
+      icon: Truck,
+      title: 'Fast delivery',
+      body: freeShipping
+        ? `2–3 business days · free over ${formatMoney(freeShipping.minSubtotal)}`
+        : '2–3 business days across Egypt',
+    },
     { icon: Banknote, title: 'Cash on delivery', body: 'Or pay by card / wallet' },
     { icon: RefreshCw, title: '14-day returns', body: 'On unworn items', to: '/returns' },
   ];
@@ -810,8 +817,8 @@ export default function ProductPage() {
                   Orders take 2–3 business days
                 </p>
                 <p className="mt-2 text-timber-500">
-                  Cash on delivery and card / wallet payment available at checkout. Free shipping
-                  on orders over EGP 2,000.
+                  Cash on delivery and card / wallet payment available at checkout. Shipping is
+                  priced by governorate at checkout.
                 </p>
               </Accordion>
             </div>
